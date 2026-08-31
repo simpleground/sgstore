@@ -17,7 +17,13 @@ import {
   X,
 } from 'lucide-react';
 
-type Variant = { color: string; size: string; price: number; stock: number };
+type Variant = {
+  sku?: string;
+  color: string;
+  size: string;
+  price: number;
+  stock: number;
+};
 type Product = {
   id: string;
   name: string;
@@ -344,6 +350,7 @@ export default function Home() {
       name: product.name,
       color: variant.color,
       size: variant.size,
+      sku: variant.sku,
       price: variant.price,
       quantity,
     }));
@@ -872,6 +879,7 @@ export default function Home() {
                               value={index}
                               disabled={v.stock < 1}
                             >
+                              {v.sku ? `${v.sku} · ` : ''}
                               {v.color} · {v.size} — {rupiah(v.price)}{' '}
                               {v.stock < 1 ? '(habis)' : ''}
                             </option>
@@ -1049,6 +1057,7 @@ export default function Home() {
                               <b className="text-sm">{p.name}</b>
                               <span className="mt-1 text-xs text-[#758078]">
                                 {variant.color} · {variant.size}
+                                {variant.sku ? ` · SKU ${variant.sku}` : ''}
                               </span>
                               <div className="mt-auto flex items-center justify-between">
                                 <div className="flex items-center gap-3 rounded-full border px-2 py-1">

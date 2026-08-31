@@ -4,6 +4,7 @@ import { getD1 } from '@/db';
 type Item = {
   id: string;
   name: string;
+  sku?: string;
   color?: string;
   size?: string;
   price: number;

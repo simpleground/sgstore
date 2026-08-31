@@ -35,6 +35,7 @@ export async function POST(req: Request) {
       const k = `${r.name}|${r.category}|${r.subcategory}`;
       const g = groups.get(k) ?? { ...r, variants: [] };
       g.variants.push({
+        sku: r.sku || '',
         color: r.color,
         size: r.size,
         price: Number(r.price),

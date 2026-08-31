@@ -44,8 +44,10 @@ function variants(raw: string) {
     .map((x) => x.trim())
     .filter(Boolean)
     .map((line) => {
-      const [color, size, price, stock] = line.split('|').map((x) => x.trim());
-      return { color, size, price: Number(price), stock: Number(stock) };
+      const parts = line.split('|').map((x) => x.trim());
+      const [sku, color, size, price, stock] =
+        parts.length === 5 ? parts : ['', ...parts];
+      return { sku, color, size, price: Number(price), stock: Number(stock) };
     });
   if (
     !rows.length ||
@@ -96,7 +98,6 @@ export async function POST(req: Request) {
     const name = String(f.get('name') || '').trim(),
       category = String(f.get('category') || '').trim(),
       subcategory = String(f.get('subcategory') || '').trim(),
-      tone = String(f.get('tone') || '').trim(),
       description = String(f.get('description') || '').trim(),
       vs = variants(String(f.get('variants') || ''));
     const keys = await images(
@@ -119,7 +120,7 @@ export async function POST(req: Request) {
         name,
         category,
         subcategory,
-        tone,
+        vs[0].color,
         price,
         stock,
         description,
@@ -149,7 +150,6 @@ export async function PATCH(req: Request) {
       name = String(f.get('name') || '').trim(),
       category = String(f.get('category') || '').trim(),
       subcategory = String(f.get('subcategory') || '').trim(),
-      tone = String(f.get('tone') || '').trim(),
       description = String(f.get('description') || '').trim(),
       vs = variants(String(f.get('variants') || '')),
       active = String(f.get('active')) === 'true' ? 1 : 0,
@@ -186,7 +186,7 @@ export async function PATCH(req: Request) {
         name,
         category,
         subcategory,
-        tone,
+        vs[0].color,
         price,
         stock,
         description,

@@ -89,7 +89,13 @@ export function AdminSetup() {
   );
 }
 
-type Variant = { color: string; size: string; price: number; stock: number };
+type Variant = {
+  sku?: string;
+  color: string;
+  size: string;
+  price: number;
+  stock: number;
+};
 type Product = {
   id: string;
   name: string;
@@ -106,7 +112,9 @@ type Product = {
 };
 function VariantEditor({ initial = [] }: { initial?: Variant[] }) {
   const [rows, setRows] = useState<Variant[]>(
-    initial.length ? initial : [{ color: '', size: '', price: 0, stock: 0 }],
+    initial.length
+      ? initial
+      : [{ sku: '', color: '', size: '', price: 0, stock: 0 }],
   );
   function change(index: number, field: keyof Variant, value: string) {
     setRows((current) =>
@@ -115,7 +123,9 @@ function VariantEditor({ initial = [] }: { initial?: Variant[] }) {
           ? {
               ...row,
               [field]:
-                field === 'color' || field === 'size' ? value : Number(value),
+                field === 'sku' || field === 'color' || field === 'size'
+                  ? value
+                  : Number(value),
             }
           : row,
       ),
@@ -127,7 +137,10 @@ function VariantEditor({ initial = [] }: { initial?: Variant[] }) {
         type="hidden"
         name="variants"
         value={rows
-          .map((v) => `${v.color} | ${v.size} | ${v.price} | ${v.stock}`)
+          .map(
+            (v) =>
+              `${v.sku ?? ''} | ${v.color} | ${v.size} | ${v.price} | ${v.stock}`,
+          )
           .join('\n')}
       />
       <div className="flex items-center justify-between gap-3">
@@ -140,7 +153,10 @@ function VariantEditor({ initial = [] }: { initial?: Variant[] }) {
         <button
           type="button"
           onClick={() =>
-            setRows((r) => [...r, { color: '', size: '', price: 0, stock: 0 }])
+            setRows((r) => [
+              ...r,
+              { sku: '', color: '', size: '', price: 0, stock: 0 },
+            ])
           }
           className="shrink-0 rounded-full bg-[#e5efe8] px-3 py-2 text-xs font-bold text-[#24593d]"
         >
@@ -151,8 +167,17 @@ function VariantEditor({ initial = [] }: { initial?: Variant[] }) {
         {rows.map((row, index) => (
           <div
             key={index}
-            className="grid grid-cols-2 gap-2 rounded-xl bg-[#f7f4ec] p-3 sm:grid-cols-[1fr_1fr_1fr_1fr_auto]"
+            className="grid grid-cols-2 gap-2 rounded-xl bg-[#f7f4ec] p-3 sm:grid-cols-[1fr_1fr_1fr_1fr_1fr_auto]"
           >
+            <label className="text-[11px] font-semibold text-[#68736b]">
+              SKU
+              <input
+                value={row.sku ?? ''}
+                onChange={(e) => change(index, 'sku', e.target.value)}
+                placeholder="TBL-HITAM-M"
+                className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm text-[#1f2b22]"
+              />
+            </label>
             <label className="text-[11px] font-semibold text-[#68736b]">
               Warna
               <input
@@ -242,6 +267,7 @@ function BulkImport({ onDone }: { onDone: () => void }) {
           'subcategory',
           'description',
           'color',
+          'sku',
           'size',
           'price',
           'stock',
@@ -268,7 +294,7 @@ function BulkImport({ onDone }: { onDone: () => void }) {
   }
   function template() {
     const csv =
-      'name;category;subcategory;description;color;size;price;stock;image_url\nKaos Daily Basic;Daily Basic;Kaos;Kaos nyaman sehari-hari;Hitam;M;54600;20;\nKaos Daily Basic;Daily Basic;Kaos;Kaos nyaman sehari-hari;Hitam;L;56600;15;';
+      'name;category;subcategory;description;sku;color;size;price;stock;image_url\nKaos Daily Basic;Daily Basic;Kaos;Kaos nyaman sehari-hari;KAOS-HITAM-M;Hitam;M;54600;20;\nKaos Daily Basic;Daily Basic;Kaos;Kaos nyaman sehari-hari;KAOS-HITAM-L;Hitam;L;56600;15;';
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
     a.download = 'template-produk-simple-ground.csv';
@@ -428,13 +454,6 @@ function ProductManager() {
             <option value="Kemeja" />
             <option value="Celana" />
           </datalist>
-          <input
-            name="tone"
-            required
-            defaultValue={editing?.tone}
-            placeholder="Warna: Sand / White"
-            className="rounded-xl border bg-white px-4 py-3"
-          />
           <VariantEditor initial={editing?.variants} />
           <label className="rounded-xl border bg-white px-4 py-3 text-sm sm:col-span-2">
             <span className="mb-2 block font-semibold">
@@ -820,6 +839,7 @@ export function AdminDashboard({
             const items = JSON.parse(o.items_json) as {
               name: string;
               quantity: number;
+              sku?: string;
               color?: string;
               size?: string;
             }[];
@@ -862,7 +882,7 @@ export function AdminDashboard({
                     {items
                       .map(
                         (i) =>
-                          `${i.quantity}× ${i.name}${i.color || i.size ? ` (${i.color ?? '-'} / ${i.size ?? '-'})` : ''}`,
+                          `${i.quantity}× ${i.name}${i.color || i.size ? ` (${i.color ?? '-'} / ${i.size ?? '-'})` : ''}${i.sku ? ` · SKU ${i.sku}` : ''}`,
                       )
                       .join(' · ')}
                   </p>
