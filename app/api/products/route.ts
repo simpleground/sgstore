@@ -78,13 +78,19 @@ export async function GET() {
   }
   const result = await d1
     .prepare(
-      "SELECT id,name,category,tone,price,stock,description,variants_json,COALESCE('/api/product-image/' || image_key,image_url) AS image FROM products WHERE active=1 ORDER BY created_at ASC",
+      "SELECT id,name,category,tone,price,stock,description,variants_json,images_json,COALESCE('/api/product-image/' || image_key,image_url) AS image FROM products WHERE active=1 ORDER BY created_at ASC",
     )
     .all();
   return NextResponse.json({
-    products: result.results.map((p: any) => ({
-      ...p,
-      variants: JSON.parse(p.variants_json || '[]'),
-    })),
+    products: result.results.map((p: any) => {
+      const keys = JSON.parse(p.images_json || '[]') as string[];
+      return {
+        ...p,
+        variants: JSON.parse(p.variants_json || '[]'),
+        images: keys.length
+          ? keys.map((key) => `/api/product-image/${key}`)
+          : [p.image],
+      };
+    }),
   });
 }

@@ -41,6 +41,7 @@ export const products = sqliteTable(
     stock: integer('stock').notNull().default(0),
     imageUrl: text('image_url'),
     imageKey: text('image_key'),
+    imagesJson: text('images_json').notNull().default('[]'),
     active: integer('active', { mode: 'boolean' }).notNull().default(true),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),

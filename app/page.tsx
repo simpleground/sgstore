@@ -20,6 +20,7 @@ type Product = {
   price: number;
   stock: number;
   image: string;
+  images?: string[];
   tone: string;
   description: string;
   variants: Variant[];
@@ -130,6 +131,9 @@ export default function Home() {
   const [selectedVariants, setSelectedVariants] = useState<
     Record<string, number>
   >({});
+  const [selectedImages, setSelectedImages] = useState<Record<string, number>>(
+    {},
+  );
   const [cartOpen, setCartOpen] = useState(false);
   const [checkout, setCheckout] = useState(false);
   const [ordered, setOrdered] = useState(false);
@@ -340,6 +344,8 @@ export default function Home() {
           <div className="mt-10 grid gap-x-5 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
             {filtered.map((p) => {
               const variantIndex = selectedVariants[p.id] ?? 0;
+              const productImages = p.images?.length ? p.images : [p.image];
+              const imageIndex = selectedImages[p.id] ?? 0;
               const variant = p.variants[variantIndex] ?? {
                 color: p.tone,
                 size: 'All Size',
@@ -350,7 +356,7 @@ export default function Home() {
                 <article key={p.id} className="group">
                   <div className="relative aspect-[4/5] overflow-hidden rounded-2xl bg-[#ebe5d9]">
                     <img
-                      src={p.image}
+                      src={productImages[imageIndex] ?? productImages[0]}
                       alt={p.name}
                       className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
                     />
@@ -368,6 +374,26 @@ export default function Home() {
                       {variant.stock > 0 ? 'Tambah ke keranjang' : 'Stok habis'}
                     </button>
                   </div>
+                  {productImages.length > 1 && (
+                    <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+                      {productImages.map((src, index) => (
+                        <button
+                          key={`${src}-${index}`}
+                          onClick={() =>
+                            setSelectedImages((s) => ({ ...s, [p.id]: index }))
+                          }
+                          aria-label={`Lihat foto ${index + 1} ${p.name}`}
+                          className={`shrink-0 overflow-hidden rounded-lg border-2 ${imageIndex === index ? 'border-[#243b2c]' : 'border-transparent'}`}
+                        >
+                          <img
+                            src={src}
+                            alt=""
+                            className="h-14 w-12 object-cover"
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   <div className="mt-4 flex items-start justify-between gap-3">
                     <div>
                       <h3 className="font-semibold">{p.name}</h3>

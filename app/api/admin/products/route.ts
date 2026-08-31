@@ -13,19 +13,31 @@ async function auth() {
     )
   );
 }
-async function image(file: File | null) {
-  if (!file?.size) return null;
-  if (
-    file.size > 5e6 ||
-    !['image/jpeg', 'image/png', 'image/webp'].includes(file.type)
-  )
-    throw new Error('Foto harus JPG, PNG, atau WebP maksimal 5 MB.');
-  const key = `products/${crypto.randomUUID()}.${file.type.split('/')[1].replace('jpeg', 'jpg')}`;
-  await getFiles().put(key, await file.arrayBuffer(), {
-    httpMetadata: { contentType: file.type },
-  });
-  return key;
+async function images(files: File[]) {
+  if (files.length > 8) throw new Error('Maksimal 8 foto per produk.');
+  const keys: string[] = [];
+  for (const file of files) {
+    if (!file.size) continue;
+    if (
+      file.size > 5e6 ||
+      !['image/jpeg', 'image/png', 'image/webp'].includes(file.type)
+    )
+      throw new Error('Setiap foto harus JPG, PNG, atau WebP maksimal 5 MB.');
+    const key = `products/${crypto.randomUUID()}.${file.type.split('/')[1].replace('jpeg', 'jpg')}`;
+    await getFiles().put(key, await file.arrayBuffer(), {
+      httpMetadata: { contentType: file.type },
+    });
+    keys.push(key);
+  }
+  return keys;
 }
+const imageUrl = (key: string) => `/api/product-image/${key}`;
+const gallery = (p: any) => {
+  const keys = JSON.parse(p.images_json || '[]') as string[];
+  const urls = keys.map(imageUrl);
+  if (!urls.length && p.image) urls.push(p.image);
+  return urls;
+};
 function variants(raw: string) {
   const rows = raw
     .split('\n')
@@ -45,7 +57,7 @@ function variants(raw: string) {
   return rows;
 }
 const select =
-  "SELECT id,name,category,tone,price,stock,active,description,variants_json,COALESCE('/api/product-image/' || image_key,image_url) AS image FROM products";
+  "SELECT id,name,category,tone,price,stock,active,description,variants_json,images_json,COALESCE('/api/product-image/' || image_key,image_url) AS image FROM products";
 export async function GET() {
   if (!(await auth()))
     return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
@@ -54,6 +66,7 @@ export async function GET() {
     products: r.results.map((p: any) => ({
       ...p,
       variants: JSON.parse(p.variants_json || '[]'),
+      images: gallery(p),
     })),
   });
 }
@@ -74,7 +87,7 @@ export async function POST(req: Request) {
         now = new Date().toISOString();
       await d1
         .prepare(
-          "INSERT INTO products (id,name,category,tone,price,stock,description,variants_json,image_url,image_key,active,created_at,updated_at) SELECT ?,name||' (Salinan)',category,tone,price,stock,description,variants_json,image_url,image_key,0,?,? FROM products WHERE id=?",
+          "INSERT INTO products (id,name,category,tone,price,stock,description,variants_json,image_url,image_key,images_json,active,created_at,updated_at) SELECT ?,name||' (Salinan)',category,tone,price,stock,description,variants_json,image_url,image_key,images_json,0,?,? FROM products WHERE id=?",
         )
         .bind(id, now, now, copyId)
         .run();
@@ -85,8 +98,10 @@ export async function POST(req: Request) {
       tone = String(f.get('tone') || '').trim(),
       description = String(f.get('description') || '').trim(),
       vs = variants(String(f.get('variants') || ''));
-    const key = await image(f.get('image') as File | null);
-    if (!name || !category || !description || !key)
+    const keys = await images(
+      f.getAll('images').filter((v): v is File => v instanceof File),
+    );
+    if (!name || !category || !description || !keys.length)
       throw new Error('Lengkapi nama, kategori, deskripsi, dan foto.');
     const price = Math.min(...vs.map((v) => v.price)),
       stock = vs.reduce((s, v) => s + v.stock, 0),
@@ -94,7 +109,7 @@ export async function POST(req: Request) {
       now = new Date().toISOString();
     await d1
       .prepare(
-        'INSERT INTO products (id,name,category,tone,price,stock,description,variants_json,image_key,active,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+        'INSERT INTO products (id,name,category,tone,price,stock,description,variants_json,image_key,images_json,active,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
       )
       .bind(
         id,
@@ -105,7 +120,8 @@ export async function POST(req: Request) {
         stock,
         description,
         JSON.stringify(vs),
-        key,
+        keys[0],
+        JSON.stringify(keys),
         1,
         now,
         now,
@@ -133,15 +149,31 @@ export async function PATCH(req: Request) {
       vs = variants(String(f.get('variants') || '')),
       active = String(f.get('active')) === 'true' ? 1 : 0,
       old = await d1
-        .prepare('SELECT image_key FROM products WHERE id=?')
+        .prepare('SELECT image_key,images_json FROM products WHERE id=?')
         .bind(id)
-        .first<{ image_key: string | null }>(),
-      key = await image(f.get('image') as File | null),
+        .first<{ image_key: string | null; images_json: string }>(),
+      newKeys = await images(
+        f.getAll('images').filter((v): v is File => v instanceof File),
+      ),
       price = Math.min(...vs.map((v) => v.price)),
-      stock = vs.reduce((s, v) => s + v.stock, 0);
+      stock = vs.reduce((s, v) => s + v.stock, 0),
+      storedKeys = JSON.parse(old?.images_json || '[]') as string[],
+      previousKeys = storedKeys.length
+        ? storedKeys
+        : old?.image_key
+          ? [old.image_key]
+          : [],
+      combinedKeys =
+        f.get('replaceImages') === 'true'
+          ? newKeys
+          : [...previousKeys, ...newKeys],
+      finalKeys = combinedKeys;
+    if (finalKeys.length > 8)
+      throw new Error('Total foto maksimal 8 per produk.');
+    if (!finalKeys.length && old?.image_key) finalKeys.push(old.image_key);
     await d1
       .prepare(
-        'UPDATE products SET name=?,category=?,tone=?,price=?,stock=?,description=?,variants_json=?,active=?,image_key=COALESCE(?,image_key),updated_at=? WHERE id=?',
+        'UPDATE products SET name=?,category=?,tone=?,price=?,stock=?,description=?,variants_json=?,active=?,image_key=COALESCE(?,image_key),images_json=?,updated_at=? WHERE id=?',
       )
       .bind(
         name,
@@ -152,18 +184,12 @@ export async function PATCH(req: Request) {
         description,
         JSON.stringify(vs),
         active,
-        key,
+        finalKeys[0] ?? null,
+        JSON.stringify(finalKeys),
         new Date().toISOString(),
         id,
       )
       .run();
-    if (key && old?.image_key) {
-      const refs = await d1
-        .prepare('SELECT COUNT(*) AS count FROM products WHERE image_key=?')
-        .bind(old.image_key)
-        .first<{ count: number }>();
-      if (!refs?.count) await getFiles().delete(old.image_key);
-    }
     return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json(

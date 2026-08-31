@@ -99,6 +99,7 @@ type Product = {
   stock: number;
   active: number;
   image: string;
+  images: string[];
   description: string;
   variants: Variant[];
 };
@@ -213,18 +214,46 @@ function ProductManager() {
             }
             className="min-h-28 rounded-xl border bg-white px-4 py-3 font-mono text-sm"
           />
-          <label className="rounded-xl border bg-white px-4 py-3 text-sm">
-            <span className="mr-3 text-[#68736b]">
-              Foto {editing ? '(opsional)' : 'produk'}
+          <label className="rounded-xl border bg-white px-4 py-3 text-sm sm:col-span-2">
+            <span className="mb-2 block font-semibold">
+              Foto produk (maksimal 8)
+            </span>
+            <span className="mb-3 block text-xs text-[#68736b]">
+              Pilih beberapa foto sekaligus. Foto pertama menjadi foto utama.
             </span>
             <input
-              name="image"
+              name="images"
               type="file"
               required={!editing}
+              multiple
               accept="image/jpeg,image/png,image/webp"
               className="max-w-full text-xs"
             />
+            {editing && (
+              <label className="mt-3 flex items-center gap-2 text-xs">
+                <input type="checkbox" name="replaceImages" value="true" />{' '}
+                Ganti semua foto lama dengan pilihan baru
+              </label>
+            )}
           </label>
+          {editing?.images?.length ? (
+            <div className="flex flex-wrap gap-2 sm:col-span-2">
+              {editing.images.map((src, index) => (
+                <div key={src} className="relative">
+                  <img
+                    src={src}
+                    alt={`Foto ${index + 1}`}
+                    className="h-20 w-16 rounded-lg object-cover"
+                  />
+                  {index === 0 && (
+                    <span className="absolute bottom-1 left-1 rounded bg-black/70 px-1.5 py-0.5 text-[9px] text-white">
+                      Utama
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : null}
           {error && (
             <p className="text-sm text-red-700 sm:col-span-2">{error}</p>
           )}
@@ -259,7 +288,7 @@ function ProductManager() {
             <div className="min-w-0 flex-1">
               <b className="block truncate text-sm">{p.name}</b>
               <p className="mt-1 text-xs text-[#68736b]">
-                {p.category} · stok {p.stock}
+                {p.category} · stok {p.stock} · {p.images?.length || 1} foto
               </p>
               <p className="mt-1 text-sm font-bold">{rupiah(p.price)}</p>
               <div className="mt-2 flex gap-3">
