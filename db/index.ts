@@ -14,3 +14,8 @@ export function getDb() {
 export function getAdminSetupCode() {
   return env.ADMIN_SETUP_CODE ?? '';
 }
+
+export function getFiles() {
+  if (!env.FILES) throw new Error('R2 binding FILES is unavailable');
+  return env.FILES;
+}

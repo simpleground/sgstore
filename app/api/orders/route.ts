@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getD1 } from '@/db';
 
-type Item = { id: number; name: string; price: number; quantity: number };
+type Item = { id: string; name: string; price: number; quantity: number };
 const schemaSql = `CREATE TABLE IF NOT EXISTS orders (id INTEGER PRIMARY KEY AUTOINCREMENT, order_number TEXT NOT NULL UNIQUE, customer_name TEXT NOT NULL, customer_phone TEXT NOT NULL, shipping_address TEXT NOT NULL, items_json TEXT NOT NULL, subtotal INTEGER NOT NULL, shipping INTEGER NOT NULL, total INTEGER NOT NULL, payment_method TEXT NOT NULL DEFAULT 'Bank Mandiri', status TEXT NOT NULL DEFAULT 'menunggu_pembayaran', created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`;
 
 export async function POST(request: Request) {

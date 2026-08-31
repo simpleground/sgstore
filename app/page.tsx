@@ -1,22 +1,23 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, Check, ChevronLeft, Minus, Plus, Search, ShoppingBag, X } from 'lucide-react';
 
-const products = [
-  { id: 1, name: 'Kemeja Linen Daily', category: 'Daily', price: 289000, image: 'https://images.unsplash.com/photo-1598033129183-c4f50c736f10?auto=format&fit=crop&w=900&q=85', tone: 'Sand' },
-  { id: 2, name: 'Kaos Daily Essential', category: 'Daily', price: 159000, image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=85', tone: 'Oat' },
-  { id: 3, name: 'Celana Linen Relaxed', category: 'Daily', price: 319000, image: 'https://images.unsplash.com/photo-1506629082955-511b1aa562c8?auto=format&fit=crop&w=900&q=85', tone: 'Sage' },
-  { id: 4, name: 'Baju Chef Signature', category: 'Chef', price: 349000, image: 'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?auto=format&fit=crop&w=900&q=85', tone: 'White' },
-  { id: 5, name: 'Apron Canvas Ground', category: 'Chef', price: 219000, image: 'https://images.unsplash.com/photo-1556911220-bff31c812dba?auto=format&fit=crop&w=900&q=85', tone: 'Earth' },
-  { id: 6, name: 'Topi Chef Classic', category: 'Chef', price: 129000, image: 'https://images.unsplash.com/photo-1577106263724-2c8e03bfe9cf?auto=format&fit=crop&w=900&q=85', tone: 'White' },
+const defaultProducts = [
+  { id: '1', name: 'Kemeja Linen Daily', category: 'Daily', price: 289000, stock: 20, image: 'https://images.unsplash.com/photo-1598033129183-c4f50c736f10?auto=format&fit=crop&w=900&q=85', tone: 'Sand' },
+  { id: '2', name: 'Kaos Daily Essential', category: 'Daily', price: 159000, stock: 30, image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=85', tone: 'Oat' },
+  { id: '3', name: 'Celana Linen Relaxed', category: 'Daily', price: 319000, stock: 18, image: 'https://images.unsplash.com/photo-1506629082955-511b1aa562c8?auto=format&fit=crop&w=900&q=85', tone: 'Sage' },
+  { id: '4', name: 'Baju Chef Signature', category: 'Chef', price: 349000, stock: 15, image: 'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?auto=format&fit=crop&w=900&q=85', tone: 'White' },
+  { id: '5', name: 'Apron Canvas Ground', category: 'Chef', price: 219000, stock: 25, image: 'https://images.unsplash.com/photo-1556911220-bff31c812dba?auto=format&fit=crop&w=900&q=85', tone: 'Earth' },
+  { id: '6', name: 'Topi Chef Classic', category: 'Chef', price: 129000, stock: 30, image: 'https://images.unsplash.com/photo-1577106263724-2c8e03bfe9cf?auto=format&fit=crop&w=900&q=85', tone: 'White' },
 ];
 const rupiah = (value: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(value);
 
 export default function Home() {
   const [category, setCategory] = useState('Semua');
+  const [products, setProducts] = useState(defaultProducts);
   const [query, setQuery] = useState('');
-  const [cart, setCart] = useState<Record<number, number>>({});
+  const [cart, setCart] = useState<Record<string, number>>({});
   const [cartOpen, setCartOpen] = useState(false);
   const [checkout, setCheckout] = useState(false);
   const [ordered, setOrdered] = useState(false);
@@ -30,7 +31,8 @@ export default function Home() {
   const count = Object.values(cart).reduce((a, b) => a + b, 0);
   const subtotal = products.reduce((sum, p) => sum + p.price * (cart[p.id] || 0), 0);
   const shipping = subtotal ? 18000 : 0;
-  function changeItem(id: number, delta: number) { setCart((current) => { const next = Math.max(0, (current[id] || 0) + delta); const result = { ...current, [id]: next }; if (!next) delete result[id]; return result; }); }
+  useEffect(() => { fetch('/api/products').then(r=>r.json()).then((d:{products?:typeof defaultProducts})=>{if(d.products?.length)setProducts(d.products)}).catch(()=>{}); }, []);
+  function changeItem(id: string, delta: number) { setCart((current) => { const next = Math.max(0, (current[id] || 0) + delta); const result = { ...current, [id]: next }; if (!next) delete result[id]; return result; }); }
   async function submitOrder() {
     setOrderBusy(true); setOrderError('');
     const items = products.filter((p) => cart[p.id]).map((p) => ({ id: p.id, name: p.name, price: p.price, quantity: cart[p.id] }));

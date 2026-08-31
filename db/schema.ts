@@ -21,3 +21,17 @@ export const adminUsers = sqliteTable('admin_users', {
   email: text('email').notNull(),
   createdAt: text('created_at').notNull(),
 });
+
+export const products = sqliteTable('products', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  category: text('category').notNull(),
+  tone: text('tone').notNull(),
+  price: integer('price').notNull(),
+  stock: integer('stock').notNull().default(0),
+  imageUrl: text('image_url'),
+  imageKey: text('image_key'),
+  active: integer('active', { mode: 'boolean' }).notNull().default(true),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+}, (table) => [index('idx_products_active_category').on(table.active, table.category)]);
