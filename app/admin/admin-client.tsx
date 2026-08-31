@@ -211,6 +211,104 @@ function VariantEditor({ initial = [] }: { initial?: Variant[] }) {
     </div>
   );
 }
+function BulkImport({ onDone }: { onDone: () => void }) {
+  const [busy, setBusy] = useState(false),
+    [message, setMessage] = useState('');
+  function cells(line: string, delimiter: string) {
+    const out: string[] = [],
+      re = new RegExp(
+        `(?:^|${delimiter})(?:"([^"]*(?:""[^"]*)*)"|([^"${delimiter}]*))`,
+        'g',
+      );
+    let m;
+    while ((m = re.exec(line)))
+      out.push((m[1] ?? m[2] ?? '').replace(/""/g, '"').trim());
+    return out;
+  }
+  async function upload(file: File) {
+    setBusy(true);
+    setMessage('');
+    try {
+      const text = await file.text(),
+        lines = text
+          .replace(/^\uFEFF/, '')
+          .split(/\r?\n/)
+          .filter(Boolean),
+        delimiter = lines[0].includes(';') ? ';' : ',',
+        headers = cells(lines[0], delimiter).map((x) => x.toLowerCase()),
+        required = [
+          'name',
+          'category',
+          'subcategory',
+          'description',
+          'color',
+          'size',
+          'price',
+          'stock',
+          'image_url',
+        ];
+      if (!required.every((h) => headers.includes(h)))
+        throw new Error('Kolom CSV tidak sesuai template.');
+      const rows = lines.slice(1).map((line) => {
+        const values = cells(line, delimiter);
+        return Object.fromEntries(headers.map((h, i) => [h, values[i] ?? '']));
+      });
+      const r = await fetch('/api/admin/products/bulk', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ rows }),
+        }),
+        d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Impor gagal.');
+      setMessage(`${d.count} produk berhasil diimpor.`);
+      onDone();
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : 'Impor gagal.');
+    }
+    setBusy(false);
+  }
+  function template() {
+    const csv =
+      'name;category;subcategory;description;color;size;price;stock;image_url\nKaos Daily Basic;Daily Basic;Kaos;Kaos nyaman sehari-hari;Hitam;M;54600;20;https://alamat-foto.jpg\nKaos Daily Basic;Daily Basic;Kaos;Kaos nyaman sehari-hari;Hitam;L;56600;15;https://alamat-foto.jpg';
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.download = 'template-produk-simple-ground.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+  return (
+    <div className="mt-5 rounded-2xl border border-dashed bg-[#f8faf7] p-4">
+      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+        <div>
+          <b className="text-sm">Upload produk massal</b>
+          <p className="mt-1 text-xs text-[#68736b]">
+            Isi template di Excel. Produk dengan nama sama akan digabung menjadi
+            beberapa varian.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={template}
+            className="rounded-full border bg-white px-4 py-2 text-xs font-bold"
+          >
+            Unduh template CSV
+          </button>
+          <label className="cursor-pointer rounded-full bg-[#243b2c] px-4 py-2 text-xs font-bold text-white">
+            {busy ? 'Mengimpor…' : 'Pilih CSV'}
+            <input
+              type="file"
+              accept=".csv,text/csv"
+              disabled={busy}
+              className="hidden"
+              onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])}
+            />
+          </label>
+        </div>
+      </div>
+      {message && <p className="mt-3 text-xs font-semibold">{message}</p>}
+    </div>
+  );
+}
 function ProductManager() {
   const [items, setItems] = useState<Product[]>([]);
   const [editing, setEditing] = useState<Product | null>(null);
@@ -278,6 +376,7 @@ function ProductManager() {
           <Plus size={16} /> Tambah produk
         </button>
       </div>
+      <BulkImport onDone={load} />
       {open && (
         <form
           key={editing?.id ?? 'new-product'}

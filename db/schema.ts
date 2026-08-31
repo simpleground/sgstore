@@ -90,3 +90,14 @@ export const reviews = sqliteTable(
     index('idx_reviews_product_active').on(table.productId, table.active),
   ],
 );
+export const cartItems = sqliteTable(
+  'cart_items',
+  {
+    userId: text('user_id').notNull(),
+    productId: text('product_id').notNull(),
+    variantIndex: integer('variant_index').notNull(),
+    quantity: integer('quantity').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (table) => [index('idx_cart_items_user').on(table.userId)],
+);

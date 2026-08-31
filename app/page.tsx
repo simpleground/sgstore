@@ -270,7 +270,26 @@ export default function Home() {
   useEffect(() => {
     fetch('/api/account')
       .then((r) => r.json())
-      .then((d) => setAccount(d.user))
+      .then(async (d) => {
+        setAccount(d.user);
+        if (d.user) {
+          const c = await fetch('/api/cart').then((r) => r.json());
+          const saved: Record<string, CartLine> = {};
+          for (const i of c.items ?? []) {
+            const key = `${i.product_id}:${i.variant_index}`;
+            saved[key] = {
+              productId: i.product_id,
+              variantIndex: i.variant_index,
+              quantity: i.quantity,
+            };
+          }
+          setCart(saved);
+        } else {
+          try {
+            setCart(JSON.parse(localStorage.getItem('sg_cart') || '{}'));
+          } catch {}
+        }
+      })
       .catch(() => {});
     fetch('/api/reviews')
       .then((r) => r.json())
@@ -307,6 +326,13 @@ export default function Home() {
         [key]: { productId, variantIndex, quantity: next },
       };
       if (!next) delete result[key];
+      if (account)
+        fetch('/api/cart', {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ productId, variantIndex, quantity: next }),
+        }).catch(() => {});
+      else localStorage.setItem('sg_cart', JSON.stringify(result));
       return result;
     });
   }
