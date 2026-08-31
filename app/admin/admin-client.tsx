@@ -94,6 +94,7 @@ type Product = {
   id: string;
   name: string;
   category: string;
+  subcategory: string;
   tone: string;
   price: number;
   stock: number;
@@ -103,6 +104,113 @@ type Product = {
   description: string;
   variants: Variant[];
 };
+function VariantEditor({ initial = [] }: { initial?: Variant[] }) {
+  const [rows, setRows] = useState<Variant[]>(
+    initial.length ? initial : [{ color: '', size: '', price: 0, stock: 0 }],
+  );
+  function change(index: number, field: keyof Variant, value: string) {
+    setRows((current) =>
+      current.map((row, i) =>
+        i === index
+          ? {
+              ...row,
+              [field]:
+                field === 'color' || field === 'size' ? value : Number(value),
+            }
+          : row,
+      ),
+    );
+  }
+  return (
+    <div className="rounded-2xl border bg-white p-4 sm:col-span-2">
+      <input
+        type="hidden"
+        name="variants"
+        value={rows
+          .map((v) => `${v.color} | ${v.size} | ${v.price} | ${v.stock}`)
+          .join('\n')}
+      />
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <b className="text-sm">Warna, ukuran, harga & stok</b>
+          <p className="mt-1 text-xs text-[#68736b]">
+            Satu baris untuk setiap pilihan yang dijual.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() =>
+            setRows((r) => [...r, { color: '', size: '', price: 0, stock: 0 }])
+          }
+          className="shrink-0 rounded-full bg-[#e5efe8] px-3 py-2 text-xs font-bold text-[#24593d]"
+        >
+          + Tambah varian
+        </button>
+      </div>
+      <div className="mt-4 space-y-3">
+        {rows.map((row, index) => (
+          <div
+            key={index}
+            className="grid grid-cols-2 gap-2 rounded-xl bg-[#f7f4ec] p-3 sm:grid-cols-[1fr_1fr_1fr_1fr_auto]"
+          >
+            <label className="text-[11px] font-semibold text-[#68736b]">
+              Warna
+              <input
+                required
+                value={row.color}
+                onChange={(e) => change(index, 'color', e.target.value)}
+                placeholder="Hitam"
+                className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm text-[#1f2b22]"
+              />
+            </label>
+            <label className="text-[11px] font-semibold text-[#68736b]">
+              Ukuran
+              <input
+                required
+                value={row.size}
+                onChange={(e) => change(index, 'size', e.target.value)}
+                placeholder="M / All Size"
+                className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm text-[#1f2b22]"
+              />
+            </label>
+            <label className="text-[11px] font-semibold text-[#68736b]">
+              Harga jual
+              <input
+                required
+                min="1"
+                type="number"
+                value={row.price || ''}
+                onChange={(e) => change(index, 'price', e.target.value)}
+                placeholder="54600"
+                className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm text-[#1f2b22]"
+              />
+            </label>
+            <label className="text-[11px] font-semibold text-[#68736b]">
+              Stok
+              <input
+                required
+                min="0"
+                type="number"
+                value={row.stock}
+                onChange={(e) => change(index, 'stock', e.target.value)}
+                placeholder="10"
+                className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm text-[#1f2b22]"
+              />
+            </label>
+            <button
+              type="button"
+              disabled={rows.length === 1}
+              onClick={() => setRows((r) => r.filter((_, i) => i !== index))}
+              className="self-end rounded-lg px-3 py-2 text-xs font-semibold text-red-700 disabled:opacity-30"
+            >
+              Hapus
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 function ProductManager() {
   const [items, setItems] = useState<Product[]>([]);
   const [editing, setEditing] = useState<Product | null>(null);
@@ -172,6 +280,7 @@ function ProductManager() {
       </div>
       {open && (
         <form
+          key={editing?.id ?? 'new-product'}
           onSubmit={save}
           className="mt-6 grid gap-3 rounded-2xl bg-[#f7f4ec] p-4 sm:grid-cols-2"
         >
@@ -193,9 +302,33 @@ function ProductManager() {
             name="category"
             required
             defaultValue={editing?.category}
-            placeholder="Kategori: Daily / Chef"
+            list="main-categories"
+            placeholder="Kategori utama"
             className="rounded-xl border bg-white px-4 py-3"
           />
+          <datalist id="main-categories">
+            <option value="Chef & Kitchen Wear" />
+            <option value="Professional Workwear" />
+            <option value="Daily Basic" />
+          </datalist>
+          <input
+            name="subcategory"
+            required
+            defaultValue={editing?.subcategory}
+            list="subcategories"
+            placeholder="Subkategori"
+            className="rounded-xl border bg-white px-4 py-3"
+          />
+          <datalist id="subcategories">
+            <option value="Baju Chef" />
+            <option value="Topi Chef" />
+            <option value="Apron" />
+            <option value="Kemeja PDL" />
+            <option value="Seragam Kerja" />
+            <option value="Kaos" />
+            <option value="Kemeja" />
+            <option value="Celana" />
+          </datalist>
           <input
             name="tone"
             required
@@ -203,20 +336,10 @@ function ProductManager() {
             placeholder="Warna: Sand / White"
             className="rounded-xl border bg-white px-4 py-3"
           />
-          <textarea
-            name="variants"
-            required
-            defaultValue={editing?.variants
-              ?.map((v) => `${v.color} | ${v.size} | ${v.price} | ${v.stock}`)
-              .join('\n')}
-            placeholder={
-              'Varian per baris:\nHitam | M | 250000 | 10\nPutih | L | 275000 | 5'
-            }
-            className="min-h-28 rounded-xl border bg-white px-4 py-3 font-mono text-sm"
-          />
+          <VariantEditor initial={editing?.variants} />
           <label className="rounded-xl border bg-white px-4 py-3 text-sm sm:col-span-2">
             <span className="mb-2 block font-semibold">
-              Foto produk (maksimal 8)
+              Foto produk (maksimal 7)
             </span>
             <span className="mb-3 block text-xs text-[#68736b]">
               Pilih beberapa foto sekaligus. Foto pertama menjadi foto utama.
@@ -288,7 +411,8 @@ function ProductManager() {
             <div className="min-w-0 flex-1">
               <b className="block truncate text-sm">{p.name}</b>
               <p className="mt-1 text-xs text-[#68736b]">
-                {p.category} · stok {p.stock} · {p.images?.length || 1} foto
+                {p.category} › {p.subcategory} · stok {p.stock} ·{' '}
+                {p.images?.length || 1} foto
               </p>
               <p className="mt-1 text-sm font-bold">{rupiah(p.price)}</p>
               <div className="mt-2 flex gap-3">

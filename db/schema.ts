@@ -34,6 +34,7 @@ export const products = sqliteTable(
     id: text('id').primaryKey(),
     name: text('name').notNull(),
     category: text('category').notNull(),
+    subcategory: text('subcategory').notNull().default('Lainnya'),
     tone: text('tone').notNull(),
     description: text('description').notNull().default(''),
     variantsJson: text('variants_json').notNull().default('[]'),

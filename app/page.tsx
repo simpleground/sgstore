@@ -20,6 +20,7 @@ type Product = {
   id: string;
   name: string;
   category: string;
+  subcategory: string;
   price: number;
   stock: number;
   image: string;
@@ -34,7 +35,8 @@ const defaultProducts: Product[] = [
   {
     id: '1',
     name: 'Kemeja Linen Daily',
-    category: 'Daily',
+    category: 'Daily Basic',
+    subcategory: 'Kemeja',
     price: 289000,
     stock: 20,
     image:
@@ -50,7 +52,8 @@ const defaultProducts: Product[] = [
   {
     id: '2',
     name: 'Kaos Daily Essential',
-    category: 'Daily',
+    category: 'Daily Basic',
+    subcategory: 'Kaos',
     price: 159000,
     stock: 30,
     image:
@@ -65,7 +68,8 @@ const defaultProducts: Product[] = [
   {
     id: '3',
     name: 'Celana Linen Relaxed',
-    category: 'Daily',
+    category: 'Daily Basic',
+    subcategory: 'Celana',
     price: 319000,
     stock: 18,
     image:
@@ -80,7 +84,8 @@ const defaultProducts: Product[] = [
   {
     id: '4',
     name: 'Baju Chef Signature',
-    category: 'Chef',
+    category: 'Chef & Kitchen Wear',
+    subcategory: 'Baju Chef',
     price: 349000,
     stock: 15,
     image:
@@ -96,7 +101,8 @@ const defaultProducts: Product[] = [
   {
     id: '5',
     name: 'Apron Canvas Ground',
-    category: 'Chef',
+    category: 'Chef & Kitchen Wear',
+    subcategory: 'Apron',
     price: 219000,
     stock: 25,
     image:
@@ -109,7 +115,8 @@ const defaultProducts: Product[] = [
   {
     id: '6',
     name: 'Topi Chef Classic',
-    category: 'Chef',
+    category: 'Chef & Kitchen Wear',
+    subcategory: 'Topi Chef',
     price: 129000,
     stock: 30,
     image:
@@ -128,6 +135,7 @@ const rupiah = (value: number) =>
 
 export default function Home() {
   const [category, setCategory] = useState('Semua');
+  const [subcategory, setSubcategory] = useState('Semua');
   const [products, setProducts] = useState(defaultProducts);
   const [query, setQuery] = useState('');
   const [cart, setCart] = useState<Record<string, CartLine>>({});
@@ -152,10 +160,23 @@ export default function Home() {
       products.filter(
         (p) =>
           (category === 'Semua' || p.category === category) &&
+          (subcategory === 'Semua' || p.subcategory === subcategory) &&
           p.name.toLowerCase().includes(query.toLowerCase()),
       ),
-    [category, query, products],
+    [category, subcategory, query, products],
   );
+  const catalog = useMemo(() => {
+    const suggestions: Record<string, string[]> = {
+      'Chef & Kitchen Wear': ['Baju Chef', 'Topi Chef', 'Apron'],
+      'Professional Workwear': ['Kemeja PDL', 'Seragam Kerja'],
+      'Daily Basic': ['Kaos', 'Kemeja', 'Celana'],
+    };
+    for (const p of products)
+      suggestions[p.category] = Array.from(
+        new Set([...(suggestions[p.category] ?? []), p.subcategory]),
+      );
+    return suggestions;
+  }, [products]);
   const count = Object.values(cart).reduce((a, b) => a + b.quantity, 0);
   const cartRows = Object.entries(cart).flatMap(([key, line]) => {
     const product = products.find((p) => p.id === line.productId);
@@ -277,25 +298,45 @@ export default function Home() {
           </button>
         </div>
         <div className="mx-auto flex max-w-7xl gap-2 overflow-x-auto px-4 pb-3 sm:px-8">
-          {['Semua', 'Daily', 'Chef'].map((item) => (
+          {['Semua', ...Object.keys(catalog)].map((item) => (
             <button
               key={item}
               onClick={() => {
                 setCategory(item);
+                setSubcategory('Semua');
                 document
                   .querySelector('#koleksi')
                   ?.scrollIntoView({ behavior: 'smooth' });
               }}
               className={`whitespace-nowrap rounded-lg px-4 py-2 text-xs font-semibold ${category === item ? 'bg-[#e5efe8] text-[#17442f]' : 'bg-[#f3f4f2] text-[#58645c]'}`}
             >
-              {item === 'Semua'
-                ? 'Semua Produk'
-                : item === 'Daily'
-                  ? 'Pakaian Daily'
-                  : 'Perlengkapan Chef'}
+              {item === 'Semua' ? 'Semua Produk' : item}
             </button>
           ))}
         </div>
+        {category !== 'Semua' && (
+          <div className="border-t bg-[#fafbf9]">
+            <div className="mx-auto flex max-w-7xl gap-2 overflow-x-auto px-4 py-2.5 sm:px-8">
+              <span className="my-auto mr-1 shrink-0 text-[11px] font-bold text-[#6a756d]">
+                SUBKATEGORI
+              </span>
+              {['Semua', ...(catalog[category] ?? [])].map((item) => (
+                <button
+                  key={item}
+                  onClick={() => {
+                    setSubcategory(item);
+                    document
+                      .querySelector('#koleksi')
+                      ?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold ${subcategory === item ? 'bg-[#173c2b] text-white' : 'border bg-white'}`}
+                >
+                  {item === 'Semua' ? `Semua ${category}` : item}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </header>
 
       <section
@@ -349,11 +390,12 @@ export default function Home() {
                 {filtered.length} produk ditemukan
               </p>
             </div>
-            {(query || category !== 'Semua') && (
+            {(query || category !== 'Semua' || subcategory !== 'Semua') && (
               <button
                 onClick={() => {
                   setQuery('');
                   setCategory('Semua');
+                  setSubcategory('Semua');
                 }}
                 className="text-sm font-semibold text-[#276344]"
               >
@@ -387,7 +429,7 @@ export default function Home() {
                       className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
                     />
                     <span className="absolute left-2 top-2 rounded-md bg-white/90 px-2 py-1 text-[10px] font-bold">
-                      {p.category}
+                      {p.subcategory}
                     </span>
                   </button>
                   <div className="p-3 sm:p-4">
@@ -422,6 +464,7 @@ export default function Home() {
                 onClick={() => {
                   setQuery('');
                   setCategory('Semua');
+                  setSubcategory('Semua');
                 }}
                 className="mt-2 text-sm font-semibold text-[#276344]"
               >
@@ -590,7 +633,7 @@ export default function Home() {
                         <X size={20} />
                       </button>
                       <span className="text-xs font-bold uppercase tracking-wider text-[#637168]">
-                        {p.category}
+                        {p.category} › {p.subcategory}
                       </span>
                       <h2 className="mt-2 pr-10 font-serif text-2xl font-bold sm:text-3xl">
                         {p.name}

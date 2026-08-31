@@ -14,7 +14,7 @@ async function auth() {
   );
 }
 async function images(files: File[]) {
-  if (files.length > 8) throw new Error('Maksimal 8 foto per produk.');
+  if (files.length > 7) throw new Error('Maksimal 7 foto per produk.');
   const keys: string[] = [];
   for (const file of files) {
     if (!file.size) continue;
@@ -57,7 +57,7 @@ function variants(raw: string) {
   return rows;
 }
 const select =
-  "SELECT id,name,category,tone,price,stock,active,description,variants_json,images_json,COALESCE('/api/product-image/' || image_key,image_url) AS image FROM products";
+  "SELECT id,name,category,subcategory,tone,price,stock,active,description,variants_json,images_json,COALESCE('/api/product-image/' || image_key,image_url) AS image FROM products";
 export async function GET() {
   if (!(await auth()))
     return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
@@ -87,7 +87,7 @@ export async function POST(req: Request) {
         now = new Date().toISOString();
       await d1
         .prepare(
-          "INSERT INTO products (id,name,category,tone,price,stock,description,variants_json,image_url,image_key,images_json,active,created_at,updated_at) SELECT ?,name||' (Salinan)',category,tone,price,stock,description,variants_json,image_url,image_key,images_json,0,?,? FROM products WHERE id=?",
+          "INSERT INTO products (id,name,category,subcategory,tone,price,stock,description,variants_json,image_url,image_key,images_json,active,created_at,updated_at) SELECT ?,name||' (Salinan)',category,subcategory,tone,price,stock,description,variants_json,image_url,image_key,images_json,0,?,? FROM products WHERE id=?",
         )
         .bind(id, now, now, copyId)
         .run();
@@ -95,26 +95,30 @@ export async function POST(req: Request) {
     }
     const name = String(f.get('name') || '').trim(),
       category = String(f.get('category') || '').trim(),
+      subcategory = String(f.get('subcategory') || '').trim(),
       tone = String(f.get('tone') || '').trim(),
       description = String(f.get('description') || '').trim(),
       vs = variants(String(f.get('variants') || ''));
     const keys = await images(
       f.getAll('images').filter((v): v is File => v instanceof File),
     );
-    if (!name || !category || !description || !keys.length)
-      throw new Error('Lengkapi nama, kategori, deskripsi, dan foto.');
+    if (!name || !category || !subcategory || !description || !keys.length)
+      throw new Error(
+        'Lengkapi nama, kategori, subkategori, deskripsi, dan foto.',
+      );
     const price = Math.min(...vs.map((v) => v.price)),
       stock = vs.reduce((s, v) => s + v.stock, 0),
       id = crypto.randomUUID(),
       now = new Date().toISOString();
     await d1
       .prepare(
-        'INSERT INTO products (id,name,category,tone,price,stock,description,variants_json,image_key,images_json,active,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        'INSERT INTO products (id,name,category,subcategory,tone,price,stock,description,variants_json,image_key,images_json,active,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
       )
       .bind(
         id,
         name,
         category,
+        subcategory,
         tone,
         price,
         stock,
@@ -144,6 +148,7 @@ export async function PATCH(req: Request) {
       id = String(f.get('id')),
       name = String(f.get('name') || '').trim(),
       category = String(f.get('category') || '').trim(),
+      subcategory = String(f.get('subcategory') || '').trim(),
       tone = String(f.get('tone') || '').trim(),
       description = String(f.get('description') || '').trim(),
       vs = variants(String(f.get('variants') || '')),
@@ -168,16 +173,19 @@ export async function PATCH(req: Request) {
           ? newKeys
           : [...previousKeys, ...newKeys],
       finalKeys = combinedKeys;
-    if (finalKeys.length > 8)
-      throw new Error('Total foto maksimal 8 per produk.');
+    if (!name || !category || !subcategory || !description)
+      throw new Error('Lengkapi nama, kategori, subkategori, dan deskripsi.');
+    if (finalKeys.length > 7)
+      throw new Error('Total foto maksimal 7 per produk.');
     if (!finalKeys.length && old?.image_key) finalKeys.push(old.image_key);
     await d1
       .prepare(
-        'UPDATE products SET name=?,category=?,tone=?,price=?,stock=?,description=?,variants_json=?,active=?,image_key=COALESCE(?,image_key),images_json=?,updated_at=? WHERE id=?',
+        'UPDATE products SET name=?,category=?,subcategory=?,tone=?,price=?,stock=?,description=?,variants_json=?,active=?,image_key=COALESCE(?,image_key),images_json=?,updated_at=? WHERE id=?',
       )
       .bind(
         name,
         category,
+        subcategory,
         tone,
         price,
         stock,
