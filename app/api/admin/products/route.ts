@@ -45,16 +45,43 @@ function variants(raw: string) {
     .filter(Boolean)
     .map((line) => {
       const parts = line.split('|').map((x) => x.trim());
-      const [sku, color, size, price, stock] =
-        parts.length === 5 ? parts : ['', ...parts];
-      return { sku, color, size, price: Number(price), stock: Number(stock) };
+      let sku = '',
+        color = '',
+        size = '',
+        normalPrice = '',
+        price = '',
+        stock = '';
+      if (parts.length === 6)
+        [sku, color, size, normalPrice, price, stock] = parts;
+      else if (parts.length === 5) {
+        [sku, color, size, price, stock] = parts;
+        normalPrice = price;
+      } else {
+        [color, size, price, stock] = parts;
+        normalPrice = price;
+      }
+      return {
+        sku,
+        color,
+        size,
+        normalPrice: Number(normalPrice),
+        price: Number(price),
+        stock: Number(stock),
+      };
     });
   if (
     !rows.length ||
-    rows.some((v) => !v.color || !v.size || v.price <= 0 || v.stock < 0)
+    rows.some(
+      (v) =>
+        !v.color ||
+        !v.size ||
+        v.price <= 0 ||
+        v.normalPrice < v.price ||
+        v.stock < 0,
+    )
   )
     throw new Error(
-      'Format varian: Warna | Ukuran | Harga | Stok, satu varian per baris.',
+      'Lengkapi varian. Harga normal tidak boleh lebih kecil dari harga jual.',
     );
   return rows;
 }

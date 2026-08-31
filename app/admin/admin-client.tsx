@@ -93,6 +93,7 @@ type Variant = {
   sku?: string;
   color: string;
   size: string;
+  normalPrice?: number;
   price: number;
   stock: number;
 };
@@ -114,7 +115,7 @@ function VariantEditor({ initial = [] }: { initial?: Variant[] }) {
   const [rows, setRows] = useState<Variant[]>(
     initial.length
       ? initial
-      : [{ sku: '', color: '', size: '', price: 0, stock: 0 }],
+      : [{ sku: '', color: '', size: '', normalPrice: 0, price: 0, stock: 0 }],
   );
   function change(index: number, field: keyof Variant, value: string) {
     setRows((current) =>
@@ -139,7 +140,7 @@ function VariantEditor({ initial = [] }: { initial?: Variant[] }) {
         value={rows
           .map(
             (v) =>
-              `${v.sku ?? ''} | ${v.color} | ${v.size} | ${v.price} | ${v.stock}`,
+              `${v.sku ?? ''} | ${v.color} | ${v.size} | ${v.normalPrice || v.price} | ${v.price} | ${v.stock}`,
           )
           .join('\n')}
       />
@@ -155,7 +156,14 @@ function VariantEditor({ initial = [] }: { initial?: Variant[] }) {
           onClick={() =>
             setRows((r) => [
               ...r,
-              { sku: '', color: '', size: '', price: 0, stock: 0 },
+              {
+                sku: '',
+                color: '',
+                size: '',
+                normalPrice: 0,
+                price: 0,
+                stock: 0,
+              },
             ])
           }
           className="shrink-0 rounded-full bg-[#e5efe8] px-3 py-2 text-xs font-bold text-[#24593d]"
@@ -167,7 +175,7 @@ function VariantEditor({ initial = [] }: { initial?: Variant[] }) {
         {rows.map((row, index) => (
           <div
             key={index}
-            className="grid grid-cols-2 gap-2 rounded-xl bg-[#f7f4ec] p-3 sm:grid-cols-[1fr_1fr_1fr_1fr_1fr_auto]"
+            className="grid grid-cols-2 gap-2 rounded-xl bg-[#f7f4ec] p-3 sm:grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_auto]"
           >
             <label className="text-[11px] font-semibold text-[#68736b]">
               SKU
@@ -207,6 +215,18 @@ function VariantEditor({ initial = [] }: { initial?: Variant[] }) {
                 value={row.price || ''}
                 onChange={(e) => change(index, 'price', e.target.value)}
                 placeholder="54600"
+                className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm text-[#1f2b22]"
+              />
+            </label>
+            <label className="text-[11px] font-semibold text-[#68736b]">
+              Harga normal
+              <input
+                required
+                min="1"
+                type="number"
+                value={row.normalPrice || row.price || ''}
+                onChange={(e) => change(index, 'normalPrice', e.target.value)}
+                placeholder="65000"
                 className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm text-[#1f2b22]"
               />
             </label>
@@ -270,6 +290,7 @@ function BulkImport({ onDone }: { onDone: () => void }) {
           'sku',
           'size',
           'price',
+          'normal_price',
           'stock',
         ];
       if (!required.every((h) => headers.includes(h)))
@@ -294,7 +315,7 @@ function BulkImport({ onDone }: { onDone: () => void }) {
   }
   function template() {
     const csv =
-      'name;category;subcategory;description;sku;color;size;price;stock;image_url\nKaos Daily Basic;Daily Basic;Kaos;Kaos nyaman sehari-hari;KAOS-HITAM-M;Hitam;M;54600;20;\nKaos Daily Basic;Daily Basic;Kaos;Kaos nyaman sehari-hari;KAOS-HITAM-L;Hitam;L;56600;15;';
+      'name;category;subcategory;description;sku;color;size;normal_price;price;stock;image_url\nKaos Daily Basic;Daily Basic;Kaos;Kaos nyaman sehari-hari;KAOS-HITAM-M;Hitam;M;65000;54600;20;\nKaos Daily Basic;Daily Basic;Kaos;Kaos nyaman sehari-hari;KAOS-HITAM-L;Hitam;L;67000;56600;15;';
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
     a.download = 'template-produk-simple-ground.csv';

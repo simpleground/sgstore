@@ -28,6 +28,7 @@ export async function POST(req: Request) {
         !r.subcategory ||
         !r.color ||
         !r.size ||
+        (Number(r.normal_price) || Number(r.price)) < Number(r.price) ||
         Number(r.price) <= 0 ||
         Number(r.stock) < 0
       )
@@ -38,6 +39,7 @@ export async function POST(req: Request) {
         sku: r.sku || '',
         color: r.color,
         size: r.size,
+        normalPrice: Number(r.normal_price) || Number(r.price),
         price: Number(r.price),
         stock: Number(r.stock),
       });

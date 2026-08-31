@@ -21,6 +21,7 @@ type Variant = {
   sku?: string;
   color: string;
   size: string;
+  normalPrice?: number;
   price: number;
   stock: number;
 };
@@ -598,9 +599,26 @@ export default function Home() {
                     >
                       {p.name}
                     </button>
-                    <p className="mt-2 text-base font-extrabold text-[#b4512d] sm:text-lg">
-                      {rupiah(variant.price)}
-                    </p>
+                    <div className="mt-2">
+                      <p className="text-base font-extrabold text-[#b4512d] sm:text-lg">
+                        {rupiah(variant.price)}
+                      </p>
+                      {(variant.normalPrice ?? variant.price) >
+                        variant.price && (
+                        <p className="text-[11px]">
+                          <span className="text-[#899188] line-through">
+                            {rupiah(variant.normalPrice!)}
+                          </span>
+                          <span className="ml-2 rounded bg-[#fee8df] px-1.5 py-0.5 font-bold text-[#b4512d]">
+                            -
+                            {Math.round(
+                              (1 - variant.price / variant.normalPrice!) * 100,
+                            )}
+                            %
+                          </span>
+                        </p>
+                      )}
+                    </div>
                     <p className="mt-1 text-[11px] text-[#6d786f]">
                       {variant.color} · {variant.size} · stok {variant.stock}
                     </p>
@@ -848,9 +866,27 @@ export default function Home() {
                       <h2 className="mt-2 pr-10 font-serif text-2xl font-bold sm:text-3xl">
                         {p.name}
                       </h2>
-                      <p className="mt-3 text-2xl font-extrabold text-[#b4512d]">
-                        {rupiah(variant.price)}
-                      </p>
+                      <div className="mt-3">
+                        <p className="text-2xl font-extrabold text-[#b4512d]">
+                          {rupiah(variant.price)}
+                        </p>
+                        {(variant.normalPrice ?? variant.price) >
+                          variant.price && (
+                          <p className="mt-1 text-sm">
+                            <span className="text-[#899188] line-through">
+                              {rupiah(variant.normalPrice!)}
+                            </span>
+                            <span className="ml-2 rounded bg-[#fee8df] px-2 py-1 font-bold text-[#b4512d]">
+                              Diskon{' '}
+                              {Math.round(
+                                (1 - variant.price / variant.normalPrice!) *
+                                  100,
+                              )}
+                              %
+                            </span>
+                          </p>
+                        )}
+                      </div>
                       <p className="mt-2 text-sm font-bold text-[#8a5a22]">
                         ★ {average ? average.toFixed(1) : 'Belum ada rating'}{' '}
                         {productReviews.length
