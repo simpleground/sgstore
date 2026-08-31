@@ -35,7 +35,7 @@ const imageUrl = (key: string) => `/api/product-image/${key}`;
 const gallery = (p: any) => {
   const keys = JSON.parse(p.images_json || '[]') as string[];
   const urls = keys.map(imageUrl);
-  if (!urls.length && p.image) urls.push(p.image);
+  if (!urls.length) urls.push(p.image || '/placeholder-product.svg');
   return urls;
 };
 function variants(raw: string) {

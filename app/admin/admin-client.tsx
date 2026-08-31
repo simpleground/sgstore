@@ -245,7 +245,6 @@ function BulkImport({ onDone }: { onDone: () => void }) {
           'size',
           'price',
           'stock',
-          'image_url',
         ];
       if (!required.every((h) => headers.includes(h)))
         throw new Error('Kolom CSV tidak sesuai template.');
@@ -269,7 +268,7 @@ function BulkImport({ onDone }: { onDone: () => void }) {
   }
   function template() {
     const csv =
-      'name;category;subcategory;description;color;size;price;stock;image_url\nKaos Daily Basic;Daily Basic;Kaos;Kaos nyaman sehari-hari;Hitam;M;54600;20;https://alamat-foto.jpg\nKaos Daily Basic;Daily Basic;Kaos;Kaos nyaman sehari-hari;Hitam;L;56600;15;https://alamat-foto.jpg';
+      'name;category;subcategory;description;color;size;price;stock;image_url\nKaos Daily Basic;Daily Basic;Kaos;Kaos nyaman sehari-hari;Hitam;M;54600;20;\nKaos Daily Basic;Daily Basic;Kaos;Kaos nyaman sehari-hari;Hitam;L;56600;15;';
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
     a.download = 'template-produk-simple-ground.csv';
@@ -282,8 +281,9 @@ function BulkImport({ onDone }: { onDone: () => void }) {
         <div>
           <b className="text-sm">Upload produk massal</b>
           <p className="mt-1 text-xs text-[#68736b]">
-            Isi template di Excel. Produk dengan nama sama akan digabung menjadi
-            beberapa varian.
+            Isi template di Excel. Kolom image_url boleh dikosongkan; foto bisa
+            ditambahkan nanti melalui Edit Produk. Produk dengan nama sama akan
+            digabung menjadi beberapa varian.
           </p>
         </div>
         <div className="flex gap-2">
@@ -503,7 +503,7 @@ function ProductManager() {
         {items.map((p) => (
           <article key={p.id} className="flex gap-3 rounded-2xl border p-3">
             <img
-              src={p.image}
+              src={p.images?.[0] ?? p.image ?? '/placeholder-product.svg'}
               alt=""
               className="h-24 w-20 rounded-xl object-cover"
             />

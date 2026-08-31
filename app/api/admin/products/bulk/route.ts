@@ -28,7 +28,6 @@ export async function POST(req: Request) {
         !r.subcategory ||
         !r.color ||
         !r.size ||
-        !r.image_url ||
         Number(r.price) <= 0 ||
         Number(r.stock) < 0
       )

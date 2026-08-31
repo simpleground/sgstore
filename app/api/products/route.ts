@@ -89,7 +89,7 @@ export async function GET() {
         variants: JSON.parse(p.variants_json || '[]'),
         images: keys.length
           ? keys.map((key) => `/api/product-image/${key}`)
-          : [p.image],
+          : [p.image || '/placeholder-product.svg'],
       };
     }),
   });
