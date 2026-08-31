@@ -8,7 +8,10 @@ import {
   Minus,
   Plus,
   Search,
+  ShieldCheck,
   ShoppingBag,
+  Store,
+  Truck,
   X,
 } from 'lucide-react';
 
@@ -135,6 +138,7 @@ export default function Home() {
     {},
   );
   const [cartOpen, setCartOpen] = useState(false);
+  const [detailId, setDetailId] = useState<string | null>(null);
   const [checkout, setCheckout] = useState(false);
   const [ordered, setOrdered] = useState(false);
   const [customerName, setCustomerName] = useState('');
@@ -229,119 +233,135 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f7f4ec] text-[#1f2b22]">
-      <div className="bg-[#243b2c] px-4 py-2 text-center text-[11px] font-semibold tracking-[.18em] text-[#f7f1df] sm:text-xs">
-        GRATIS ONGKIR UNTUK PEMBELIAN DI ATAS RP500.000
+    <main className="min-h-screen bg-[#f5f6f4] text-[#17251c]">
+      <div className="bg-[#173c2b] px-4 py-2 text-center text-[11px] font-semibold text-white sm:text-xs">
+        Gratis ongkir untuk pembelian di atas Rp500.000
       </div>
-      <header className="sticky top-0 z-30 border-b border-[#263e2e]/10 bg-[#f7f4ec]/95 backdrop-blur">
-        <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 sm:px-8">
+      <header className="sticky top-0 z-30 border-b bg-white/95 shadow-sm backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:px-8">
           <a
             href="#home"
-            className="font-serif text-2xl font-bold tracking-[-.04em]"
+            className="shrink-0 font-serif text-xl font-bold tracking-[-.04em] sm:text-2xl"
           >
             simple ground<span className="text-[#c0693c]">.</span>
           </a>
-          <nav className="hidden items-center gap-8 text-sm font-medium md:flex">
-            <a href="#koleksi">Koleksi</a>
-            <a href="#cerita">Cerita Kami</a>
-            <a href="#footer">Bantuan</a>
-          </nav>
-          <div className="flex items-center gap-2">
-            <label className="hidden items-center gap-2 rounded-full border border-[#263e2e]/15 bg-white px-4 py-2 lg:flex">
-              <Search size={16} />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                className="w-32 bg-transparent text-sm outline-none"
-                placeholder="Cari produk"
-              />
-            </label>
+          <label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border-2 border-[#276344]/25 bg-[#f7faf7] px-3 py-2.5 focus-within:border-[#276344]">
+            <Search size={18} className="shrink-0 text-[#587064]" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+              placeholder="Cari kaos, kemeja, baju chef..."
+            />
+          </label>
+          <a href="#koleksi" className="hidden text-sm font-semibold lg:block">
+            Produk
+          </a>
+          <a href="#footer" className="hidden text-sm font-semibold lg:block">
+            Bantuan
+          </a>
+          <button
+            onClick={() => setCartOpen(true)}
+            aria-label={`Buka keranjang, ${count} barang`}
+            className="relative flex h-11 shrink-0 items-center gap-2 rounded-xl bg-[#173c2b] px-3 text-white sm:px-4"
+          >
+            <ShoppingBag size={19} />
+            <span className="hidden text-sm font-semibold sm:inline">
+              Keranjang
+            </span>
+            {count > 0 && (
+              <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#e07a47] px-1 text-[10px] font-bold">
+                {count}
+              </span>
+            )}
+          </button>
+        </div>
+        <div className="mx-auto flex max-w-7xl gap-2 overflow-x-auto px-4 pb-3 sm:px-8">
+          {['Semua', 'Daily', 'Chef'].map((item) => (
             <button
-              onClick={() => setCartOpen(true)}
-              aria-label={`Buka keranjang, ${count} barang`}
-              className="relative grid h-10 w-10 place-items-center rounded-full hover:bg-[#e8e2d3]"
+              key={item}
+              onClick={() => {
+                setCategory(item);
+                document
+                  .querySelector('#koleksi')
+                  ?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className={`whitespace-nowrap rounded-lg px-4 py-2 text-xs font-semibold ${category === item ? 'bg-[#e5efe8] text-[#17442f]' : 'bg-[#f3f4f2] text-[#58645c]'}`}
             >
-              <ShoppingBag size={21} />
-              {count > 0 && (
-                <span className="absolute right-0 top-0 grid h-5 min-w-5 place-items-center rounded-full bg-[#c0693c] px-1 text-[10px] font-bold text-white">
-                  {count}
-                </span>
-              )}
+              {item === 'Semua'
+                ? 'Semua Produk'
+                : item === 'Daily'
+                  ? 'Pakaian Daily'
+                  : 'Perlengkapan Chef'}
             </button>
-          </div>
+          ))}
         </div>
       </header>
 
       <section
         id="home"
-        className="mx-auto grid max-w-7xl gap-8 px-5 pb-20 pt-10 sm:px-8 lg:grid-cols-[1.02fr_.98fr] lg:items-center lg:pt-16"
+        className="mx-auto max-w-7xl px-4 pt-5 sm:px-8 sm:pt-7"
       >
-        <div className="order-2 max-w-xl lg:order-1">
-          <p className="mb-5 text-xs font-bold uppercase tracking-[.24em] text-[#a34f2c]">
-            Hidup lebih ringan
-          </p>
-          <h1 className="font-serif text-5xl leading-[.98] tracking-[-.055em] sm:text-7xl">
-            Yang esensial,
-            <br />
-            <em className="font-normal text-[#657760]">dibuat berarti.</em>
-          </h1>
-          <p className="mt-7 max-w-md text-base leading-7 text-[#536056]">
-            Pakaian dan benda keseharian yang jujur, nyaman, dan dibuat untuk
-            bertahan lebih lama.
-          </p>
-          <a
-            href="#koleksi"
-            className="mt-8 inline-flex items-center gap-3 rounded-full bg-[#243b2c] px-6 py-3.5 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#c0693c]"
-          >
-            Belanja koleksi <ArrowRight size={17} />
-          </a>
-          <div className="mt-10 flex gap-8 border-t border-[#263e2e]/15 pt-5 text-xs text-[#536056]">
-            <span>Material alami</span>
-            <span>Produksi terbatas</span>
-            <span>Dibuat di Indonesia</span>
-          </div>
-        </div>
-        <div className="order-1 relative lg:order-2">
-          <div className="aspect-[4/5] overflow-hidden rounded-[2.25rem] bg-[#d9d1bf]">
-            <img
-              src="https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1200&q=90"
-              alt="Koleksi busana bernuansa natural Simple Ground"
-              className="h-full w-full object-cover"
-            />
-          </div>
-          <div className="absolute -bottom-5 -left-3 rounded-2xl bg-[#f7f4ec] p-3 shadow-xl sm:-left-7 sm:p-4">
-            <p className="text-[10px] font-bold uppercase tracking-[.18em] text-[#a34f2c]">
-              Baru hadir
+        <div className="relative overflow-hidden rounded-2xl bg-[#dce8df] px-6 py-8 sm:px-10 sm:py-10">
+          <div className="relative z-10 max-w-xl">
+            <span className="inline-flex rounded-md bg-white/80 px-3 py-1 text-xs font-bold text-[#9a4a28]">
+              KOLEKSI SIMPLE GROUND
+            </span>
+            <h1 className="mt-4 font-serif text-3xl font-bold leading-tight sm:text-5xl">
+              Pakaian nyaman untuk aktivitas sehari-hari.
+            </h1>
+            <p className="mt-3 max-w-lg text-sm leading-6 text-[#4e6255] sm:text-base">
+              Daily wear, linen, dan perlengkapan chef. Pilih warna serta
+              ukuran, lalu pesan langsung dari toko.
             </p>
-            <p className="mt-1 font-serif text-lg">The Ground Edit</p>
+            <a
+              href="#koleksi"
+              className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#173c2b] px-5 py-3 text-sm font-bold text-white"
+            >
+              Mulai belanja <ArrowRight size={17} />
+            </a>
+          </div>
+          <div className="absolute -bottom-20 -right-16 h-64 w-64 rounded-full bg-[#c9d8c8] sm:-right-8 sm:h-80 sm:w-80" />
+        </div>
+        <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-4">
+          <div className="flex items-center gap-2 rounded-xl bg-white p-3 text-xs font-semibold sm:text-sm">
+            <ShieldCheck className="shrink-0 text-[#2e704d]" size={20} />{' '}
+            Pembayaran aman
+          </div>
+          <div className="flex items-center gap-2 rounded-xl bg-white p-3 text-xs font-semibold sm:text-sm">
+            <Truck className="shrink-0 text-[#2e704d]" size={20} /> Siap dikirim
+          </div>
+          <div className="flex items-center gap-2 rounded-xl bg-white p-3 text-xs font-semibold sm:text-sm">
+            <Store className="shrink-0 text-[#2e704d]" size={20} /> Produk
+            pilihan
           </div>
         </div>
       </section>
 
-      <section id="koleksi" className="bg-[#fffdf8] px-5 py-20 sm:px-8">
+      <section id="koleksi" className="px-4 py-10 sm:px-8 sm:py-14">
         <div className="mx-auto max-w-7xl">
-          <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
+          <div className="flex items-end justify-between gap-4">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[.22em] text-[#a34f2c]">
-                Pilihan kami
-              </p>
-              <h2 className="mt-3 font-serif text-4xl tracking-[-.04em] sm:text-5xl">
-                Daily & kitchen wear.
+              <h2 className="font-serif text-2xl font-bold sm:text-3xl">
+                Pilihan produk
               </h2>
+              <p className="mt-1 text-sm text-[#68756c]">
+                {filtered.length} produk ditemukan
+              </p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {['Semua', 'Daily', 'Chef'].map((item) => (
-                <button
-                  key={item}
-                  onClick={() => setCategory(item)}
-                  className={`rounded-full border px-4 py-2 text-sm ${category === item ? 'border-[#243b2c] bg-[#243b2c] text-white' : 'border-[#263e2e]/15'}`}
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
+            {(query || category !== 'Semua') && (
+              <button
+                onClick={() => {
+                  setQuery('');
+                  setCategory('Semua');
+                }}
+                className="text-sm font-semibold text-[#276344]"
+              >
+                Hapus filter
+              </button>
+            )}
           </div>
-          <div className="mt-10 grid gap-x-5 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
             {filtered.map((p) => {
               const variantIndex = selectedVariants[p.id] ?? 0;
               const productImages = p.images?.length ? p.images : [p.image];
@@ -353,99 +373,62 @@ export default function Home() {
                 stock: p.stock,
               };
               return (
-                <article key={p.id} className="group">
-                  <div className="relative aspect-[4/5] overflow-hidden rounded-2xl bg-[#ebe5d9]">
+                <article
+                  key={p.id}
+                  className="group overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"
+                >
+                  <button
+                    onClick={() => setDetailId(p.id)}
+                    className="relative block aspect-square w-full overflow-hidden bg-[#ebe5d9] text-left"
+                  >
                     <img
                       src={productImages[imageIndex] ?? productImages[0]}
                       alt={p.name}
                       className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
                     />
-                    <span className="absolute left-3 top-3 rounded-full bg-[#fffdf8]/90 px-3 py-1 text-[10px] font-bold uppercase tracking-wider">
-                      {variant.color}
+                    <span className="absolute left-2 top-2 rounded-md bg-white/90 px-2 py-1 text-[10px] font-bold">
+                      {p.category}
                     </span>
+                  </button>
+                  <div className="p-3 sm:p-4">
                     <button
-                      onClick={() => {
-                        changeItem(p.id, variantIndex, 1);
-                        setCartOpen(true);
-                      }}
-                      disabled={variant.stock < 1}
-                      className="absolute bottom-3 left-3 right-3 translate-y-2 rounded-full bg-[#243b2c] py-3 text-sm font-semibold text-white opacity-0 transition group-hover:translate-y-0 group-hover:opacity-100 focus:translate-y-0 focus:opacity-100 disabled:bg-gray-400"
+                      onClick={() => setDetailId(p.id)}
+                      className="line-clamp-2 min-h-10 text-left text-sm font-semibold leading-5 sm:text-base"
                     >
-                      {variant.stock > 0 ? 'Tambah ke keranjang' : 'Stok habis'}
+                      {p.name}
                     </button>
-                  </div>
-                  {productImages.length > 1 && (
-                    <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
-                      {productImages.map((src, index) => (
-                        <button
-                          key={`${src}-${index}`}
-                          onClick={() =>
-                            setSelectedImages((s) => ({ ...s, [p.id]: index }))
-                          }
-                          aria-label={`Lihat foto ${index + 1} ${p.name}`}
-                          className={`shrink-0 overflow-hidden rounded-lg border-2 ${imageIndex === index ? 'border-[#243b2c]' : 'border-transparent'}`}
-                        >
-                          <img
-                            src={src}
-                            alt=""
-                            className="h-14 w-12 object-cover"
-                          />
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  <div className="mt-4 flex items-start justify-between gap-3">
-                    <div>
-                      <h3 className="font-semibold">{p.name}</h3>
-                      <p className="mt-1 text-xs text-[#758078]">
-                        {p.category}
-                      </p>
-                    </div>
-                    <p className="whitespace-nowrap text-sm font-semibold">
+                    <p className="mt-2 text-base font-extrabold text-[#b4512d] sm:text-lg">
                       {rupiah(variant.price)}
                     </p>
-                  </div>
-                  <p className="mt-2 min-h-10 text-xs leading-5 text-[#68736b]">
-                    {p.description}
-                  </p>
-                  <label className="mt-3 block text-xs font-semibold">
-                    Pilih warna & ukuran
-                    <select
-                      value={variantIndex}
-                      onChange={(e) =>
-                        setSelectedVariants((s) => ({
-                          ...s,
-                          [p.id]: Number(e.target.value),
-                        }))
-                      }
-                      className="mt-1.5 w-full rounded-xl border bg-white px-3 py-2 text-sm"
+                    <p className="mt-1 text-[11px] text-[#6d786f]">
+                      {variant.color} · {variant.size} · stok {variant.stock}
+                    </p>
+                    <button
+                      onClick={() => setDetailId(p.id)}
+                      className="mt-3 w-full rounded-xl border border-[#276344] py-2.5 text-xs font-bold text-[#24593d] sm:text-sm"
                     >
-                      {p.variants.map((v, index) => (
-                        <option
-                          key={`${v.color}-${v.size}-${index}`}
-                          value={index}
-                          disabled={v.stock < 1}
-                        >
-                          {v.color} · {v.size} — {rupiah(v.price)}{' '}
-                          {v.stock < 1 ? '(habis)' : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <button
-                    onClick={() => {
-                      changeItem(p.id, variantIndex, 1);
-                      setCartOpen(true);
-                    }}
-                    disabled={variant.stock < 1}
-                    className="mt-3 w-full rounded-full border border-[#263e2e]/20 py-2.5 text-sm font-semibold disabled:opacity-50 sm:hidden"
-                  >
-                    + Keranjang
-                  </button>
+                      Lihat & pilih varian
+                    </button>
+                  </div>
                 </article>
               );
             })}
           </div>
+          {filtered.length === 0 && (
+            <div className="mt-6 rounded-2xl border border-dashed bg-white py-16 text-center">
+              <Search className="mx-auto text-[#8a958d]" />
+              <p className="mt-3 font-semibold">Produk tidak ditemukan</p>
+              <button
+                onClick={() => {
+                  setQuery('');
+                  setCategory('Semua');
+                }}
+                className="mt-2 text-sm font-semibold text-[#276344]"
+              >
+                Lihat semua produk
+              </button>
+            </div>
+          )}
         </div>
       </section>
 
@@ -529,6 +512,152 @@ export default function Home() {
         </p>
       </footer>
 
+      {detailId &&
+        products
+          .filter((p) => p.id === detailId)
+          .map((p) => {
+            const productImages = p.images?.length ? p.images : [p.image];
+            const imageIndex = selectedImages[p.id] ?? 0;
+            const variantIndex = selectedVariants[p.id] ?? 0;
+            const variant = p.variants[variantIndex] ?? {
+              color: p.tone,
+              size: 'All Size',
+              price: p.price,
+              stock: p.stock,
+            };
+            return (
+              <div
+                key={p.id}
+                className="fixed inset-0 z-40 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-5"
+                onMouseDown={(e) =>
+                  e.target === e.currentTarget && setDetailId(null)
+                }
+              >
+                <section
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label={`Detail ${p.name}`}
+                  className="max-h-[94vh] w-full max-w-4xl overflow-auto rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl"
+                >
+                  <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-white px-5 py-4 sm:hidden">
+                    <b>Detail produk</b>
+                    <button
+                      onClick={() => setDetailId(null)}
+                      aria-label="Tutup detail"
+                    >
+                      <X />
+                    </button>
+                  </div>
+                  <div className="grid md:grid-cols-2">
+                    <div className="bg-[#f0f1ed] p-4 sm:p-6">
+                      <div className="aspect-square overflow-hidden rounded-2xl bg-white">
+                        <img
+                          src={productImages[imageIndex] ?? productImages[0]}
+                          alt={p.name}
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                      {productImages.length > 1 && (
+                        <div className="mt-3 flex gap-2 overflow-x-auto">
+                          {productImages.map((src, index) => (
+                            <button
+                              key={`${src}-${index}`}
+                              onClick={() =>
+                                setSelectedImages((s) => ({
+                                  ...s,
+                                  [p.id]: index,
+                                }))
+                              }
+                              className={`shrink-0 overflow-hidden rounded-lg border-2 ${imageIndex === index ? 'border-[#276344]' : 'border-white'}`}
+                              aria-label={`Foto ${index + 1}`}
+                            >
+                              <img
+                                src={src}
+                                alt=""
+                                className="h-16 w-14 object-cover"
+                              />
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="relative p-5 sm:p-8">
+                      <button
+                        onClick={() => setDetailId(null)}
+                        aria-label="Tutup detail"
+                        className="absolute right-5 top-5 hidden rounded-full bg-[#f1f3f0] p-2 md:block"
+                      >
+                        <X size={20} />
+                      </button>
+                      <span className="text-xs font-bold uppercase tracking-wider text-[#637168]">
+                        {p.category}
+                      </span>
+                      <h2 className="mt-2 pr-10 font-serif text-2xl font-bold sm:text-3xl">
+                        {p.name}
+                      </h2>
+                      <p className="mt-3 text-2xl font-extrabold text-[#b4512d]">
+                        {rupiah(variant.price)}
+                      </p>
+                      <p className="mt-4 text-sm leading-6 text-[#5f6b63]">
+                        {p.description}
+                      </p>
+                      <div className="my-5 border-t" />
+                      <label className="block text-sm font-bold">
+                        Pilih warna dan ukuran
+                        <select
+                          value={variantIndex}
+                          onChange={(e) =>
+                            setSelectedVariants((s) => ({
+                              ...s,
+                              [p.id]: Number(e.target.value),
+                            }))
+                          }
+                          className="mt-2 w-full rounded-xl border bg-white px-4 py-3 text-sm outline-none focus:border-[#276344]"
+                        >
+                          {p.variants.map((v, index) => (
+                            <option
+                              key={`${v.color}-${v.size}-${index}`}
+                              value={index}
+                              disabled={v.stock < 1}
+                            >
+                              {v.color} · {v.size} — {rupiah(v.price)}{' '}
+                              {v.stock < 1 ? '(habis)' : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <p className="mt-2 text-xs text-[#6f7b72]">
+                        Stok tersedia: {variant.stock}
+                      </p>
+                      <button
+                        onClick={() => {
+                          changeItem(p.id, variantIndex, 1);
+                          setDetailId(null);
+                          setCartOpen(true);
+                        }}
+                        disabled={variant.stock < 1}
+                        className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#173c2b] py-3.5 font-bold text-white disabled:bg-gray-400"
+                      >
+                        <ShoppingBag size={18} />{' '}
+                        {variant.stock > 0
+                          ? 'Tambah ke keranjang'
+                          : 'Stok habis'}
+                      </button>
+                      <div className="mt-5 grid grid-cols-2 gap-2 text-xs">
+                        <span className="rounded-xl bg-[#f3f6f3] p-3">
+                          ✓ Pembayaran transfer Mandiri
+                        </span>
+                        <span className="rounded-xl bg-[#f3f6f3] p-3">
+                          ✓ Bantuan via WhatsApp
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+              </div>
+            );
+          })}
+
       {cartOpen && (
         <div
           className="fixed inset-0 z-50 bg-black/35"
@@ -584,7 +713,7 @@ export default function Home() {
                         ({ key, product: p, variant, quantity }) => (
                           <div key={key} className="flex gap-4">
                             <img
-                              src={p.image}
+                              src={p.images?.[0] ?? p.image}
                               alt=""
                               className="h-24 w-20 rounded-xl object-cover"
                             />
@@ -639,7 +768,7 @@ export default function Home() {
                       <b>{rupiah(subtotal)}</b>
                     </div>
                     <p className="mt-2 text-xs text-[#758078]">
-                      Ongkir dihitung saat checkout.
+                      Ongkir tetap Rp18.000.
                     </p>
                     <button
                       onClick={() => setCheckout(true)}
@@ -745,7 +874,12 @@ export default function Home() {
                 </div>
                 <button
                   onClick={submitOrder}
-                  disabled={orderBusy}
+                  disabled={
+                    orderBusy ||
+                    customerName.trim().length < 2 ||
+                    customerPhone.trim().length < 8 ||
+                    shippingAddress.trim().length < 10
+                  }
                   className="mt-5 w-full rounded-full bg-[#c0693c] py-3.5 font-semibold text-white disabled:opacity-60"
                 >
                   {orderBusy
@@ -758,7 +892,8 @@ export default function Home() {
                   </p>
                 )}
                 <p className="mt-3 text-center text-[11px] leading-4 text-[#758078]">
-                  Pesanan tercatat otomatis dan stok ditahan selama 24 jam.
+                  Setelah membuat pesanan, transfer pembayaran lalu konfirmasi
+                  melalui WhatsApp.
                 </p>
               </div>
             )}
