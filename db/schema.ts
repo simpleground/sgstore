@@ -51,3 +51,42 @@ export const products = sqliteTable(
     index('idx_products_active_category').on(table.active, table.category),
   ],
 );
+
+export const customers = sqliteTable('customers', {
+  userId: text('user_id').primaryKey(),
+  name: text('name').notNull(),
+  email: text('email').notNull().unique(),
+  createdAt: text('created_at').notNull(),
+});
+export const customerSessions = sqliteTable(
+  'customer_sessions',
+  {
+    tokenHash: text('token_hash').primaryKey(),
+    userId: text('user_id').notNull(),
+    expiresAt: text('expires_at').notNull(),
+    createdAt: text('created_at').notNull(),
+  },
+  (table) => [index('idx_customer_sessions_user').on(table.userId)],
+);
+
+export const reviews = sqliteTable(
+  'reviews',
+  {
+    id: text('id').primaryKey(),
+    productId: text('product_id').notNull(),
+    userId: text('user_id'),
+    orderNumber: text('order_number'),
+    displayName: text('display_name').notNull(),
+    rating: integer('rating').notNull(),
+    body: text('body').notNull(),
+    active: integer('active', { mode: 'boolean' }).notNull().default(true),
+    adminCreated: integer('admin_created', { mode: 'boolean' })
+      .notNull()
+      .default(false),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (table) => [
+    index('idx_reviews_product_active').on(table.productId, table.active),
+  ],
+);

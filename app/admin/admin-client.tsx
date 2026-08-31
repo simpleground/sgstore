@@ -446,6 +446,187 @@ function ProductManager() {
   );
 }
 
+function ReviewManager() {
+  const [data, setData] = useState<any>({
+    reviews: [],
+    products: [],
+    buyers: [],
+  });
+  const [form, setForm] = useState({
+    productId: '',
+    orderNumber: '',
+    displayName: '',
+    rating: 5,
+    body: '',
+  });
+  async function load() {
+    const r = await fetch('/api/admin/reviews');
+    if (r.ok) setData(await r.json());
+  }
+  useEffect(() => {
+    load();
+  }, []);
+  async function add(e: React.FormEvent) {
+    e.preventDefault();
+    const r = await fetch('/api/admin/reviews', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(form),
+    });
+    if (r.ok) {
+      setForm({
+        productId: '',
+        orderNumber: '',
+        displayName: '',
+        rating: 5,
+        body: '',
+      });
+      await load();
+    }
+  }
+  async function edit(review: any) {
+    const displayName = prompt('Nama pelanggan', review.display_name);
+    if (!displayName) return;
+    const rating = Number(prompt('Rating 1-5', String(review.rating)));
+    const body = prompt('Isi ulasan', review.body);
+    if (!body) return;
+    await fetch('/api/admin/reviews', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        id: review.id,
+        displayName,
+        rating,
+        body,
+        active: Boolean(review.active),
+      }),
+    });
+    await load();
+  }
+  async function toggle(review: any) {
+    await fetch('/api/admin/reviews', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        id: review.id,
+        displayName: review.display_name,
+        rating: review.rating,
+        body: review.body,
+        active: !review.active,
+      }),
+    });
+    await load();
+  }
+  return (
+    <section className="mt-8 rounded-3xl border bg-white p-5 sm:p-7">
+      <p className="text-xs font-bold uppercase tracking-[.18em] text-[#a34f2c]">
+        Kepercayaan pelanggan
+      </p>
+      <h2 className="mt-1 font-serif text-2xl">Rating & ulasan</h2>
+      <form
+        onSubmit={add}
+        className="mt-5 grid gap-3 rounded-2xl bg-[#f7f4ec] p-4 sm:grid-cols-2"
+      >
+        <select
+          required
+          value={form.productId}
+          onChange={(e) => setForm({ ...form, productId: e.target.value })}
+          className="rounded-xl border bg-white px-4 py-3"
+        >
+          <option value="">Pilih produk</option>
+          {data.products.map((p: any) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+        <select
+          required
+          value={form.orderNumber}
+          onChange={(e) => {
+            const b = data.buyers.find(
+              (x: any) => x.order_number === e.target.value,
+            );
+            setForm({
+              ...form,
+              orderNumber: e.target.value,
+              displayName: b?.customer_name ?? '',
+            });
+          }}
+          className="rounded-xl border bg-white px-4 py-3"
+        >
+          <option value="">Pilih pelanggan yang pernah membeli</option>
+          {data.buyers.map((b: any) => (
+            <option key={b.order_number} value={b.order_number}>
+              {b.customer_name} · {b.order_number}
+            </option>
+          ))}
+        </select>
+        <input
+          required
+          value={form.displayName}
+          onChange={(e) => setForm({ ...form, displayName: e.target.value })}
+          placeholder="Nama yang ditampilkan"
+          className="rounded-xl border bg-white px-4 py-3"
+        />
+        <select
+          value={form.rating}
+          onChange={(e) => setForm({ ...form, rating: Number(e.target.value) })}
+          className="rounded-xl border bg-white px-4 py-3"
+        >
+          {[5, 4, 3, 2, 1].map((n) => (
+            <option key={n} value={n}>
+              {n} bintang
+            </option>
+          ))}
+        </select>
+        <textarea
+          required
+          value={form.body}
+          onChange={(e) => setForm({ ...form, body: e.target.value })}
+          placeholder="Isi ulasan pelanggan"
+          className="min-h-24 rounded-xl border bg-white px-4 py-3 sm:col-span-2"
+        />
+        <button className="rounded-full bg-[#243b2c] px-5 py-2.5 text-sm font-bold text-white sm:col-span-2">
+          Tambahkan ulasan
+        </button>
+      </form>
+      <div className="mt-5 space-y-3">
+        {data.reviews.map((r: any) => (
+          <div
+            key={r.id}
+            className={`rounded-xl border p-4 ${r.active ? '' : 'opacity-50'}`}
+          >
+            <div className="flex justify-between gap-3">
+              <div>
+                <b className="text-sm">
+                  {r.display_name} · {'★'.repeat(r.rating)}
+                </b>
+                <p className="text-xs text-[#68736b]">
+                  {r.product_name}
+                  {r.admin_created ? ' · dibuat admin' : ''}
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => edit(r)} className="text-xs font-bold">
+                  Edit
+                </button>
+                <button
+                  onClick={() => toggle(r)}
+                  className="text-xs font-bold text-[#a34f2c]"
+                >
+                  {r.active ? 'Sembunyikan' : 'Tampilkan'}
+                </button>
+              </div>
+            </div>
+            <p className="mt-2 text-sm">{r.body}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function AdminDashboard({
   initialOrders,
   adminName,
@@ -516,6 +697,7 @@ export function AdminDashboard({
         </div>
       </div>
       <ProductManager />
+      <ReviewManager />
       <h2 className="mt-10 font-serif text-2xl">Pesanan pelanggan</h2>
       <div className="mt-4 flex gap-2 overflow-auto pb-2">
         {['semua', ...Object.keys(labels)].map((s) => (

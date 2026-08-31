@@ -11,7 +11,9 @@ import {
   ShieldCheck,
   ShoppingBag,
   Store,
+  Star,
   Truck,
+  UserRound,
   X,
 } from 'lucide-react';
 
@@ -30,6 +32,14 @@ type Product = {
   variants: Variant[];
 };
 type CartLine = { productId: string; variantIndex: number; quantity: number };
+type Review = {
+  id: string;
+  product_id: string;
+  display_name: string;
+  rating: number;
+  body: string;
+  created_at: string;
+};
 
 const defaultProducts: Product[] = [
   {
@@ -155,6 +165,15 @@ export default function Home() {
   const [orderNumber, setOrderNumber] = useState('');
   const [orderBusy, setOrderBusy] = useState(false);
   const [orderError, setOrderError] = useState('');
+  const [account, setAccount] = useState<{
+    name: string;
+    email: string;
+  } | null>(null);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewBody, setReviewBody] = useState('');
+  const [reviewMessage, setReviewMessage] = useState('');
+  const [loginOpen, setLoginOpen] = useState(false);
   const filtered = useMemo(
     () =>
       products.filter(
@@ -202,6 +221,83 @@ export default function Home() {
       })
       .catch(() => {});
   }, []);
+  useEffect(() => {
+    if (!loginOpen) return;
+    const start = () => {
+      const google = (window as any).google;
+      if (!google) return;
+      google.accounts.id.initialize({
+        client_id:
+          '288475161498-4t2ksn25uhbgc2vm1f1h9bvsuln5feu0.apps.googleusercontent.com',
+        callback: async ({ credential }: { credential: string }) => {
+          const r = await fetch('/api/auth/google', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ credential }),
+          });
+          if (r.ok) location.reload();
+          else
+            setReviewMessage(
+              'Login Google gagal. Periksa pengaturan domain Google Cloud.',
+            );
+        },
+      });
+      const el = document.getElementById('google-login-button');
+      if (el) {
+        el.innerHTML = '';
+        google.accounts.id.renderButton(el, {
+          theme: 'outline',
+          size: 'large',
+          width: 300,
+          text: 'continue_with',
+        });
+      }
+    };
+    if ((window as any).google) {
+      start();
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.onload = start;
+    document.head.appendChild(script);
+  }, [loginOpen]);
+  async function logoutCustomer() {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    setAccount(null);
+  }
+  useEffect(() => {
+    fetch('/api/account')
+      .then((r) => r.json())
+      .then((d) => setAccount(d.user))
+      .catch(() => {});
+    fetch('/api/reviews')
+      .then((r) => r.json())
+      .then((d) => setReviews(d.reviews ?? []))
+      .catch(() => {});
+  }, []);
+  async function submitReview(productId: string) {
+    setReviewMessage('');
+    const r = await fetch('/api/reviews', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        productId,
+        rating: reviewRating,
+        body: reviewBody,
+      }),
+    });
+    const d = await r.json();
+    if (!r.ok) {
+      setReviewMessage(d.error ?? 'Ulasan gagal disimpan.');
+      return;
+    }
+    setReviewBody('');
+    setReviewMessage('Ulasan berhasil disimpan.');
+    const fresh = await fetch('/api/reviews').then((x) => x.json());
+    setReviews(fresh.reviews ?? []);
+  }
   function changeItem(productId: string, variantIndex: number, delta: number) {
     const key = `${productId}:${variantIndex}`;
     setCart((current) => {
@@ -281,6 +377,29 @@ export default function Home() {
           <a href="#footer" className="hidden text-sm font-semibold lg:block">
             Bantuan
           </a>
+          {account ? (
+            <div className="flex items-center gap-2">
+              <UserRound size={18} />
+              <div className="hidden max-w-28 sm:block">
+                <p className="truncate text-xs font-bold">{account.name}</p>
+                <button
+                  onClick={logoutCustomer}
+                  className="text-[10px] text-[#66736a] underline"
+                >
+                  Keluar
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setLoginOpen(true)}
+              aria-label="Daftar atau masuk"
+              className="flex h-10 items-center gap-1 rounded-xl border px-2 text-xs font-bold sm:px-3"
+            >
+              <UserRound size={17} />
+              <span className="hidden sm:inline">Daftar / Masuk</span>
+            </button>
+          )}
           <button
             onClick={() => setCartOpen(true)}
             aria-label={`Buka keranjang, ${count} barang`}
@@ -414,6 +533,13 @@ export default function Home() {
                 price: p.price,
                 stock: p.stock,
               };
+              const productReviews = reviews.filter(
+                (r) => r.product_id === p.id,
+              );
+              const average = productReviews.length
+                ? productReviews.reduce((s, r) => s + r.rating, 0) /
+                  productReviews.length
+                : 0;
               return (
                 <article
                   key={p.id}
@@ -444,6 +570,12 @@ export default function Home() {
                     </p>
                     <p className="mt-1 text-[11px] text-[#6d786f]">
                       {variant.color} · {variant.size} · stok {variant.stock}
+                    </p>
+                    <p className="mt-1 text-[11px] font-semibold text-[#8a5a22]">
+                      ★ {average ? average.toFixed(1) : 'Baru'}{' '}
+                      {productReviews.length
+                        ? `(${productReviews.length} ulasan)`
+                        : ''}
                     </p>
                     <button
                       onClick={() => setDetailId(p.id)}
@@ -555,6 +687,46 @@ export default function Home() {
         </p>
       </footer>
 
+      {loginOpen && (
+        <div
+          className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4"
+          onMouseDown={(e) =>
+            e.target === e.currentTarget && setLoginOpen(false)
+          }
+        >
+          <div className="w-full max-w-sm rounded-3xl bg-white p-6 text-center shadow-2xl">
+            <button
+              onClick={() => setLoginOpen(false)}
+              className="ml-auto block"
+              aria-label="Tutup"
+            >
+              <X />
+            </button>
+            <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[#e7efe9]">
+              <UserRound className="text-[#24593d]" />
+            </div>
+            <h2 className="mt-4 font-serif text-2xl font-bold">
+              Masuk ke Simple Ground
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-[#657168]">
+              Gunakan akun Google untuk memberi rating dan mengelola ulasan
+              Anda.
+            </p>
+            <div
+              id="google-login-button"
+              className="mt-5 flex justify-center"
+            />
+            {reviewMessage && (
+              <p className="mt-3 text-xs text-red-700">{reviewMessage}</p>
+            )}
+            <p className="mt-4 text-[11px] leading-5 text-[#7a857d]">
+              Simple Ground hanya menerima nama dan email dari Google. Kami
+              tidak menerima kata sandi Anda.
+            </p>
+          </div>
+        </div>
+      )}
+
       {detailId &&
         products
           .filter((p) => p.id === detailId)
@@ -568,6 +740,11 @@ export default function Home() {
               price: p.price,
               stock: p.stock,
             };
+            const productReviews = reviews.filter((r) => r.product_id === p.id);
+            const average = productReviews.length
+              ? productReviews.reduce((s, r) => s + r.rating, 0) /
+                productReviews.length
+              : 0;
             return (
               <div
                 key={p.id}
@@ -641,6 +818,12 @@ export default function Home() {
                       <p className="mt-3 text-2xl font-extrabold text-[#b4512d]">
                         {rupiah(variant.price)}
                       </p>
+                      <p className="mt-2 text-sm font-bold text-[#8a5a22]">
+                        ★ {average ? average.toFixed(1) : 'Belum ada rating'}{' '}
+                        {productReviews.length
+                          ? `· ${productReviews.length} ulasan`
+                          : ''}
+                      </p>
                       <p className="mt-4 text-sm leading-6 text-[#5f6b63]">
                         {p.description}
                       </p>
@@ -693,6 +876,82 @@ export default function Home() {
                         <span className="rounded-xl bg-[#f3f6f3] p-3">
                           ✓ Bantuan via WhatsApp
                         </span>
+                      </div>
+                      <div className="mt-6 border-t pt-5">
+                        <h3 className="font-serif text-xl font-bold">
+                          Rating & ulasan
+                        </h3>
+                        {productReviews.length ? (
+                          <div className="mt-3 max-h-48 space-y-3 overflow-auto">
+                            {productReviews.map((r) => (
+                              <div
+                                key={r.id}
+                                className="rounded-xl bg-[#f5f7f4] p-3"
+                              >
+                                <div className="flex justify-between gap-2">
+                                  <b className="text-sm">{r.display_name}</b>
+                                  <span className="text-sm text-amber-600">
+                                    {'★'.repeat(r.rating)}
+                                  </span>
+                                </div>
+                                <p className="mt-1 text-sm text-[#59665d]">
+                                  {r.body}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="mt-2 text-sm text-[#6b766e]">
+                            Belum ada ulasan. Jadilah yang pertama.
+                          </p>
+                        )}
+                        {account ? (
+                          <div className="mt-4 rounded-xl border p-3">
+                            <p className="text-sm font-bold">
+                              Tulis ulasan sebagai {account.name}
+                            </p>
+                            <div className="mt-2 flex gap-1">
+                              {[1, 2, 3, 4, 5].map((n) => (
+                                <button
+                                  key={n}
+                                  onClick={() => setReviewRating(n)}
+                                  aria-label={`${n} bintang`}
+                                  className={
+                                    n <= reviewRating
+                                      ? 'text-amber-500'
+                                      : 'text-gray-300'
+                                  }
+                                >
+                                  <Star size={24} fill="currentColor" />
+                                </button>
+                              ))}
+                            </div>
+                            <textarea
+                              value={reviewBody}
+                              onChange={(e) => setReviewBody(e.target.value)}
+                              maxLength={1000}
+                              placeholder="Ceritakan pengalaman Anda dengan produk ini"
+                              className="mt-2 min-h-20 w-full rounded-lg border p-3 text-sm"
+                            />
+                            <button
+                              onClick={() => submitReview(p.id)}
+                              disabled={!reviewBody.trim()}
+                              className="mt-2 rounded-lg bg-[#173c2b] px-4 py-2 text-sm font-bold text-white disabled:opacity-40"
+                            >
+                              Kirim ulasan
+                            </button>
+                            {reviewMessage && (
+                              <p className="mt-2 text-xs">{reviewMessage}</p>
+                            )}
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setLoginOpen(true)}
+                            className="mt-4 block rounded-xl border border-[#276344] p-3 text-center text-sm font-bold text-[#24593d]"
+                          >
+                            Daftar / masuk untuk memberi ulasan
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
