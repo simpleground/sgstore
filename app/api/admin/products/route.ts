@@ -233,6 +233,28 @@ export async function PATCH(req: Request) {
     );
   }
 }
+export async function PUT(req: Request) {
+  if (!(await auth()))
+    return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
+  try {
+    const { id, active } = (await req.json()) as {
+      id?: string;
+      active?: number;
+    };
+    if (!id || (active !== 0 && active !== 1))
+      throw new Error('Permintaan arsip tidak valid.');
+    await getD1()
+      .prepare('UPDATE products SET active=?,updated_at=? WHERE id=?')
+      .bind(active, new Date().toISOString(), id)
+      .run();
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : 'Gagal mengubah arsip.' },
+      { status: 400 },
+    );
+  }
+}
 export async function DELETE(req: Request) {
   if (!(await auth()))
     return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
