@@ -22,14 +22,19 @@ export async function POST(req: Request) {
       throw new Error('Maksimal 500 baris sekali impor.');
     const groups = new Map<string, any>();
     for (const r of rows) {
+      const normalPrice = Number(r.normal_price);
+      const discountPercent = Number(r.discount_percent);
+      const price = Math.round(normalPrice * (1 - discountPercent / 100));
       if (
         !r.name ||
         !r.category ||
         !r.subcategory ||
         !r.color ||
         !r.size ||
-        (Number(r.normal_price) || Number(r.price)) < Number(r.price) ||
-        Number(r.price) <= 0 ||
+        normalPrice <= 0 ||
+        discountPercent < 0 ||
+        discountPercent >= 100 ||
+        price <= 0 ||
         Number(r.stock) < 0
       )
         throw new Error('Ada baris yang belum lengkap.');
@@ -39,8 +44,8 @@ export async function POST(req: Request) {
         sku: r.sku || '',
         color: r.color,
         size: r.size,
-        normalPrice: Number(r.normal_price) || Number(r.price),
-        price: Number(r.price),
+        normalPrice,
+        price,
         stock: Number(r.stock),
       });
       groups.set(k, g);

@@ -94,6 +94,7 @@ type Variant = {
   color: string;
   size: string;
   normalPrice?: number;
+  discountPercent?: number;
   price: number;
   stock: number;
 };
@@ -114,22 +115,49 @@ type Product = {
 function VariantEditor({ initial = [] }: { initial?: Variant[] }) {
   const [rows, setRows] = useState<Variant[]>(
     initial.length
-      ? initial
-      : [{ sku: '', color: '', size: '', normalPrice: 0, price: 0, stock: 0 }],
+      ? initial.map((row) => ({
+          ...row,
+          discountPercent:
+            (row.normalPrice ?? row.price) > 0
+              ? Math.round(
+                  (1 - row.price / (row.normalPrice ?? row.price)) * 100,
+                )
+              : 0,
+        }))
+      : [
+          {
+            sku: '',
+            color: '',
+            size: '',
+            normalPrice: 0,
+            discountPercent: 0,
+            price: 0,
+            stock: 0,
+          },
+        ],
   );
   function change(index: number, field: keyof Variant, value: string) {
     setRows((current) =>
-      current.map((row, i) =>
-        i === index
-          ? {
-              ...row,
-              [field]:
-                field === 'sku' || field === 'color' || field === 'size'
-                  ? value
-                  : Number(value),
-            }
-          : row,
-      ),
+      current.map((row, i) => {
+        if (i !== index) return row;
+        const next = {
+          ...row,
+          [field]:
+            field === 'sku' || field === 'color' || field === 'size'
+              ? value
+              : Number(value),
+        };
+        if (field === 'normalPrice' || field === 'discountPercent') {
+          const normalPrice = Number(next.normalPrice) || 0;
+          const discount = Math.min(
+            100,
+            Math.max(0, Number(next.discountPercent) || 0),
+          );
+          next.discountPercent = discount;
+          next.price = Math.round(normalPrice * (1 - discount / 100));
+        }
+        return next;
+      }),
     );
   }
   return (
@@ -146,7 +174,7 @@ function VariantEditor({ initial = [] }: { initial?: Variant[] }) {
       />
       <div className="flex items-center justify-between gap-3">
         <div>
-          <b className="text-sm">Warna, ukuran, harga & stok</b>
+          <b className="text-sm">Warna, ukuran, diskon & stok</b>
           <p className="mt-1 text-xs text-[#68736b]">
             Satu baris untuk setiap pilihan yang dijual.
           </p>
@@ -161,6 +189,7 @@ function VariantEditor({ initial = [] }: { initial?: Variant[] }) {
                 color: '',
                 size: '',
                 normalPrice: 0,
+                discountPercent: 0,
                 price: 0,
                 stock: 0,
               },
@@ -175,7 +204,7 @@ function VariantEditor({ initial = [] }: { initial?: Variant[] }) {
         {rows.map((row, index) => (
           <div
             key={index}
-            className="grid grid-cols-2 gap-2 rounded-xl bg-[#f7f4ec] p-3 sm:grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_auto]"
+            className="grid grid-cols-2 gap-2 rounded-xl bg-[#f7f4ec] p-3 sm:grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_1fr_auto]"
           >
             <label className="text-[11px] font-semibold text-[#68736b]">
               SKU
@@ -207,27 +236,39 @@ function VariantEditor({ initial = [] }: { initial?: Variant[] }) {
               />
             </label>
             <label className="text-[11px] font-semibold text-[#68736b]">
-              Harga jual
-              <input
-                required
-                min="1"
-                type="number"
-                value={row.price || ''}
-                onChange={(e) => change(index, 'price', e.target.value)}
-                placeholder="54600"
-                className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm text-[#1f2b22]"
-              />
-            </label>
-            <label className="text-[11px] font-semibold text-[#68736b]">
               Harga normal
               <input
                 required
                 min="1"
                 type="number"
-                value={row.normalPrice || row.price || ''}
+                value={row.normalPrice || ''}
                 onChange={(e) => change(index, 'normalPrice', e.target.value)}
                 placeholder="65000"
                 className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm text-[#1f2b22]"
+              />
+            </label>
+            <label className="text-[11px] font-semibold text-[#68736b]">
+              Diskon (%)
+              <input
+                required
+                min="0"
+                max="99"
+                type="number"
+                value={row.discountPercent ?? 0}
+                onChange={(e) =>
+                  change(index, 'discountPercent', e.target.value)
+                }
+                placeholder="16"
+                className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm text-[#1f2b22]"
+              />
+            </label>
+            <label className="text-[11px] font-semibold text-[#68736b]">
+              Harga jual otomatis
+              <input
+                readOnly
+                value={row.price || ''}
+                placeholder="54600"
+                className="mt-1 w-full rounded-lg border bg-[#edf1ec] px-3 py-2 text-sm font-bold text-[#24593d]"
               />
             </label>
             <label className="text-[11px] font-semibold text-[#68736b]">
@@ -289,8 +330,8 @@ function BulkImport({ onDone }: { onDone: () => void }) {
           'color',
           'sku',
           'size',
-          'price',
           'normal_price',
+          'discount_percent',
           'stock',
         ];
       if (!required.every((h) => headers.includes(h)))
@@ -315,7 +356,7 @@ function BulkImport({ onDone }: { onDone: () => void }) {
   }
   function template() {
     const csv =
-      'name;category;subcategory;description;sku;color;size;normal_price;price;stock;image_url\nKaos Daily Basic;Daily Basic;Kaos;Kaos nyaman sehari-hari;KAOS-HITAM-M;Hitam;M;65000;54600;20;\nKaos Daily Basic;Daily Basic;Kaos;Kaos nyaman sehari-hari;KAOS-HITAM-L;Hitam;L;67000;56600;15;';
+      'name;category;subcategory;description;sku;color;size;normal_price;discount_percent;stock;image_url\nKaos Daily Basic;Daily Basic;Kaos;Kaos nyaman sehari-hari;KAOS-HITAM-M;Hitam;M;65000;16;20;\nKaos Daily Basic;Daily Basic;Kaos;Kaos nyaman sehari-hari;KAOS-HITAM-L;Hitam;L;67000;15;15;';
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
     a.download = 'template-produk-simple-ground.csv';
