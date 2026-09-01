@@ -405,6 +405,7 @@ function ProductManager() {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [productTab, setProductTab] = useState<'active' | 'archived'>('active');
   async function load() {
     const r = await fetch('/api/admin/products');
     if (r.ok) setItems((await r.json()).products);
@@ -465,6 +466,11 @@ function ProductManager() {
     }
     await load();
   }
+  const activeCount = items.filter((item) => item.active !== 0).length;
+  const archivedCount = items.length - activeCount;
+  const visibleItems = items.filter((item) =>
+    productTab === 'active' ? item.active !== 0 : item.active === 0,
+  );
   return (
     <section className="mt-8 rounded-3xl border bg-white p-5 sm:p-7">
       <div className="flex items-center justify-between gap-4">
@@ -600,74 +606,100 @@ function ProductManager() {
           </div>
         </form>
       )}
-      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {items
-          .slice()
-          .sort((a, b) => b.active - a.active)
-          .map((p) => (
-            <article
-              key={p.id}
-              className={`flex gap-3 rounded-2xl border p-3 ${p.active === 0 ? 'border-dashed bg-[#f1f1ed] opacity-75' : ''}`}
+      <div className="mt-6 flex gap-1 rounded-xl bg-[#f1f1eb] p-1 sm:w-fit">
+        {(
+          [
+            ['active', 'Produk Aktif', activeCount],
+            ['archived', 'Diarsipkan', archivedCount],
+          ] as const
+        ).map(([value, label, count]) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setProductTab(value)}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition sm:flex-none ${productTab === value ? 'bg-white text-[#243b2c] shadow-sm' : 'text-[#68736b] hover:text-[#243b2c]'}`}
+          >
+            {label}
+            <span
+              className={`rounded-full px-2 py-0.5 text-[10px] ${productTab === value ? 'bg-[#e5efe8] text-[#24593d]' : 'bg-[#dedfd9]'}`}
             >
-              <img
-                src={p.images?.[0] ?? p.image ?? '/placeholder-product.svg'}
-                alt=""
-                className="h-24 w-20 rounded-xl object-cover"
-              />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <b className="block min-w-0 truncate text-sm">{p.name}</b>
-                  {p.active === 0 && (
-                    <span className="shrink-0 rounded-full bg-[#dfe3dd] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#566158]">
-                      Diarsipkan
-                    </span>
-                  )}
-                </div>
-                <p className="mt-1 text-xs text-[#68736b]">
-                  {p.category} › {p.subcategory} · stok {p.stock} ·{' '}
-                  {p.images?.length || 1} foto
-                </p>
-                <p className="mt-1 text-sm font-bold">{rupiah(p.price)}</p>
-                <div className="mt-2 flex gap-3">
-                  <button
-                    onClick={() => {
-                      setEditing(p);
-                      setOpen(true);
-                    }}
-                    className="flex items-center gap-1 text-xs font-semibold"
-                  >
-                    <Pencil size={13} /> Edit
-                  </button>
-                  <button
-                    onClick={() => copy(p.id)}
-                    className="text-xs font-semibold"
-                  >
-                    Salin
-                  </button>
-                  <button
-                    onClick={() => setArchived(p)}
-                    className="flex items-center gap-1 text-xs font-semibold text-[#8a542f]"
-                  >
-                    {p.active === 0 ? (
-                      <>
-                        <RotateCcw size={13} /> Pulihkan
-                      </>
-                    ) : (
-                      <>
-                        <Archive size={13} /> Arsipkan
-                      </>
-                    )}
-                  </button>
-                  <button
-                    onClick={() => remove(p.id)}
-                    className="flex items-center gap-1 text-xs font-semibold text-red-700"
-                  >
-                    <Trash2 size={13} /> Hapus
-                  </button>
-                </div>
+              {count}
+            </span>
+          </button>
+        ))}
+      </div>
+      {visibleItems.length === 0 && (
+        <div className="mt-4 rounded-2xl border border-dashed px-5 py-10 text-center text-sm text-[#68736b]">
+          {productTab === 'active'
+            ? 'Belum ada produk aktif.'
+            : 'Belum ada produk yang diarsipkan.'}
+        </div>
+      )}
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {visibleItems.map((p) => (
+          <article
+            key={p.id}
+            className={`flex gap-3 rounded-2xl border p-3 ${p.active === 0 ? 'border-dashed bg-[#f1f1ed] opacity-75' : ''}`}
+          >
+            <img
+              src={p.images?.[0] ?? p.image ?? '/placeholder-product.svg'}
+              alt=""
+              className="h-24 w-20 rounded-xl object-cover"
+            />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <b className="block min-w-0 truncate text-sm">{p.name}</b>
+                {p.active === 0 && (
+                  <span className="shrink-0 rounded-full bg-[#dfe3dd] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#566158]">
+                    Diarsipkan
+                  </span>
+                )}
               </div>
-            </article>
-          ))}
+              <p className="mt-1 text-xs text-[#68736b]">
+                {p.category} › {p.subcategory} · stok {p.stock} ·{' '}
+                {p.images?.length || 1} foto
+              </p>
+              <p className="mt-1 text-sm font-bold">{rupiah(p.price)}</p>
+              <div className="mt-2 flex gap-3">
+                <button
+                  onClick={() => {
+                    setEditing(p);
+                    setOpen(true);
+                  }}
+                  className="flex items-center gap-1 text-xs font-semibold"
+                >
+                  <Pencil size={13} /> Edit
+                </button>
+                <button
+                  onClick={() => copy(p.id)}
+                  className="text-xs font-semibold"
+                >
+                  Salin
+                </button>
+                <button
+                  onClick={() => setArchived(p)}
+                  className="flex items-center gap-1 text-xs font-semibold text-[#8a542f]"
+                >
+                  {p.active === 0 ? (
+                    <>
+                      <RotateCcw size={13} /> Pulihkan
+                    </>
+                  ) : (
+                    <>
+                      <Archive size={13} /> Arsipkan
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => remove(p.id)}
+                  className="flex items-center gap-1 text-xs font-semibold text-red-700"
+                >
+                  <Trash2 size={13} /> Hapus
+                </button>
+              </div>
+            </div>
+          </article>
+        ))}
       </div>
     </section>
   );
