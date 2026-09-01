@@ -165,7 +165,9 @@ const cleanLabel = (value: string) => {
 export default function Home() {
   const [category, setCategory] = useState('Semua');
   const [subcategory, setSubcategory] = useState('Semua');
-  const [products, setProducts] = useState(defaultProducts);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
+  const [productsError, setProductsError] = useState('');
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState('rekomendasi');
   const [priceLimit, setPriceLimit] = useState(500000);
@@ -256,8 +258,10 @@ export default function Home() {
       .then((r) => r.json())
       .then((d: { products?: typeof defaultProducts }) => {
         if (d.products?.length) setProducts(d.products);
+        else setProductsError('Katalog belum memiliki produk aktif.');
       })
-      .catch(() => {});
+      .catch(() => setProductsError('Katalog belum dapat dimuat. Coba muat ulang halaman.'))
+      .finally(() => setProductsLoading(false));
   }, []);
   function toggleWishlist(productId: string) {
     setWishlist((current) => {
@@ -571,7 +575,7 @@ export default function Home() {
             <p className="mt-6 text-xs font-semibold text-[#4e6255]">Pengiriman ke seluruh Indonesia · Bantuan via WhatsApp</p>
           </div>
           <div className="relative min-h-72 lg:min-h-[430px]">
-            <img src={products[0]?.images?.[0] ?? products[0]?.image} alt="Produk asli Simple Ground" className="absolute inset-0 h-full w-full object-cover" />
+            <img src={products[0]?.images?.[0] ?? products[0]?.image ?? defaultProducts[3].image} alt="Produk Simple Ground" className="absolute inset-0 h-full w-full object-cover" />
             <div className="absolute inset-0 bg-gradient-to-t from-[#173c2b]/30 to-transparent" />
             <span className="absolute bottom-5 left-5 rounded-full bg-white/90 px-4 py-2 text-xs font-bold text-[#173c2b] backdrop-blur">Chef & Kitchen Wear</span>
           </div>
@@ -599,7 +603,7 @@ export default function Home() {
                 Pilihan produk
               </h2>
               <p className="mt-1 text-sm text-[#68756c]">
-                {filtered.length} produk ditemukan
+                {productsLoading ? 'Memuat katalog…' : `${filtered.length} produk ditemukan`}
               </p>
             </div>
             {(query || category !== 'Semua' || subcategory !== 'Semua') && (
@@ -632,7 +636,21 @@ export default function Home() {
             </label>
             <div className="rounded-xl bg-[#edf4ee] px-4 py-3 text-sm font-bold text-[#24593d]">{wishlist.length} wishlist</div>
           </div>
-          <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
+          {productsLoading && (
+            <div aria-label="Memuat produk" className="mt-6 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
+              {Array.from({ length: 8 }).map((_, index) => (
+                <div key={index} className="overflow-hidden rounded-2xl border border-black/5 bg-white">
+                  <div className="aspect-square animate-pulse bg-[#e2e7e1]" />
+                  <div className="space-y-3 p-4">
+                    <div className="h-4 w-4/5 animate-pulse rounded bg-[#e2e7e1]" />
+                    <div className="h-5 w-2/3 animate-pulse rounded bg-[#e2e7e1]" />
+                    <div className="h-9 animate-pulse rounded-xl bg-[#edf0ec]" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {!productsLoading && <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
             {filtered.slice(0, visibleCount).map((p) => {
               const variantIndex = selectedVariants[p.id] ?? 0;
               const productImages = p.images?.length ? p.images : [p.image];
@@ -717,18 +735,18 @@ export default function Home() {
                 </article>
               );
             })}
-          </div>
-          {visibleCount < filtered.length && (
+          </div>}
+          {!productsLoading && visibleCount < filtered.length && (
             <div className="mt-8 text-center">
               <button onClick={() => setVisibleCount((count) => count + 16)} className="rounded-xl border border-[#276344] bg-white px-6 py-3 text-sm font-bold text-[#24593d]">
                 Muat produk lainnya ({filtered.length - visibleCount})
               </button>
             </div>
           )}
-          {filtered.length === 0 && (
+          {!productsLoading && filtered.length === 0 && (
             <div className="mt-6 rounded-2xl border border-dashed bg-white py-16 text-center">
               <Search className="mx-auto text-[#8a958d]" />
-              <p className="mt-3 font-semibold">Produk tidak ditemukan</p>
+              <p className="mt-3 font-semibold">{productsError || 'Produk tidak ditemukan'}</p>
               <button
                 onClick={() => {
                   setQuery('');
