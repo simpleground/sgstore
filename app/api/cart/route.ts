@@ -28,6 +28,20 @@ export async function PUT(req: Request) {
       { status: 400 },
     );
   const d = getD1();
+  if (quantity > 0) {
+    const product = await d
+      .prepare('SELECT variants_json FROM products WHERE id=? AND active=1')
+      .bind(productId)
+      .first<{ variants_json: string }>();
+    let variants: Array<{ stock?: number }> = [];
+    try { variants = JSON.parse(product?.variants_json || '[]'); } catch {}
+    const variant = variants[variantIndex];
+    if (!product || !variant || !Number.isInteger(variant.stock) || quantity > variant.stock!)
+      return NextResponse.json(
+        { error: 'Produk, varian, atau jumlah stok tidak tersedia.' },
+        { status: 409 },
+      );
+  }
   if (quantity === 0)
     await d
       .prepare(

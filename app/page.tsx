@@ -402,13 +402,9 @@ export default function Home() {
   async function submitOrder() {
     setOrderBusy(true);
     setOrderError('');
-    const items = cartRows.map(({ product, variant, quantity }) => ({
+    const items = cartRows.map(({ product, quantity, key }) => ({
       id: product.id,
-      name: product.name,
-      color: variant.color,
-      size: variant.size,
-      sku: variant.sku,
-      price: variant.price,
+      variantIndex: Number(key.split(':').pop()),
       quantity,
     }));
     try {
@@ -442,7 +438,7 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-[#f5f6f4] text-[#17251c]">
       <div className="bg-[#173c2b] px-4 py-2 text-center text-[11px] font-semibold text-white sm:text-xs">
-        Gratis ongkir untuk pembelian di atas Rp500.000
+        Belanja mudah · Pembayaran transfer bank · Bantuan via WhatsApp
       </div>
       <header className="sticky top-0 z-30 border-b bg-white/95 shadow-sm backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:px-8">
