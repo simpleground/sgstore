@@ -5,6 +5,7 @@ import {
   ArrowRight,
   Check,
   ChevronLeft,
+  ExternalLink,
   Minus,
   Plus,
   Search,
@@ -702,7 +703,7 @@ export default function Home() {
         id="footer"
         className="bg-[#243b2c] px-5 py-14 text-[#f4efdf] sm:px-8"
       >
-        <div className="mx-auto grid max-w-7xl gap-10 md:grid-cols-[1.5fr_1fr_1fr]">
+        <div className="mx-auto grid max-w-7xl gap-10 md:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1.15fr]">
           <div>
             <p className="font-serif text-3xl font-bold">simple ground.</p>
             <p className="mt-4 max-w-sm text-sm leading-6 text-[#c6d0c6]">
@@ -730,6 +731,42 @@ export default function Home() {
               <a href="https://wa.me/6285172381996" className="block">
                 WhatsApp: 0851-7238-1996
               </a>
+            </div>
+          </div>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[.18em]">
+              Temukan Kami
+            </p>
+            <div className="mt-4 grid grid-cols-2 gap-x-5 gap-y-3 text-sm text-[#c6d0c6]">
+              {[
+                [
+                  'Facebook',
+                  'https://www.facebook.com/profile.php?id=61586255756281',
+                ],
+                ['Instagram', 'https://www.instagram.com/simple_ground'],
+                ['TikTok', 'https://www.tiktok.com/@simple.ground'],
+                ['X / Twitter', 'https://x.com/Simple_Ground'],
+                [
+                  'Shopee',
+                  'https://shopee.co.id/simpleground?entryPoint=ShopBySearch&searchKeyword=simple%20ground',
+                ],
+                ['YouTube', 'https://youtube.com/@simple_ground'],
+              ].map(([label, href]) => (
+                <a
+                  key={label}
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group inline-flex items-center gap-1.5 transition-colors hover:text-white"
+                  aria-label={`Kunjungi ${label} Simple Ground`}
+                >
+                  <span>{label}</span>
+                  <ExternalLink
+                    size={11}
+                    className="opacity-45 transition-opacity group-hover:opacity-100"
+                  />
+                </a>
+              ))}
             </div>
           </div>
         </div>
