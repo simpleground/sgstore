@@ -58,6 +58,12 @@ export const customers = sqliteTable('customers', {
   email: text('email').notNull().unique(),
   createdAt: text('created_at').notNull(),
 });
+export const newsletterSubscribers = sqliteTable('newsletter_subscribers', {
+  email: text('email').primaryKey(),
+  active: integer('active', { mode: 'boolean' }).notNull().default(true),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+});
 export const customerSessions = sqliteTable(
   'customer_sessions',
   {

@@ -153,6 +153,14 @@ const rupiah = (value: number) =>
     currency: 'IDR',
     maximumFractionDigits: 0,
   }).format(value);
+const cleanCategory = (value: string) =>
+  value.replace(/^Proffesional Workwear$/i, 'Professional Workwear');
+const cleanLabel = (value: string) => {
+  const corrected = value.replace(/Kemaja/gi, 'Kemeja');
+  return corrected.replace(/\b(kaos|celana|kemeja)\b/gi, (word) =>
+    word.charAt(0).toUpperCase() + word.slice(1).toLowerCase(),
+  );
+};
 
 export default function Home() {
   const [category, setCategory] = useState('Semua');
@@ -162,6 +170,9 @@ export default function Home() {
   const [sort, setSort] = useState('rekomendasi');
   const [priceLimit, setPriceLimit] = useState(500000);
   const [wishlist, setWishlist] = useState<string[]>([]);
+  const [visibleCount, setVisibleCount] = useState(16);
+  const [newsletterEmail, setNewsletterEmail] = useState('');
+  const [newsletterMessage, setNewsletterMessage] = useState('');
   const [cart, setCart] = useState<Record<string, CartLine>>({});
   const [selectedVariants, setSelectedVariants] = useState<
     Record<string, number>
@@ -192,9 +203,9 @@ export default function Home() {
   const filtered = useMemo(() => {
     const result = products.filter(
         (p) =>
-          (category === 'Semua' || p.category === category) &&
-          (subcategory === 'Semua' || p.subcategory === subcategory) &&
-          p.name.toLowerCase().includes(query.toLowerCase()) &&
+          (category === 'Semua' || cleanCategory(p.category) === category) &&
+          (subcategory === 'Semua' || cleanLabel(p.subcategory) === subcategory) &&
+          cleanLabel(p.name).toLowerCase().includes(query.toLowerCase()) &&
           Math.min(...p.variants.map((variant) => variant.price)) <= priceLimit,
       );
     if (sort === 'termurah')
@@ -211,12 +222,15 @@ export default function Home() {
       'Professional Workwear': ['Kemeja PDL', 'Seragam Kerja'],
       'Daily Basic': ['Kaos', 'Kemeja', 'Celana'],
     };
-    for (const p of products)
-      suggestions[p.category] = Array.from(
-        new Set([...(suggestions[p.category] ?? []), p.subcategory]),
+    for (const p of products) {
+      const normalizedCategory = cleanCategory(p.category);
+      suggestions[normalizedCategory] = Array.from(
+        new Set([...(suggestions[normalizedCategory] ?? []), cleanLabel(p.subcategory)]),
       );
+    }
     return suggestions;
   }, [products]);
+  useEffect(() => setVisibleCount(16), [category, subcategory, query, priceLimit, sort]);
   const count = Object.values(cart).reduce((a, b) => a + b.quantity, 0);
   const cartRows = Object.entries(cart).flatMap(([key, line]) => {
     const product = products.find((p) => p.id === line.productId);
@@ -253,6 +267,22 @@ export default function Home() {
       localStorage.setItem('sg_wishlist', JSON.stringify(next));
       return next;
     });
+  }
+  async function submitNewsletter(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setNewsletterMessage('Menyimpan…');
+    const response = await fetch('/api/newsletter', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: newsletterEmail }),
+    });
+    const data = (await response.json()) as { error?: string };
+    if (!response.ok) {
+      setNewsletterMessage(data.error ?? 'Email belum dapat disimpan.');
+      return;
+    }
+    setNewsletterEmail('');
+    setNewsletterMessage('Terima kasih. Kamu sudah terdaftar.');
   }
   useEffect(() => {
     if (!loginOpen) return;
@@ -545,7 +575,7 @@ export default function Home() {
             <p className="mt-6 text-xs font-semibold text-[#4e6255]">Pengiriman ke seluruh Indonesia · Bantuan via WhatsApp</p>
           </div>
           <div className="relative min-h-72 lg:min-h-[430px]">
-            <img src="https://images.unsplash.com/photo-1577219491135-ce391730fb2c?auto=format&fit=crop&w=1200&q=90" alt="Koleksi pakaian kerja Simple Ground" className="absolute inset-0 h-full w-full object-cover" />
+            <img src={products[0]?.images?.[0] ?? products[0]?.image} alt="Produk asli Simple Ground" className="absolute inset-0 h-full w-full object-cover" />
             <div className="absolute inset-0 bg-gradient-to-t from-[#173c2b]/30 to-transparent" />
             <span className="absolute bottom-5 left-5 rounded-full bg-white/90 px-4 py-2 text-xs font-bold text-[#173c2b] backdrop-blur">Chef & Kitchen Wear</span>
           </div>
@@ -607,7 +637,7 @@ export default function Home() {
             <div className="rounded-xl bg-[#edf4ee] px-4 py-3 text-sm font-bold text-[#24593d]">{wishlist.length} wishlist</div>
           </div>
           <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
-            {filtered.map((p) => {
+            {filtered.slice(0, visibleCount).map((p) => {
               const variantIndex = selectedVariants[p.id] ?? 0;
               const productImages = p.images?.length ? p.images : [p.image];
               const imageIndex = selectedImages[p.id] ?? 0;
@@ -635,14 +665,14 @@ export default function Home() {
                   >
                     <img
                       src={productImages[imageIndex] ?? productImages[0]}
-                      alt={p.name}
+                      alt={cleanLabel(p.name)}
                       className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
                     />
                     <span className="absolute left-2 top-2 rounded-md bg-white/90 px-2 py-1 text-[10px] font-bold">
                       {p.subcategory}
                     </span>
                   </button>
-                  <button onClick={() => toggleWishlist(p.id)} aria-label={wishlist.includes(p.id) ? `Hapus ${p.name} dari wishlist` : `Simpan ${p.name} ke wishlist`} className="absolute right-2 top-2 z-10 grid h-9 w-9 place-items-center rounded-full bg-white/90 shadow-sm" style={{ marginTop: 0 }}>
+                  <button onClick={() => toggleWishlist(p.id)} aria-label={wishlist.includes(p.id) ? `Hapus ${cleanLabel(p.name)} dari wishlist` : `Simpan ${cleanLabel(p.name)} ke wishlist`} className="absolute right-2 top-2 z-10 grid h-9 w-9 place-items-center rounded-full bg-white/90 shadow-sm" style={{ marginTop: 0 }}>
                     <Heart size={17} fill={wishlist.includes(p.id) ? 'currentColor' : 'none'} className={wishlist.includes(p.id) ? 'text-[#b4512d]' : 'text-[#34483b]'} />
                   </button>
                   <div className="p-3 sm:p-4">
@@ -650,7 +680,7 @@ export default function Home() {
                       onClick={() => setDetailId(p.id)}
                       className="line-clamp-2 min-h-10 text-left text-sm font-semibold leading-5 sm:text-base"
                     >
-                      {p.name}
+                      {cleanLabel(p.name)}
                     </button>
                     <div className="mt-2">
                       <p className="text-base font-extrabold text-[#b4512d] sm:text-lg">
@@ -692,6 +722,13 @@ export default function Home() {
               );
             })}
           </div>
+          {visibleCount < filtered.length && (
+            <div className="mt-8 text-center">
+              <button onClick={() => setVisibleCount((count) => count + 16)} className="rounded-xl border border-[#276344] bg-white px-6 py-3 text-sm font-bold text-[#24593d]">
+                Muat produk lainnya ({filtered.length - visibleCount})
+              </button>
+            </div>
+          )}
           {filtered.length === 0 && (
             <div className="mt-6 rounded-2xl border border-dashed bg-white py-16 text-center">
               <Search className="mx-auto text-[#8a958d]" />
@@ -736,16 +773,16 @@ export default function Home() {
           </p>
           <div className="mt-8 grid grid-cols-3 gap-4 border-t border-[#263e2e]/15 pt-6">
             <div>
-              <b className="font-serif text-3xl">100%</b>
-              <p className="mt-1 text-xs text-[#68736b]">material pilihan</p>
+              <b className="font-serif text-2xl sm:text-3xl">Mudah</b>
+              <p className="mt-1 text-xs text-[#68736b]">pilih varian</p>
             </div>
             <div>
-              <b className="font-serif text-3xl">30 hari</b>
-              <p className="mt-1 text-xs text-[#68736b]">tukar ukuran</p>
+              <b className="font-serif text-2xl sm:text-3xl">Cepat</b>
+              <p className="mt-1 text-xs text-[#68736b]">bantuan WhatsApp</p>
             </div>
             <div>
-              <b className="font-serif text-3xl">Lokal</b>
-              <p className="mt-1 text-xs text-[#68736b]">produksi etis</p>
+              <b className="font-serif text-2xl sm:text-3xl">Jelas</b>
+              <p className="mt-1 text-xs text-[#68736b]">harga & stok</p>
             </div>
           </div>
         </div>
@@ -754,38 +791,36 @@ export default function Home() {
       <section className="bg-[#173c2b] px-5 py-16 text-white sm:px-8">
         <div className="mx-auto max-w-7xl">
           <div className="max-w-2xl">
-            <p className="text-xs font-bold uppercase tracking-[.22em] text-[#d9b796]">Dipakai, disukai, dipercaya</p>
-            <h2 className="mt-3 font-serif text-3xl sm:text-4xl">Dibuat untuk hari kerja yang panjang.</h2>
+            <p className="text-xs font-bold uppercase tracking-[.22em] text-[#d9b796]">Ulasan pelanggan</p>
+            <h2 className="mt-3 font-serif text-3xl sm:text-4xl">Pengalaman asli dari pembeli Simple Ground.</h2>
           </div>
           <div className="mt-8 grid gap-4 md:grid-cols-3">
-            {[
-              ['“Bahannya adem dan potongannya rapi. Tetap nyaman dipakai dari persiapan sampai dapur tutup.”', 'Raka · Chef, Bandung'],
-              ['“Apronnya kokoh, detail sakunya sangat kepakai, dan setelah dicuci bentuknya tetap bagus.”', 'Nadia · Baker, Jakarta'],
-              ['“Tampilannya sederhana tetapi profesional. Tim kami jadi kelihatan lebih kompak.”', 'Ayu · Pemilik kafe, Yogyakarta'],
-            ].map(([quote, person]) => (
-              <figure key={person} className="rounded-2xl bg-white/8 p-6 ring-1 ring-white/10">
-                <div className="text-[#e7b264]">★★★★★</div>
-                <blockquote className="mt-4 text-sm leading-7 text-[#e7ede8]">{quote}</blockquote>
-                <figcaption className="mt-5 text-xs font-bold text-white">{person}</figcaption>
+            {reviews.slice(0, 3).map((review) => (
+              <figure key={review.id} className="rounded-2xl bg-white/8 p-6 ring-1 ring-white/10">
+                <div className="text-[#e7b264]">{'★'.repeat(review.rating)}</div>
+                <blockquote className="mt-4 text-sm leading-7 text-[#e7ede8]">“{review.body}”</blockquote>
+                <figcaption className="mt-5 text-xs font-bold text-white">{review.display_name}</figcaption>
               </figure>
             ))}
+            {!reviews.length && <p className="text-sm text-[#d5ded7]">Ulasan pelanggan akan tampil di sini setelah disetujui.</p>}
           </div>
         </div>
       </section>
 
       <section className="px-5 py-16 sm:px-8">
-        <div className="mx-auto grid max-w-7xl gap-8 rounded-[2rem] bg-[#efe7d8] p-7 sm:p-10 lg:grid-cols-[1fr_auto] lg:items-center">
+        <div className="mx-auto grid max-w-7xl gap-8 overflow-hidden rounded-[2rem] bg-[#efe7d8] p-7 sm:p-10 lg:grid-cols-[1fr_auto] lg:items-center">
           <div>
             <p className="text-xs font-bold uppercase tracking-[.2em] text-[#a34f2c]">Ground Notes</p>
             <h2 className="mt-3 font-serif text-3xl">Koleksi baru, cerita bahan, dan penawaran khusus.</h2>
             <p className="mt-2 text-sm text-[#657066]">Kami mengirim seperlunya. Tidak ada pesan yang memenuhi kotak masuk.</p>
           </div>
-          <form className="flex w-full max-w-md gap-2" onSubmit={(event) => event.preventDefault()}>
+          <form className="flex w-full min-w-0 max-w-md flex-col gap-2 sm:flex-row" onSubmit={submitNewsletter}>
             <label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl bg-white px-4 py-3">
               <Mail size={17} className="shrink-0 text-[#68736b]" />
-              <input type="email" required aria-label="Alamat email" placeholder="Email kamu" className="min-w-0 flex-1 bg-transparent text-sm outline-none" />
+              <input type="email" required value={newsletterEmail} onChange={(event) => setNewsletterEmail(event.target.value)} aria-label="Alamat email" placeholder="Email kamu" className="min-w-0 flex-1 bg-transparent text-sm outline-none" />
             </label>
-            <button className="rounded-xl bg-[#173c2b] px-5 text-sm font-bold text-white">Daftar</button>
+            <button className="min-h-11 rounded-xl bg-[#173c2b] px-5 text-sm font-bold text-white">Daftar</button>
+            {newsletterMessage && <p className="text-xs font-semibold text-[#526158] sm:hidden">{newsletterMessage}</p>}
           </form>
         </div>
       </section>
@@ -943,7 +978,7 @@ export default function Home() {
                 <section
                   role="dialog"
                   aria-modal="true"
-                  aria-label={`Detail ${p.name}`}
+                  aria-label={`Detail ${cleanLabel(p.name)}`}
                   className="max-h-[94vh] w-full max-w-4xl overflow-auto rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl"
                 >
                   <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-white px-5 py-4 sm:hidden">
@@ -973,7 +1008,7 @@ export default function Home() {
                       >
                         <img
                           src={productImages[imageIndex] ?? productImages[0]}
-                          alt={p.name}
+                          alt={cleanLabel(p.name)}
                           className="h-full w-full select-none object-cover transition-opacity duration-200"
                           draggable={false}
                         />
@@ -1037,7 +1072,7 @@ export default function Home() {
                         {p.category} › {p.subcategory}
                       </span>
                       <h2 className="mt-2 pr-10 font-serif text-2xl font-bold sm:text-3xl">
-                        {p.name}
+                        {cleanLabel(p.name)}
                       </h2>
                       <div className="mt-3">
                         <p className="text-2xl font-extrabold text-[#b4512d]">
@@ -1263,7 +1298,7 @@ export default function Home() {
                               className="h-24 w-20 rounded-xl object-cover"
                             />
                             <div className="flex flex-1 flex-col">
-                              <b className="text-sm">{p.name}</b>
+                              <b className="text-sm">{cleanLabel(p.name)}</b>
                               <span className="mt-1 text-xs text-[#758078]">
                                 {variant.color} · {variant.size}
                                 {variant.sku ? ` · SKU ${variant.sku}` : ''}
