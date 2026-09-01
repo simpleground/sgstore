@@ -7,6 +7,8 @@ import {
   ChevronLeft,
   ChevronRight,
   ExternalLink,
+  Heart,
+  Mail,
   Minus,
   Plus,
   Search,
@@ -157,6 +159,9 @@ export default function Home() {
   const [subcategory, setSubcategory] = useState('Semua');
   const [products, setProducts] = useState(defaultProducts);
   const [query, setQuery] = useState('');
+  const [sort, setSort] = useState('rekomendasi');
+  const [priceLimit, setPriceLimit] = useState(500000);
+  const [wishlist, setWishlist] = useState<string[]>([]);
   const [cart, setCart] = useState<Record<string, CartLine>>({});
   const [selectedVariants, setSelectedVariants] = useState<
     Record<string, number>
@@ -184,16 +189,22 @@ export default function Home() {
   const [reviewBody, setReviewBody] = useState('');
   const [reviewMessage, setReviewMessage] = useState('');
   const [loginOpen, setLoginOpen] = useState(false);
-  const filtered = useMemo(
-    () =>
-      products.filter(
+  const filtered = useMemo(() => {
+    const result = products.filter(
         (p) =>
           (category === 'Semua' || p.category === category) &&
           (subcategory === 'Semua' || p.subcategory === subcategory) &&
-          p.name.toLowerCase().includes(query.toLowerCase()),
-      ),
-    [category, subcategory, query, products],
-  );
+          p.name.toLowerCase().includes(query.toLowerCase()) &&
+          Math.min(...p.variants.map((variant) => variant.price)) <= priceLimit,
+      );
+    if (sort === 'termurah')
+      return [...result].sort((a, b) => a.price - b.price);
+    if (sort === 'termahal')
+      return [...result].sort((a, b) => b.price - a.price);
+    if (sort === 'stok')
+      return [...result].sort((a, b) => b.stock - a.stock);
+    return result;
+  }, [category, subcategory, query, products, priceLimit, sort]);
   const catalog = useMemo(() => {
     const suggestions: Record<string, string[]> = {
       'Chef & Kitchen Wear': ['Baju Chef', 'Topi Chef', 'Apron'],
@@ -224,6 +235,9 @@ export default function Home() {
   );
   const shipping = subtotal ? 18000 : 0;
   useEffect(() => {
+    try {
+      setWishlist(JSON.parse(localStorage.getItem('sg_wishlist') || '[]'));
+    } catch {}
     fetch('/api/products')
       .then((r) => r.json())
       .then((d: { products?: typeof defaultProducts }) => {
@@ -231,6 +245,15 @@ export default function Home() {
       })
       .catch(() => {});
   }, []);
+  function toggleWishlist(productId: string) {
+    setWishlist((current) => {
+      const next = current.includes(productId)
+        ? current.filter((id) => id !== productId)
+        : [...current, productId];
+      localStorage.setItem('sg_wishlist', JSON.stringify(next));
+      return next;
+    });
+  }
   useEffect(() => {
     if (!loginOpen) return;
     const start = () => {
@@ -499,26 +522,33 @@ export default function Home() {
         id="home"
         className="mx-auto max-w-7xl px-4 pt-5 sm:px-8 sm:pt-7"
       >
-        <div className="relative overflow-hidden rounded-2xl bg-[#dce8df] px-6 py-8 sm:px-10 sm:py-10">
-          <div className="relative z-10 max-w-xl">
+        <div className="grid overflow-hidden rounded-[1.75rem] bg-[#dce8df] lg:grid-cols-[1.05fr_.95fr]">
+          <div className="relative z-10 flex flex-col justify-center px-6 py-10 sm:px-10 sm:py-14 lg:px-14">
             <span className="inline-flex rounded-md bg-white/80 px-3 py-1 text-xs font-bold text-[#9a4a28]">
               KOLEKSI SIMPLE GROUND
             </span>
             <h1 className="mt-4 font-serif text-3xl font-bold leading-tight sm:text-5xl">
-              Pakaian nyaman untuk aktivitas sehari-hari.
+              Seragam kerja yang terasa senyaman pakaian sehari-hari.
             </h1>
             <p className="mt-3 max-w-lg text-sm leading-6 text-[#4e6255] sm:text-base">
-              Daily wear, linen, dan perlengkapan chef. Pilih warna serta
-              ukuran, lalu pesan langsung dari toko.
+              Daily wear dan kitchen wear dengan material pilihan, potongan
+              fungsional, dan karakter tenang khas Simple Ground.
             </p>
-            <a
-              href="#koleksi"
-              className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#173c2b] px-5 py-3 text-sm font-bold text-white"
-            >
-              Mulai belanja <ArrowRight size={17} />
-            </a>
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <a href="#koleksi" className="inline-flex items-center gap-2 rounded-xl bg-[#173c2b] px-5 py-3 text-sm font-bold text-white">
+                Lihat koleksi <ArrowRight size={17} />
+              </a>
+              <a href="#cerita" className="rounded-xl border border-[#173c2b]/25 px-5 py-3 text-sm font-bold text-[#173c2b]">
+                Cerita kami
+              </a>
+            </div>
+            <p className="mt-6 text-xs font-semibold text-[#4e6255]">Pengiriman ke seluruh Indonesia · Bantuan via WhatsApp</p>
           </div>
-          <div className="absolute -bottom-20 -right-16 h-64 w-64 rounded-full bg-[#c9d8c8] sm:-right-8 sm:h-80 sm:w-80" />
+          <div className="relative min-h-72 lg:min-h-[430px]">
+            <img src="https://images.unsplash.com/photo-1577219491135-ce391730fb2c?auto=format&fit=crop&w=1200&q=90" alt="Koleksi pakaian kerja Simple Ground" className="absolute inset-0 h-full w-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#173c2b]/30 to-transparent" />
+            <span className="absolute bottom-5 left-5 rounded-full bg-white/90 px-4 py-2 text-xs font-bold text-[#173c2b] backdrop-blur">Chef & Kitchen Wear</span>
+          </div>
         </div>
         <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-4">
           <div className="flex items-center gap-2 rounded-xl bg-white p-3 text-xs font-semibold sm:text-sm">
@@ -559,6 +589,23 @@ export default function Home() {
               </button>
             )}
           </div>
+          <div className="mt-6 grid gap-3 rounded-2xl border border-[#173c2b]/10 bg-white p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+            <label className="text-xs font-bold text-[#526158]">
+              HARGA MAKSIMAL
+              <input type="range" min="150000" max="500000" step="25000" value={priceLimit} onChange={(event) => setPriceLimit(Number(event.target.value))} className="mt-2 block w-full accent-[#276344]" />
+              <span className="mt-1 block font-normal text-[#6d786f]">Sampai {rupiah(priceLimit)}</span>
+            </label>
+            <label className="text-xs font-bold text-[#526158]">
+              URUTKAN
+              <select value={sort} onChange={(event) => setSort(event.target.value)} className="mt-2 block w-full rounded-xl border bg-[#f8faf7] px-3 py-2.5 text-sm font-semibold outline-none">
+                <option value="rekomendasi">Rekomendasi</option>
+                <option value="termurah">Harga termurah</option>
+                <option value="termahal">Harga tertinggi</option>
+                <option value="stok">Stok terbanyak</option>
+              </select>
+            </label>
+            <div className="rounded-xl bg-[#edf4ee] px-4 py-3 text-sm font-bold text-[#24593d]">{wishlist.length} wishlist</div>
+          </div>
           <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
             {filtered.map((p) => {
               const variantIndex = selectedVariants[p.id] ?? 0;
@@ -580,7 +627,7 @@ export default function Home() {
               return (
                 <article
                   key={p.id}
-                  className="group overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"
+                  className="group relative overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"
                 >
                   <button
                     onClick={() => setDetailId(p.id)}
@@ -594,6 +641,9 @@ export default function Home() {
                     <span className="absolute left-2 top-2 rounded-md bg-white/90 px-2 py-1 text-[10px] font-bold">
                       {p.subcategory}
                     </span>
+                  </button>
+                  <button onClick={() => toggleWishlist(p.id)} aria-label={wishlist.includes(p.id) ? `Hapus ${p.name} dari wishlist` : `Simpan ${p.name} ke wishlist`} className="absolute right-2 top-2 z-10 grid h-9 w-9 place-items-center rounded-full bg-white/90 shadow-sm" style={{ marginTop: 0 }}>
+                    <Heart size={17} fill={wishlist.includes(p.id) ? 'currentColor' : 'none'} className={wishlist.includes(p.id) ? 'text-[#b4512d]' : 'text-[#34483b]'} />
                   </button>
                   <div className="p-3 sm:p-4">
                     <button
@@ -698,6 +748,45 @@ export default function Home() {
               <p className="mt-1 text-xs text-[#68736b]">produksi etis</p>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section className="bg-[#173c2b] px-5 py-16 text-white sm:px-8">
+        <div className="mx-auto max-w-7xl">
+          <div className="max-w-2xl">
+            <p className="text-xs font-bold uppercase tracking-[.22em] text-[#d9b796]">Dipakai, disukai, dipercaya</p>
+            <h2 className="mt-3 font-serif text-3xl sm:text-4xl">Dibuat untuk hari kerja yang panjang.</h2>
+          </div>
+          <div className="mt-8 grid gap-4 md:grid-cols-3">
+            {[
+              ['“Bahannya adem dan potongannya rapi. Tetap nyaman dipakai dari persiapan sampai dapur tutup.”', 'Raka · Chef, Bandung'],
+              ['“Apronnya kokoh, detail sakunya sangat kepakai, dan setelah dicuci bentuknya tetap bagus.”', 'Nadia · Baker, Jakarta'],
+              ['“Tampilannya sederhana tetapi profesional. Tim kami jadi kelihatan lebih kompak.”', 'Ayu · Pemilik kafe, Yogyakarta'],
+            ].map(([quote, person]) => (
+              <figure key={person} className="rounded-2xl bg-white/8 p-6 ring-1 ring-white/10">
+                <div className="text-[#e7b264]">★★★★★</div>
+                <blockquote className="mt-4 text-sm leading-7 text-[#e7ede8]">{quote}</blockquote>
+                <figcaption className="mt-5 text-xs font-bold text-white">{person}</figcaption>
+              </figure>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="px-5 py-16 sm:px-8">
+        <div className="mx-auto grid max-w-7xl gap-8 rounded-[2rem] bg-[#efe7d8] p-7 sm:p-10 lg:grid-cols-[1fr_auto] lg:items-center">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[.2em] text-[#a34f2c]">Ground Notes</p>
+            <h2 className="mt-3 font-serif text-3xl">Koleksi baru, cerita bahan, dan penawaran khusus.</h2>
+            <p className="mt-2 text-sm text-[#657066]">Kami mengirim seperlunya. Tidak ada pesan yang memenuhi kotak masuk.</p>
+          </div>
+          <form className="flex w-full max-w-md gap-2" onSubmit={(event) => event.preventDefault()}>
+            <label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl bg-white px-4 py-3">
+              <Mail size={17} className="shrink-0 text-[#68736b]" />
+              <input type="email" required aria-label="Alamat email" placeholder="Email kamu" className="min-w-0 flex-1 bg-transparent text-sm outline-none" />
+            </label>
+            <button className="rounded-xl bg-[#173c2b] px-5 text-sm font-bold text-white">Daftar</button>
+          </form>
         </div>
       </section>
 
