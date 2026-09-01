@@ -5,6 +5,7 @@ import {
   ArrowRight,
   Check,
   ChevronLeft,
+  ChevronRight,
   ExternalLink,
   Minus,
   Plus,
@@ -163,6 +164,7 @@ export default function Home() {
   const [selectedImages, setSelectedImages] = useState<Record<string, number>>(
     {},
   );
+  const [imageTouchStart, setImageTouchStart] = useState<number | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [checkout, setCheckout] = useState(false);
@@ -833,6 +835,14 @@ export default function Home() {
               ? productReviews.reduce((s, r) => s + r.rating, 0) /
                 productReviews.length
               : 0;
+            const moveImage = (direction: number) => {
+              setSelectedImages((current) => ({
+                ...current,
+                [p.id]:
+                  (imageIndex + direction + productImages.length) %
+                  productImages.length,
+              }));
+            };
             return (
               <div
                 key={p.id}
@@ -858,15 +868,52 @@ export default function Home() {
                   </div>
                   <div className="grid md:grid-cols-2">
                     <div className="bg-[#f0f1ed] p-4 sm:p-6">
-                      <div className="aspect-square overflow-hidden rounded-2xl bg-white">
+                      <div
+                        className="relative aspect-square touch-pan-y overflow-hidden rounded-2xl bg-white"
+                        onTouchStart={(e) =>
+                          setImageTouchStart(e.touches[0].clientX)
+                        }
+                        onTouchEnd={(e) => {
+                          if (imageTouchStart === null) return;
+                          const distance =
+                            e.changedTouches[0].clientX - imageTouchStart;
+                          if (Math.abs(distance) > 40)
+                            moveImage(distance < 0 ? 1 : -1);
+                          setImageTouchStart(null);
+                        }}
+                      >
                         <img
                           src={productImages[imageIndex] ?? productImages[0]}
                           alt={p.name}
-                          className="h-full w-full object-cover"
+                          className="h-full w-full select-none object-cover transition-opacity duration-200"
+                          draggable={false}
                         />
+                        {productImages.length > 1 && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => moveImage(-1)}
+                              aria-label="Foto sebelumnya"
+                              className="absolute left-3 top-1/2 grid -translate-y-1/2 place-items-center rounded-full bg-white/85 p-2 text-[#243b2c] shadow-md backdrop-blur transition hover:bg-white"
+                            >
+                              <ChevronLeft size={20} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => moveImage(1)}
+                              aria-label="Foto berikutnya"
+                              className="absolute right-3 top-1/2 grid -translate-y-1/2 place-items-center rounded-full bg-white/85 p-2 text-[#243b2c] shadow-md backdrop-blur transition hover:bg-white"
+                            >
+                              <ChevronRight size={20} />
+                            </button>
+                            <span className="absolute bottom-3 right-3 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur">
+                              {imageIndex + 1} / {productImages.length}
+                            </span>
+                          </>
+                        )}
                       </div>
                       {productImages.length > 1 && (
-                        <div className="mt-3 flex gap-2 overflow-x-auto">
+                        <div className="mt-3 flex snap-x gap-2 overflow-x-auto pb-1">
                           {productImages.map((src, index) => (
                             <button
                               key={`${src}-${index}`}
@@ -876,7 +923,7 @@ export default function Home() {
                                   [p.id]: index,
                                 }))
                               }
-                              className={`shrink-0 overflow-hidden rounded-lg border-2 ${imageIndex === index ? 'border-[#276344]' : 'border-white'}`}
+                              className={`shrink-0 snap-start overflow-hidden rounded-lg border-2 transition ${imageIndex === index ? 'border-[#276344] opacity-100' : 'border-white opacity-65 hover:opacity-100'}`}
                               aria-label={`Foto ${index + 1}`}
                             >
                               <img
