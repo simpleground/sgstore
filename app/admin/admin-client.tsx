@@ -4,10 +4,14 @@ import {
   Archive,
   CheckCircle2,
   Clock3,
+  LayoutDashboard,
+  MessageSquareText,
   PackageCheck,
+  Package,
   Pencil,
   Plus,
   RotateCcw,
+  ShoppingCart,
   Trash2,
   Truck,
   XCircle,
@@ -472,7 +476,7 @@ function ProductManager() {
     productTab === 'active' ? item.active !== 0 : item.active === 0,
   );
   return (
-    <section className="mt-8 rounded-3xl border bg-white p-5 sm:p-7">
+    <section className="rounded-3xl border bg-white p-5 sm:p-7">
       <div className="flex items-center justify-between gap-4">
         <div>
           <p className="text-xs font-bold uppercase tracking-[.18em] text-[#a34f2c]">
@@ -777,7 +781,7 @@ function ReviewManager() {
     await load();
   }
   return (
-    <section className="mt-8 rounded-3xl border bg-white p-5 sm:p-7">
+    <section className="rounded-3xl border bg-white p-5 sm:p-7">
       <p className="text-xs font-bold uppercase tracking-[.18em] text-[#a34f2c]">
         Kepercayaan pelanggan
       </p>
@@ -895,6 +899,9 @@ export function AdminDashboard({
 }) {
   const [orders, setOrders] = useState(initialOrders);
   const [filter, setFilter] = useState('semua');
+  const [section, setSection] = useState<
+    'overview' | 'orders' | 'products' | 'reviews'
+  >('overview');
   const visible =
     filter === 'semua' ? orders : orders.filter((o) => o.status === filter);
   async function update(orderNumber: string, status: string) {
@@ -917,7 +924,7 @@ export function AdminDashboard({
     )
     .reduce((s, o) => s + o.total, 0);
   return (
-    <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8">
+    <div className="mx-auto max-w-[90rem] px-4 py-6 sm:px-8 sm:py-8">
       <header className="flex flex-col justify-between gap-5 border-b pb-7 sm:flex-row sm:items-end">
         <div>
           <p className="text-xs font-bold uppercase tracking-[.2em] text-[#a34f2c]">
@@ -941,108 +948,166 @@ export function AdminDashboard({
           </a>
         </div>
       </header>
-      <div className="mt-7 grid gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl bg-[#243b2c] p-5 text-white">
-          <p className="text-xs text-white/70">Perlu ditangani</p>
-          <b className="mt-2 block font-serif text-4xl">{open}</b>
-        </div>
-        <div className="rounded-2xl bg-white p-5">
-          <p className="text-xs text-[#68736b]">Total pesanan</p>
-          <b className="mt-2 block font-serif text-4xl">{orders.length}</b>
-        </div>
-        <div className="rounded-2xl bg-[#efe7d8] p-5">
-          <p className="text-xs text-[#68736b]">Penjualan terkonfirmasi</p>
-          <b className="mt-2 block font-serif text-2xl">{rupiah(revenue)}</b>
-        </div>
-      </div>
-      <ProductManager />
-      <ReviewManager />
-      <h2 className="mt-10 font-serif text-2xl">Pesanan pelanggan</h2>
-      <div className="mt-4 flex gap-2 overflow-auto pb-2">
-        {['semua', ...Object.keys(labels)].map((s) => (
-          <button
-            key={s}
-            onClick={() => setFilter(s)}
-            className={`whitespace-nowrap rounded-full border px-4 py-2 text-sm ${filter === s ? 'bg-[#243b2c] text-white' : 'bg-white'}`}
-          >
-            {s === 'semua' ? 'Semua' : labels[s]}
-          </button>
-        ))}
-      </div>
-      <div className="mt-4 space-y-4">
-        {visible.length === 0 ? (
-          <div className="rounded-2xl border border-dashed p-12 text-center text-[#68736b]">
-            Belum ada pesanan pada status ini.
-          </div>
-        ) : (
-          visible.map((o) => {
-            const Icon = icons[o.status] ?? Clock3;
-            const items = JSON.parse(o.items_json) as {
-              name: string;
-              quantity: number;
-              sku?: string;
-              color?: string;
-              size?: string;
-            }[];
-            return (
-              <article
-                key={o.order_number}
-                className="rounded-2xl border bg-white p-5 shadow-sm"
+      <div className="mt-6 grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
+        <aside className="lg:sticky lg:top-6 lg:self-start">
+          <nav className="flex gap-2 overflow-x-auto rounded-2xl border bg-white p-2 lg:flex-col lg:p-3">
+            {[
+              ['overview', 'Dashboard', LayoutDashboard],
+              ['orders', 'Pesanan', ShoppingCart],
+              ['products', 'Produk', Package],
+              ['reviews', 'Ulasan', MessageSquareText],
+            ].map(([value, label, Icon]) => (
+              <button
+                key={String(value)}
+                type="button"
+                onClick={() => setSection(value as typeof section)}
+                className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition lg:w-full ${section === value ? 'bg-[#243b2c] text-white shadow-sm' : 'text-[#566158] hover:bg-[#f3f1e9]'}`}
               >
-                <div className="flex flex-col justify-between gap-4 sm:flex-row">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <Icon size={17} />
-                      <b>{o.order_number}</b>
-                      <span className="rounded-full bg-[#edf1e9] px-2.5 py-1 text-[11px] font-semibold">
-                        {labels[o.status]}
-                      </span>
-                    </div>
-                    <p className="mt-2 text-sm font-semibold">
-                      {o.customer_name} ·{' '}
-                      <a
-                        className="underline"
-                        href={`https://wa.me/${o.customer_phone.replace(/\D/g, '').replace(/^0/, '62')}`}
-                      >
-                        {o.customer_phone}
-                      </a>
-                    </p>
-                    <p className="mt-1 max-w-xl text-xs leading-5 text-[#68736b]">
-                      {o.shipping_address}
-                    </p>
-                  </div>
-                  <div className="sm:text-right">
-                    <b className="text-lg">{rupiah(o.total)}</b>
-                    <p className="mt-1 text-xs text-[#68736b]">
-                      {new Date(o.created_at).toLocaleString('id-ID')}
-                    </p>
-                  </div>
+                <Icon size={17} /> {label}
+              </button>
+            ))}
+          </nav>
+          <p className="mt-4 hidden px-3 text-xs leading-5 text-[#7b847c] lg:block">
+            Pilih menu untuk mengelola bagian toko tanpa halaman yang terlalu
+            panjang.
+          </p>
+        </aside>
+        <main className="min-w-0">
+          {section === 'overview' && (
+            <section>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[.18em] text-[#a34f2c]">
+                  Dashboard
+                </p>
+                <h2 className="mt-1 font-serif text-3xl">
+                  Kondisi toko hari ini
+                </h2>
+              </div>
+              <div className="mt-5 grid gap-4 sm:grid-cols-3">
+                <div className="rounded-2xl bg-[#243b2c] p-5 text-white">
+                  <p className="text-xs text-white/70">Perlu ditangani</p>
+                  <b className="mt-2 block font-serif text-4xl">{open}</b>
                 </div>
-                <div className="mt-4 border-t pt-4">
-                  <p className="text-sm">
-                    {items
-                      .map(
-                        (i) =>
-                          `${i.quantity}× ${i.name}${i.color || i.size ? ` (${i.color ?? '-'} / ${i.size ?? '-'})` : ''}${i.sku ? ` · SKU ${i.sku}` : ''}`,
-                      )
-                      .join(' · ')}
+                <div className="rounded-2xl bg-white p-5">
+                  <p className="text-xs text-[#68736b]">Total pesanan</p>
+                  <b className="mt-2 block font-serif text-4xl">
+                    {orders.length}
+                  </b>
+                </div>
+                <div className="rounded-2xl bg-[#efe7d8] p-5">
+                  <p className="text-xs text-[#68736b]">
+                    Penjualan terkonfirmasi
                   </p>
-                  <select
-                    value={o.status}
-                    onChange={(e) => update(o.order_number, e.target.value)}
-                    className="mt-4 rounded-xl border bg-[#f7f4ec] px-3 py-2 text-sm font-semibold"
-                  >
-                    {Object.entries(labels).map(([v, l]) => (
-                      <option key={v} value={v}>
-                        {l}
-                      </option>
-                    ))}
-                  </select>
+                  <b className="mt-2 block font-serif text-2xl">
+                    {rupiah(revenue)}
+                  </b>
                 </div>
-              </article>
-            );
-          })
-        )}
+              </div>
+              <div className="mt-5 rounded-2xl border bg-white p-5 text-sm leading-6 text-[#566158]">
+                Gunakan menu di samping untuk menangani pesanan, memperbarui
+                produk, dan mengelola ulasan pelanggan.
+              </div>
+            </section>
+          )}
+          {section === 'products' && <ProductManager />}
+          {section === 'reviews' && <ReviewManager />}
+          {section === 'orders' && (
+            <section>
+              <p className="text-xs font-bold uppercase tracking-[.18em] text-[#a34f2c]">
+                Transaksi
+              </p>
+              <h2 className="mt-1 font-serif text-3xl">Pesanan pelanggan</h2>
+              <div className="mt-4 flex gap-2 overflow-auto pb-2">
+                {['semua', ...Object.keys(labels)].map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setFilter(s)}
+                    className={`whitespace-nowrap rounded-full border px-4 py-2 text-sm ${filter === s ? 'bg-[#243b2c] text-white' : 'bg-white'}`}
+                  >
+                    {s === 'semua' ? 'Semua' : labels[s]}
+                  </button>
+                ))}
+              </div>
+              <div className="mt-4 space-y-4">
+                {visible.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed p-12 text-center text-[#68736b]">
+                    Belum ada pesanan pada status ini.
+                  </div>
+                ) : (
+                  visible.map((o) => {
+                    const Icon = icons[o.status] ?? Clock3;
+                    const items = JSON.parse(o.items_json) as {
+                      name: string;
+                      quantity: number;
+                      sku?: string;
+                      color?: string;
+                      size?: string;
+                    }[];
+                    return (
+                      <article
+                        key={o.order_number}
+                        className="rounded-2xl border bg-white p-5 shadow-sm"
+                      >
+                        <div className="flex flex-col justify-between gap-4 sm:flex-row">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <Icon size={17} />
+                              <b>{o.order_number}</b>
+                              <span className="rounded-full bg-[#edf1e9] px-2.5 py-1 text-[11px] font-semibold">
+                                {labels[o.status]}
+                              </span>
+                            </div>
+                            <p className="mt-2 text-sm font-semibold">
+                              {o.customer_name} ·{' '}
+                              <a
+                                className="underline"
+                                href={`https://wa.me/${o.customer_phone.replace(/\D/g, '').replace(/^0/, '62')}`}
+                              >
+                                {o.customer_phone}
+                              </a>
+                            </p>
+                            <p className="mt-1 max-w-xl text-xs leading-5 text-[#68736b]">
+                              {o.shipping_address}
+                            </p>
+                          </div>
+                          <div className="sm:text-right">
+                            <b className="text-lg">{rupiah(o.total)}</b>
+                            <p className="mt-1 text-xs text-[#68736b]">
+                              {new Date(o.created_at).toLocaleString('id-ID')}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="mt-4 border-t pt-4">
+                          <p className="text-sm">
+                            {items
+                              .map(
+                                (i) =>
+                                  `${i.quantity}× ${i.name}${i.color || i.size ? ` (${i.color ?? '-'} / ${i.size ?? '-'})` : ''}${i.sku ? ` · SKU ${i.sku}` : ''}`,
+                              )
+                              .join(' · ')}
+                          </p>
+                          <select
+                            value={o.status}
+                            onChange={(e) =>
+                              update(o.order_number, e.target.value)
+                            }
+                            className="mt-4 rounded-xl border bg-[#f7f4ec] px-3 py-2 text-sm font-semibold"
+                          >
+                            {Object.entries(labels).map(([v, l]) => (
+                              <option key={v} value={v}>
+                                {l}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </article>
+                    );
+                  })
+                )}
+              </div>
+            </section>
+          )}
+        </main>
       </div>
     </div>
   );
