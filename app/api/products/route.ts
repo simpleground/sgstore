@@ -58,6 +58,16 @@ const defaults = [
     'https://images.unsplash.com/photo-1577106263724-2c8e03bfe9cf?auto=format&fit=crop&w=900&q=85',
   ],
 ];
+function readArray(value: unknown) {
+  if (Array.isArray(value)) return value;
+  if (typeof value !== 'string' || !value.trim()) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 export async function GET() {
   const d1 = getD1();
   await d1.prepare(schemaSql).run();
@@ -83,10 +93,13 @@ export async function GET() {
     .all();
   return NextResponse.json({
     products: result.results.map((p: any) => {
-      const keys = JSON.parse(p.images_json || '[]') as string[];
+      const keys = readArray(p.images_json).filter(
+        (key): key is string => typeof key === 'string' && Boolean(key),
+      );
+      const variants = readArray(p.variants_json);
       return {
         ...p,
-        variants: JSON.parse(p.variants_json || '[]'),
+        variants,
         images: keys.length
           ? keys.map((key) => `/api/product-image/${key}`)
           : [p.image || '/placeholder-product.svg'],
