@@ -562,6 +562,9 @@ function ProductManager() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [productTab, setProductTab] = useState<'active' | 'archived'>('active');
+  const [mergeIds, setMergeIds] = useState<string[]>([]);
+  const [mergeTarget, setMergeTarget] = useState('');
+  const [merging, setMerging] = useState(false);
   async function load() {
     const r = await fetch('/api/admin/products');
     if (r.ok) setItems((await r.json()).products);
@@ -622,6 +625,27 @@ function ProductManager() {
     }
     await load();
   }
+  async function mergeProducts() {
+    const sourceIds = mergeIds.filter((id) => id !== mergeTarget);
+    if (!mergeTarget || !sourceIds.length) return;
+    const target = items.find((item) => item.id === mergeTarget);
+    if (!confirm(`Gabungkan ${sourceIds.length} produk ke "${target?.name}"? Produk sumber akan diarsipkan.`)) return;
+    setMerging(true);
+    setError('');
+    const response = await fetch('/api/admin/products/merge', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ targetId: mergeTarget, sourceIds }),
+    });
+    const result = await response.json();
+    if (response.ok) {
+      alert(`Berhasil: ${result.mergedVariants} variasi digabung dan ${result.archivedProducts} produk sumber diarsipkan.`);
+      setMergeIds([]);
+      setMergeTarget('');
+      await load();
+    } else setError(result.error || 'Gagal menggabungkan produk.');
+    setMerging(false);
+  }
   const activeCount = items.filter((item) => item.active !== 0).length;
   const archivedCount = items.length - activeCount;
   const categoryOptions = Array.from(
@@ -659,6 +683,26 @@ function ProductManager() {
       </div>
       <BulkImport onDone={load} />
       <CategoryManager items={items} onDone={load} />
+      {mergeIds.length > 0 && (
+        <div className="mt-5 rounded-2xl border border-[#d7c9b7] bg-[#fffaf2] p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <label className="flex-1 text-sm font-semibold">
+              Produk induk ({mergeIds.length} produk dipilih)
+              <select value={mergeTarget} onChange={(e) => setMergeTarget(e.target.value)} className="mt-2 w-full rounded-xl border bg-white px-4 py-3 font-normal">
+                <option value="">Pilih produk yang dipertahankan</option>
+                {items.filter((item) => mergeIds.includes(item.id)).map((item) => (
+                  <option key={item.id} value={item.id}>{item.name} · {item.variants.length} variasi</option>
+                ))}
+              </select>
+            </label>
+            <button type="button" disabled={merging || !mergeTarget || mergeIds.length < 2} onClick={mergeProducts} className="rounded-xl bg-[#a34f2c] px-5 py-3 text-sm font-bold text-white disabled:opacity-40">
+              {merging ? 'Menggabungkan…' : `Gabungkan ${Math.max(0, mergeIds.length - 1)} produk`}
+            </button>
+            <button type="button" onClick={() => { setMergeIds([]); setMergeTarget(''); }} className="rounded-xl border bg-white px-4 py-3 text-sm">Batal</button>
+          </div>
+          <p className="mt-2 text-xs text-[#68736b]">Semua variasi, foto, ulasan, dan keranjang pelanggan dipindahkan. Produk sumber kemudian diarsipkan.</p>
+        </div>
+      )}
       {open && (
         <form
           key={editing?.id ?? 'new-product'}
@@ -804,6 +848,18 @@ function ProductManager() {
             key={p.id}
             className={`flex gap-3 rounded-2xl border p-3 ${p.active === 0 ? 'border-dashed bg-[#f1f1ed] opacity-75' : ''}`}
           >
+            {productTab === 'active' && (
+              <input
+                type="checkbox"
+                aria-label={`Pilih ${p.name} untuk digabung`}
+                checked={mergeIds.includes(p.id)}
+                onChange={(e) => {
+                  setMergeIds((current) => e.target.checked ? [...current, p.id] : current.filter((id) => id !== p.id));
+                  if (!e.target.checked && mergeTarget === p.id) setMergeTarget('');
+                }}
+                className="mt-1 h-4 w-4 shrink-0 accent-[#a34f2c]"
+              />
+            )}
             <img
               src={p.images?.[0] ?? p.image ?? '/placeholder-product.svg'}
               alt=""
