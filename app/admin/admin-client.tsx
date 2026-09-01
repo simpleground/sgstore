@@ -353,7 +353,9 @@ function BulkImport({ onDone }: { onDone: () => void }) {
         }),
         d = await r.json();
       if (!r.ok) throw new Error(d.error || 'Impor gagal.');
-      setMessage(`${d.count} produk berhasil diimpor.`);
+      setMessage(
+        `${d.count} produk diproses: ${d.updated ?? 0} diperbarui, ${d.created ?? d.count} ditambahkan.`,
+      );
       onDone();
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Impor gagal.');
@@ -362,25 +364,52 @@ function BulkImport({ onDone }: { onDone: () => void }) {
   }
   function template() {
     const csv =
-      'name;category;subcategory;description;sku;color;size;normal_price;discount_percent;stock;image_url\nKaos Daily Basic;Daily Basic;Kaos;Kaos nyaman sehari-hari;KAOS-HITAM-M;Hitam;M;65000;16;20;\nKaos Daily Basic;Daily Basic;Kaos;Kaos nyaman sehari-hari;KAOS-HITAM-L;Hitam;L;67000;15;15;';
+      'product_id;active;name;category;subcategory;description;sku;color;size;normal_price;discount_percent;stock;image_url\n;1;Kaos Daily Basic;Daily Basic;Kaos;Kaos nyaman sehari-hari;KAOS-HITAM-M;Hitam;M;65000;16;20;\n;1;Kaos Daily Basic;Daily Basic;Kaos;Kaos nyaman sehari-hari;KAOS-HITAM-L;Hitam;L;67000;15;15;';
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
     a.download = 'template-produk-simple-ground.csv';
     a.click();
     URL.revokeObjectURL(a.href);
   }
+  async function exportProducts() {
+    setBusy(true);
+    setMessage('Menyiapkan data produk…');
+    try {
+      const response = await fetch('/api/admin/products/bulk');
+      if (!response.ok) throw new Error('Export produk gagal.');
+      const blob = await response.blob();
+      const disposition = response.headers.get('content-disposition') || '';
+      const filename = disposition.match(/filename="([^"]+)"/)?.[1] || 'produk-simple-ground.csv';
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(link.href);
+      setMessage('Data produk berhasil diekspor dan siap diedit.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Export produk gagal.');
+    }
+    setBusy(false);
+  }
   return (
     <div className="mt-5 rounded-2xl border border-dashed bg-[#f8faf7] p-4">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div>
-          <b className="text-sm">Upload produk massal</b>
+          <b className="text-sm">Edit & upload produk massal</b>
           <p className="mt-1 text-xs text-[#68736b]">
-            Isi template di Excel. Kolom image_url boleh dikosongkan; foto bisa
-            ditambahkan nanti melalui Edit Produk. Produk dengan nama sama akan
-            digabung menjadi beberapa varian.
+            Export katalog, edit di Excel atau Google Sheets, lalu upload kembali.
+            Baris dengan product_id diperbarui; baris tanpa ID menjadi produk baru.
+            Foto produk lama tetap dipertahankan.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={exportProducts}
+            disabled={busy}
+            className="rounded-full border border-[#276344] bg-white px-4 py-2 text-xs font-bold text-[#24593d] disabled:opacity-50"
+          >
+            Export produk
+          </button>
           <button
             onClick={template}
             className="rounded-full border bg-white px-4 py-2 text-xs font-bold"
@@ -394,11 +423,134 @@ function BulkImport({ onDone }: { onDone: () => void }) {
               accept=".csv,text/csv"
               disabled={busy}
               className="hidden"
-              onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void upload(file);
+                e.currentTarget.value = '';
+              }}
             />
           </label>
         </div>
       </div>
+      {message && <p className="mt-3 text-xs font-semibold">{message}</p>}
+    </div>
+  );
+}
+function CategoryManager({
+  items,
+  onDone,
+}: {
+  items: Product[];
+  onDone: () => void;
+}) {
+  const categories = Array.from(
+    new Set(items.map((item) => item.category).filter(Boolean)),
+  ).sort((a, b) => a.localeCompare(b, 'id'));
+  const [type, setType] = useState<'category' | 'subcategory'>('category');
+  const [category, setCategory] = useState('');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
+  const subcategories = Array.from(
+    new Set(
+      items
+        .filter((item) => item.category === category)
+        .map((item) => item.subcategory)
+        .filter(Boolean),
+    ),
+  ).sort((a, b) => a.localeCompare(b, 'id'));
+  async function rename(event: React.FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setMessage('');
+    const response = await fetch('/api/admin/categories', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ type, category, from, to }),
+    });
+    const data = (await response.json()) as { error?: string; changed?: number };
+    if (!response.ok) setMessage(data.error ?? 'Perubahan kategori gagal.');
+    else {
+      setMessage(`${data.changed ?? 0} produk berhasil diperbarui.`);
+      setFrom('');
+      setTo('');
+      await onDone();
+    }
+    setBusy(false);
+  }
+  return (
+    <div className="mt-5 rounded-2xl border bg-[#f7f4ec] p-4">
+      <div>
+        <b className="text-sm">Kelola kategori</b>
+        <p className="mt-1 text-xs text-[#68736b]">
+          Ganti nama atau gabungkan kategori. Semua produk terkait akan ikut diperbarui.
+        </p>
+      </div>
+      <form onSubmit={rename} className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5 lg:items-end">
+        <label className="text-xs font-bold text-[#566158]">
+          JENIS
+          <select
+            value={type}
+            onChange={(event) => {
+              setType(event.target.value as 'category' | 'subcategory');
+              setFrom('');
+            }}
+            className="mt-1 block w-full rounded-xl border bg-white px-3 py-2.5 text-sm"
+          >
+            <option value="category">Kategori utama</option>
+            <option value="subcategory">Subkategori</option>
+          </select>
+        </label>
+        {type === 'subcategory' && (
+          <label className="text-xs font-bold text-[#566158]">
+            KATEGORI UTAMA
+            <select
+              required
+              value={category}
+              onChange={(event) => {
+                setCategory(event.target.value);
+                setFrom('');
+              }}
+              className="mt-1 block w-full rounded-xl border bg-white px-3 py-2.5 text-sm"
+            >
+              <option value="">Pilih kategori</option>
+              {categories.map((item) => <option key={item}>{item}</option>)}
+            </select>
+          </label>
+        )}
+        <label className="text-xs font-bold text-[#566158]">
+          NAMA LAMA
+          <select
+            required
+            value={from}
+            onChange={(event) => setFrom(event.target.value)}
+            className="mt-1 block w-full rounded-xl border bg-white px-3 py-2.5 text-sm"
+          >
+            <option value="">Pilih nama</option>
+            {(type === 'category' ? categories : subcategories).map((item) => (
+              <option key={item}>{item}</option>
+            ))}
+          </select>
+        </label>
+        <label className="text-xs font-bold text-[#566158]">
+          NAMA BARU
+          <input
+            required
+            maxLength={100}
+            value={to}
+            onChange={(event) => setTo(event.target.value)}
+            placeholder="Nama kategori baru"
+            className="mt-1 block w-full rounded-xl border bg-white px-3 py-2.5 text-sm"
+          />
+        </label>
+        <button
+          disabled={busy}
+          className="min-h-10 rounded-xl bg-[#243b2c] px-4 text-xs font-bold text-white disabled:opacity-50"
+        >
+          {busy ? 'Menyimpan…' : 'Simpan perubahan'}
+        </button>
+      </form>
       {message && <p className="mt-3 text-xs font-semibold">{message}</p>}
     </div>
   );
@@ -472,6 +624,17 @@ function ProductManager() {
   }
   const activeCount = items.filter((item) => item.active !== 0).length;
   const archivedCount = items.length - activeCount;
+  const categoryOptions = Array.from(
+    new Set([
+      'Chef & Kitchen Wear',
+      'Professional Workwear',
+      'Daily Basic',
+      ...items.map((item) => item.category).filter(Boolean),
+    ]),
+  ).sort((a, b) => a.localeCompare(b, 'id'));
+  const subcategoryOptions = Array.from(
+    new Set(items.map((item) => item.subcategory).filter(Boolean)),
+  ).sort((a, b) => a.localeCompare(b, 'id'));
   const visibleItems = items.filter((item) =>
     productTab === 'active' ? item.active !== 0 : item.active === 0,
   );
@@ -495,6 +658,7 @@ function ProductManager() {
         </button>
       </div>
       <BulkImport onDone={load} />
+      <CategoryManager items={items} onDone={load} />
       {open && (
         <form
           key={editing?.id ?? 'new-product'}
@@ -524,9 +688,9 @@ function ProductManager() {
             className="rounded-xl border bg-white px-4 py-3"
           />
           <datalist id="main-categories">
-            <option value="Chef & Kitchen Wear" />
-            <option value="Professional Workwear" />
-            <option value="Daily Basic" />
+            {categoryOptions.map((category) => (
+              <option key={category} value={category} />
+            ))}
           </datalist>
           <input
             name="subcategory"
@@ -537,14 +701,9 @@ function ProductManager() {
             className="rounded-xl border bg-white px-4 py-3"
           />
           <datalist id="subcategories">
-            <option value="Baju Chef" />
-            <option value="Topi Chef" />
-            <option value="Apron" />
-            <option value="Kemeja PDL" />
-            <option value="Seragam Kerja" />
-            <option value="Kaos" />
-            <option value="Kemeja" />
-            <option value="Celana" />
+            {subcategoryOptions.map((subcategory) => (
+              <option key={subcategory} value={subcategory} />
+            ))}
           </datalist>
           <VariantEditor initial={editing?.variants} />
           <label className="rounded-xl border bg-white px-4 py-3 text-sm sm:col-span-2">
