@@ -309,21 +309,32 @@ function BulkImport({ onDone }: { onDone: () => void }) {
     [message, setMessage] = useState(''),
     [pending, setPending] = useState<{ fileName: string; rows: any[]; preview: any } | null>(null);
   function cells(line: string, delimiter: string) {
-    const out: string[] = [],
-      re = new RegExp(
-        `(?:^|${delimiter})(?:"([^"]*(?:""[^"]*)*)"|([^"${delimiter}]*))`,
-        'g',
-      );
-    let m;
-    while ((m = re.exec(line)))
-      out.push((m[1] ?? m[2] ?? '').replace(/""/g, '"').trim());
+    const out: string[] = [];
+    let value = '';
+    let quoted = false;
+    for (let index = 0; index < line.length; index++) {
+      const character = line[index];
+      if (character === '"') {
+        if (quoted && line[index + 1] === '"') {
+          value += '"';
+          index++;
+        } else quoted = !quoted;
+      } else if (character === delimiter && !quoted) {
+        out.push(value.trim());
+        value = '';
+      } else value += character;
+    }
+    out.push(value.trim());
     return out;
   }
   async function upload(file: File) {
     setBusy(true);
     setMessage('');
     try {
-      const text = await file.text(),
+      const bytes = await file.arrayBuffer();
+      let text = new TextDecoder('utf-8').decode(bytes);
+      if (text.includes('\uFFFD')) text = new TextDecoder('windows-1252').decode(bytes);
+      const
         lines = text
           .replace(/^\uFEFF/, '')
           .split(/\r?\n/)
