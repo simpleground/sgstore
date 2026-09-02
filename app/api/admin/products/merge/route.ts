@@ -8,7 +8,10 @@ async function auth() {
 }
 
 type Variant = { sku?: string; color: string; size: string; normalPrice?: number; price: number; stock: number };
-const variantKey = (variant: Variant) => variant.sku?.trim().toLowerCase() || `${variant.color.trim().toLowerCase()}|${variant.size.trim().toLowerCase()}`;
+const variantKey = (variant: Variant) => variant.sku?.trim()
+  ? `sku:${variant.sku.trim().toLowerCase()}`
+  : `option:${variant.color.trim().toLowerCase()}|${variant.size.trim().toLowerCase()}`;
+const skuPart = (value: string) => value.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24) || 'VARIAN';
 
 export async function POST(req: Request) {
   if (!(await auth())) return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
@@ -29,17 +32,26 @@ export async function POST(req: Request) {
     const merged: Variant[] = [];
     const indexes = new Map<string, number>();
     const sourceVariantMaps = new Map<string, number[]>();
+    const skuChanges: Array<{ product: string; from: string; to: string }> = [];
     for (const product of products) {
       let rows: Variant[] = [];
       try { rows = JSON.parse(product.variants_json || '[]'); } catch {}
       const map: number[] = [];
-      for (const variant of rows) {
-        const key = variantKey(variant);
+      for (const originalVariant of rows) {
+        let variant = { ...originalVariant };
+        let key = variantKey(variant);
         const existing = indexes.get(key);
         if (existing !== undefined) {
-          if (product.id !== targetId) throw new Error(`Variasi ganda ditemukan: ${variant.sku || `${variant.color} / ${variant.size}`}. Ubah SKU atau variasinya terlebih dahulu.`);
-          map.push(existing);
-          continue;
+          const originalSku = variant.sku?.trim() || '(kosong)';
+          const base = variant.sku?.trim()
+            ? skuPart(variant.sku)
+            : [skuPart(target.name), skuPart(variant.color), skuPart(variant.size)].join('-');
+          let suffix = 2;
+          let nextSku = `${base}-${suffix}`;
+          while (indexes.has(`sku:${nextSku.toLowerCase()}`)) nextSku = `${base}-${++suffix}`;
+          variant = { ...variant, sku: nextSku };
+          key = `sku:${nextSku.toLowerCase()}`;
+          skuChanges.push({ product: product.name, from: originalSku, to: nextSku });
         }
         indexes.set(key, merged.length);
         map.push(merged.length);
@@ -79,7 +91,7 @@ export async function POST(req: Request) {
       statements.push(db.prepare('UPDATE products SET active=0,updated_at=? WHERE id=?').bind(now, sourceId));
     }
     await db.batch(statements);
-    return NextResponse.json({ ok: true, targetId, mergedVariants: merged.length, archivedProducts: sources.length, name: target.name });
+    return NextResponse.json({ ok: true, targetId, mergedVariants: merged.length, archivedProducts: sources.length, skuChanges, name: target.name });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Gagal menggabungkan produk.' }, { status: 400 });
   }

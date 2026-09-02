@@ -629,7 +629,17 @@ function ProductManager() {
     const sourceIds = mergeIds.filter((id) => id !== mergeTarget);
     if (!mergeTarget || !sourceIds.length) return;
     const target = items.find((item) => item.id === mergeTarget);
-    if (!confirm(`Gabungkan ${sourceIds.length} produk ke "${target?.name}"? Produk sumber akan diarsipkan.`)) return;
+    const selected = [target, ...sourceIds.map((id) => items.find((item) => item.id === id))].filter(Boolean) as Product[];
+    const skuCounts = new Map<string, number>();
+    for (const product of selected) for (const variant of product.variants) {
+      const sku = variant.sku?.trim().toLowerCase();
+      if (sku) skuCounts.set(sku, (skuCounts.get(sku) || 0) + 1);
+    }
+    const duplicateSkus = Array.from(skuCounts.entries()).filter(([, count]) => count > 1).map(([sku]) => sku.toUpperCase());
+    const skuNotice = duplicateSkus.length
+      ? `\n\nSKU ganda akan diubah otomatis agar unik:\n${duplicateSkus.slice(0, 8).map((sku) => `• ${sku}`).join('\n')}${duplicateSkus.length > 8 ? `\n• dan ${duplicateSkus.length - 8} SKU lainnya` : ''}\n\nSKU pertama pada produk induk tetap dipertahankan.`
+      : '\n\nJika ditemukan SKU atau kombinasi variasi ganda, SKU berikutnya akan dibuat unik secara otomatis.';
+    if (!confirm(`Gabungkan ${sourceIds.length} produk ke "${target?.name}"? Produk sumber akan diarsipkan.${skuNotice}`)) return;
     setMerging(true);
     setError('');
     const response = await fetch('/api/admin/products/merge', {
@@ -639,7 +649,8 @@ function ProductManager() {
     });
     const result = await response.json();
     if (response.ok) {
-      alert(`Berhasil: ${result.mergedVariants} variasi digabung dan ${result.archivedProducts} produk sumber diarsipkan.`);
+      const changedSkuText = result.skuChanges?.length ? ` ${result.skuChanges.length} SKU diubah otomatis.` : '';
+      alert(`Berhasil: ${result.mergedVariants} variasi digabung dan ${result.archivedProducts} produk sumber diarsipkan.${changedSkuText}`);
       setMergeIds([]);
       setMergeTarget('');
       await load();
