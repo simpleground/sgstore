@@ -87,7 +87,7 @@ function variants(raw: string) {
   return rows;
 }
 const select =
-  "SELECT id,name,category,subcategory,tone,price,stock,active,description,variants_json,images_json,COALESCE('/api/product-image/' || image_key,image_url) AS image FROM products";
+  "SELECT id,name,category,subcategory,tone,price,stock,active,description,variants_json,images_json,deleted_at,COALESCE('/api/product-image/' || image_key,image_url) AS image FROM products";
 export async function GET() {
   if (!(await auth()))
     return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
@@ -238,10 +238,19 @@ export async function PUT(req: Request) {
   if (!(await auth()))
     return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
   try {
-    const { id, active } = (await req.json()) as {
+    const { id, active, restoreDeleted } = (await req.json()) as {
       id?: string;
       active?: number;
+      restoreDeleted?: boolean;
     };
+    if (id && restoreDeleted) {
+      const product = await getD1().prepare('SELECT deleted_at FROM products WHERE id=?').bind(id).first<{ deleted_at: string | null }>();
+      if (!product?.deleted_at) throw new Error('Produk tidak ditemukan di Tong Sampah.');
+      const expiresAt = new Date(product.deleted_at).getTime() + 30 * 86400000;
+      if (Date.now() > expiresAt) throw new Error('Masa pemulihan 30 hari sudah berakhir. Hapus produk secara permanen.');
+      await getD1().prepare('UPDATE products SET deleted_at=NULL,active=0,updated_at=? WHERE id=?').bind(new Date().toISOString(), id).run();
+      return NextResponse.json({ ok: true, restored: true });
+    }
     if (!id || (active !== 0 && active !== 1))
       throw new Error('Permintaan arsip tidak valid.');
     await getD1()
@@ -259,19 +268,34 @@ export async function PUT(req: Request) {
 export async function DELETE(req: Request) {
   if (!(await auth()))
     return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
-  const { id } = (await req.json()) as { id: string },
-    d1 = getD1(),
-    p = await d1
-      .prepare('SELECT image_key FROM products WHERE id=?')
-      .bind(id)
-      .first<{ image_key: string | null }>();
-  await d1.prepare('DELETE FROM products WHERE id=?').bind(id).run();
-  if (p?.image_key) {
-    const refs = await d1
-      .prepare('SELECT COUNT(*) AS count FROM products WHERE image_key=?')
-      .bind(p.image_key)
-      .first<{ count: number }>();
-    if (!refs?.count) await getFiles().delete(p.image_key);
+  try {
+    const { id, permanent } = (await req.json()) as { id?: string; permanent?: boolean };
+    if (!id) throw new Error('Produk tidak valid.');
+    const d1 = getD1();
+    if (!permanent) {
+      const result = await d1.prepare('UPDATE products SET deleted_at=?,active=0,updated_at=? WHERE id=? AND deleted_at IS NULL').bind(new Date().toISOString(), new Date().toISOString(), id).run();
+      if (!(result.meta.changes ?? 0)) throw new Error('Produk tidak ditemukan atau sudah berada di Tong Sampah.');
+      return NextResponse.json({ ok: true, trashed: true });
+    }
+    const product = await d1.prepare('SELECT image_key,images_json FROM products WHERE id=? AND deleted_at IS NOT NULL').bind(id).first<{ image_key: string | null; images_json: string }>();
+    if (!product) throw new Error('Hanya produk di Tong Sampah yang dapat dihapus permanen.');
+    let keys: string[] = [];
+    try { keys = JSON.parse(product.images_json || '[]'); } catch {}
+    if (product.image_key && !keys.includes(product.image_key)) keys.push(product.image_key);
+    await d1.batch([
+      d1.prepare('DELETE FROM cart_items WHERE product_id=?').bind(id),
+      d1.prepare('DELETE FROM reviews WHERE product_id=?').bind(id),
+      d1.prepare('DELETE FROM products WHERE id=?').bind(id),
+    ]);
+    const remaining = await d1.prepare('SELECT image_key,images_json FROM products').all<any>();
+    const referenced = new Set<string>();
+    for (const row of remaining.results) {
+      if (row.image_key) referenced.add(row.image_key);
+      try { for (const key of JSON.parse(row.images_json || '[]')) referenced.add(key); } catch {}
+    }
+    for (const key of keys) if (!referenced.has(key)) await getFiles().delete(key);
+    return NextResponse.json({ ok: true, permanent: true });
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Penghapusan gagal.' }, { status: 400 });
   }
-  return NextResponse.json({ ok: true });
 }

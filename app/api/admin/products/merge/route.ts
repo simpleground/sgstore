@@ -24,7 +24,7 @@ export async function POST(req: Request) {
     const ids = [targetId, ...sources];
     const products: any[] = [];
     for (const id of ids) {
-      const product = await db.prepare('SELECT id,name,variants_json,images_json,image_key,image_url FROM products WHERE id=?').bind(id).first<any>();
+      const product = await db.prepare('SELECT id,name,variants_json,images_json,image_key,image_url FROM products WHERE id=? AND deleted_at IS NULL').bind(id).first<any>();
       if (!product) throw new Error(`Produk ${id} tidak ditemukan.`);
       products.push(product);
     }

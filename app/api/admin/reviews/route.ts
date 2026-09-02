@@ -23,7 +23,7 @@ export async function GET() {
         'SELECT r.*,p.name product_name FROM reviews r LEFT JOIN products p ON p.id=r.product_id ORDER BY r.created_at DESC',
       )
       .all(),
-    d.prepare('SELECT id,name FROM products ORDER BY name').all(),
+    d.prepare('SELECT id,name FROM products WHERE deleted_at IS NULL ORDER BY name').all(),
     d
       .prepare(
         'SELECT order_number,customer_name FROM orders ORDER BY created_at DESC LIMIT 200',

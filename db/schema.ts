@@ -46,9 +46,11 @@ export const products = sqliteTable(
     active: integer('active', { mode: 'boolean' }).notNull().default(true),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
+    deletedAt: text('deleted_at'),
   },
   (table) => [
     index('idx_products_active_category').on(table.active, table.category),
+    index('idx_products_deleted_at').on(table.deletedAt),
   ],
 );
 

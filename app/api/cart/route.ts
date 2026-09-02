@@ -30,7 +30,7 @@ export async function PUT(req: Request) {
   const d = getD1();
   if (quantity > 0) {
     const product = await d
-      .prepare('SELECT variants_json FROM products WHERE id=? AND active=1')
+      .prepare('SELECT variants_json FROM products WHERE id=? AND active=1 AND deleted_at IS NULL')
       .bind(productId)
       .first<{ variants_json: string }>();
     let variants: Array<{ stock?: number }> = [];

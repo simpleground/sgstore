@@ -88,7 +88,7 @@ export async function GET() {
   }
   const result = await d1
     .prepare(
-      "SELECT id,name,category,subcategory,tone,price,stock,description,variants_json,images_json,COALESCE('/api/product-image/' || image_key,image_url) AS image FROM products WHERE active=1 ORDER BY created_at ASC",
+      "SELECT id,name,category,subcategory,tone,price,stock,description,variants_json,images_json,COALESCE('/api/product-image/' || image_key,image_url) AS image FROM products WHERE active=1 AND deleted_at IS NULL ORDER BY created_at ASC",
     )
     .all();
   return NextResponse.json({

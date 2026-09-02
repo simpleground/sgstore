@@ -31,7 +31,7 @@ export async function GET() {
     return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
   const result = await getD1()
     .prepare(
-      'SELECT id,name,category,subcategory,description,variants_json,image_url,active FROM products ORDER BY name,id',
+      'SELECT id,name,category,subcategory,description,variants_json,image_url,active FROM products WHERE deleted_at IS NULL ORDER BY name,id',
     )
     .all();
   const rows: Record<string, unknown>[] = [];
@@ -130,7 +130,7 @@ export async function POST(request: Request) {
 
     const database = getD1();
     const now = new Date().toISOString();
-    const existingRows = await database.prepare('SELECT id FROM products').all();
+    const existingRows = await database.prepare('SELECT id FROM products WHERE deleted_at IS NULL').all();
     const existingIds = new Set(
       (existingRows.results as Array<{ id: string }>).map((row) => row.id),
     );

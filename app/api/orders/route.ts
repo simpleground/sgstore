@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     }> = [];
     for (const requested of requestedItems) {
       const product = await d1
-        .prepare('SELECT id,name,variants_json FROM products WHERE id=? AND active=1')
+        .prepare('SELECT id,name,variants_json FROM products WHERE id=? AND active=1 AND deleted_at IS NULL')
         .bind(requested.id)
         .first<{ id: string; name: string; variants_json: string }>();
       if (!product)

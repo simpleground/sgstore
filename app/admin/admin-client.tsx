@@ -117,6 +117,7 @@ type Product = {
   images: string[];
   description: string;
   variants: Variant[];
+  deleted_at?: string | null;
 };
 function VariantEditor({ initial = [] }: { initial?: Variant[] }) {
   const [rows, setRows] = useState<Variant[]>(
@@ -577,7 +578,7 @@ function ProductManager() {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [productTab, setProductTab] = useState<'active' | 'archived'>('active');
+  const [productTab, setProductTab] = useState<'active' | 'archived' | 'trash'>('active');
   const [mergeIds, setMergeIds] = useState<string[]>([]);
   const [mergeTarget, setMergeTarget] = useState('');
   const [merging, setMerging] = useState(false);
@@ -609,12 +610,31 @@ function ProductManager() {
     setBusy(false);
   }
   async function remove(id: string) {
-    if (!confirm('Hapus produk ini dari katalog?')) return;
-    await fetch('/api/admin/products', {
+    if (!confirm('Pindahkan produk ke Tong Sampah? Produk dapat dipulihkan selama 30 hari.')) return;
+    const response = await fetch('/api/admin/products', {
       method: 'DELETE',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ id }),
     });
+    if (!response.ok) setError((await response.json()).error ?? 'Gagal memindahkan produk.');
+    await load();
+  }
+  async function restoreDeleted(id: string) {
+    const response = await fetch('/api/admin/products', {
+      method: 'PUT', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id, restoreDeleted: true }),
+    });
+    if (!response.ok) setError((await response.json()).error ?? 'Produk gagal dipulihkan.');
+    else setProductTab('archived');
+    await load();
+  }
+  async function deletePermanently(id: string) {
+    if (!confirm('Hapus produk ini secara permanen? Produk, ulasan, dan data keranjangnya tidak dapat dipulihkan.')) return;
+    const response = await fetch('/api/admin/products', {
+      method: 'DELETE', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id, permanent: true }),
+    });
+    if (!response.ok) setError((await response.json()).error ?? 'Penghapusan permanen gagal.');
     await load();
   }
   async function copy(id: string) {
@@ -673,8 +693,9 @@ function ProductManager() {
     } else setError(result.error || 'Gagal menggabungkan produk.');
     setMerging(false);
   }
-  const activeCount = items.filter((item) => item.active !== 0).length;
-  const archivedCount = items.length - activeCount;
+  const activeCount = items.filter((item) => !item.deleted_at && item.active !== 0).length;
+  const archivedCount = items.filter((item) => !item.deleted_at && item.active === 0).length;
+  const trashCount = items.filter((item) => Boolean(item.deleted_at)).length;
   const categoryOptions = Array.from(
     new Set([
       'Chef & Kitchen Wear',
@@ -686,9 +707,9 @@ function ProductManager() {
   const subcategoryOptions = Array.from(
     new Set(items.map((item) => item.subcategory).filter(Boolean)),
   ).sort((a, b) => a.localeCompare(b, 'id'));
-  const visibleItems = items.filter((item) =>
-    productTab === 'active' ? item.active !== 0 : item.active === 0,
-  );
+  const visibleItems = items.filter((item) => productTab === 'trash'
+    ? Boolean(item.deleted_at)
+    : !item.deleted_at && (productTab === 'active' ? item.active !== 0 : item.active === 0));
   return (
     <section className="rounded-3xl border bg-white p-5 sm:p-7">
       <div className="flex items-center justify-between gap-4">
@@ -845,6 +866,7 @@ function ProductManager() {
           [
             ['active', 'Produk Aktif', activeCount],
             ['archived', 'Diarsipkan', archivedCount],
+            ['trash', 'Tong Sampah', trashCount],
           ] as const
         ).map(([value, label, count]) => (
           <button
@@ -864,9 +886,7 @@ function ProductManager() {
       </div>
       {visibleItems.length === 0 && (
         <div className="mt-4 rounded-2xl border border-dashed px-5 py-10 text-center text-sm text-[#68736b]">
-          {productTab === 'active'
-            ? 'Belum ada produk aktif.'
-            : 'Belum ada produk yang diarsipkan.'}
+          {productTab === 'active' ? 'Belum ada produk aktif.' : productTab === 'archived' ? 'Belum ada produk yang diarsipkan.' : 'Tong Sampah masih kosong.'}
         </div>
       )}
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -897,7 +917,7 @@ function ProductManager() {
                 <b className="block min-w-0 truncate text-sm">{p.name}</b>
                 {p.active === 0 && (
                   <span className="shrink-0 rounded-full bg-[#dfe3dd] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#566158]">
-                    Diarsipkan
+                    {p.deleted_at ? 'Dihapus' : 'Diarsipkan'}
                   </span>
                 )}
               </div>
@@ -906,7 +926,16 @@ function ProductManager() {
                 {p.images?.length || 1} foto
               </p>
               <p className="mt-1 text-sm font-bold">{rupiah(p.price)}</p>
-              <div className="mt-2 flex gap-3">
+              {p.deleted_at && (
+                <p className="mt-1 text-[11px] font-semibold text-[#9b4b30]">Dihapus {new Date(p.deleted_at).toLocaleDateString('id-ID')} · dapat dipulihkan hingga {new Date(new Date(p.deleted_at).getTime() + 30 * 86400000).toLocaleDateString('id-ID')}</p>
+              )}
+              <div className="mt-2 flex flex-wrap gap-3">
+                {p.deleted_at ? (
+                  <>
+                    <button onClick={() => restoreDeleted(p.id)} className="flex items-center gap-1 text-xs font-semibold text-[#24593d]"><RotateCcw size={13} /> Pulihkan</button>
+                    <button onClick={() => deletePermanently(p.id)} className="flex items-center gap-1 text-xs font-semibold text-red-700"><Trash2 size={13} /> Hapus Permanen</button>
+                  </>
+                ) : <>
                 <button
                   onClick={() => {
                     setEditing(p);
@@ -942,6 +971,7 @@ function ProductManager() {
                 >
                   <Trash2 size={13} /> Hapus
                 </button>
+                </>}
               </div>
             </div>
           </article>
