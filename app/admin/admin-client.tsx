@@ -648,6 +648,7 @@ function ProductManager() {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [handledEditLink, setHandledEditLink] = useState(false);
   const [productTab, setProductTab] = useState<'active' | 'archived' | 'trash'>('active');
   const [mergeIds, setMergeIds] = useState<string[]>([]);
   const [mergeTarget, setMergeTarget] = useState('');
@@ -659,6 +660,17 @@ function ProductManager() {
   useEffect(() => {
     load();
   }, []);
+  useEffect(() => {
+    if (handledEditLink || !items.length) return;
+    const editId = new URLSearchParams(window.location.search).get('edit');
+    const product = editId ? items.find((item) => item.id === editId) : null;
+    if (product) {
+      setEditing(product);
+      setOpen(true);
+      requestAnimationFrame(() => document.getElementById('product-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    }
+    setHandledEditLink(true);
+  }, [handledEditLink, items]);
   async function save(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBusy(true);
@@ -823,6 +835,7 @@ function ProductManager() {
       )}
       {open && (
         <form
+          id="product-editor"
           key={editing?.id ?? 'new-product'}
           onSubmit={save}
           className="mt-6 grid gap-3 rounded-2xl bg-[#f7f4ec] p-4 sm:grid-cols-2"
@@ -1006,15 +1019,14 @@ function ProductManager() {
                     <button onClick={() => deletePermanently(p.id)} className="flex items-center gap-1 text-xs font-semibold text-red-700"><Trash2 size={13} /> Hapus Permanen</button>
                   </>
                 ) : <>
-                <button
-                  onClick={() => {
-                    setEditing(p);
-                    setOpen(true);
-                  }}
+                <a
+                  href={`/admin?edit=${encodeURIComponent(p.id)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="flex items-center gap-1 text-xs font-semibold"
                 >
                   <Pencil size={13} /> Edit
-                </button>
+                </a>
                 <button
                   onClick={() => copy(p.id)}
                   className="text-xs font-semibold"
