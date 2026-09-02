@@ -306,7 +306,8 @@ function VariantEditor({ initial = [] }: { initial?: Variant[] }) {
 }
 function BulkImport({ onDone }: { onDone: () => void }) {
   const [busy, setBusy] = useState(false),
-    [message, setMessage] = useState('');
+    [message, setMessage] = useState(''),
+    [pending, setPending] = useState<{ fileName: string; rows: any[]; preview: any } | null>(null);
   function cells(line: string, delimiter: string) {
     const out: string[] = [],
       re = new RegExp(
@@ -350,16 +351,33 @@ function BulkImport({ onDone }: { onDone: () => void }) {
       const r = await fetch('/api/admin/products/bulk', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ rows }),
+          body: JSON.stringify({ rows, preview: true }),
         }),
         d = await r.json();
       if (!r.ok) throw new Error(d.error || 'Impor gagal.');
-      setMessage(
-        `${d.count} produk diproses: ${d.updated ?? 0} diperbarui, ${d.created ?? d.count} ditambahkan.${d.groupedRows ? ` ${d.groupedRows} baris mirip otomatis dijadikan variasi.` : ''}${d.skuAdjusted ? ` ${d.skuAdjusted} SKU ganda dibuat unik.` : ''}`,
-      );
-      onDone();
+      setPending({ fileName: file.name, rows, preview: d });
+      setMessage('Pratinjau siap. Periksa ringkasan sebelum mengonfirmasi impor.');
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Impor gagal.');
+    }
+    setBusy(false);
+  }
+  async function confirmImport() {
+    if (!pending) return;
+    setBusy(true);
+    setMessage('Menyimpan perubahan katalog…');
+    try {
+      const response = await fetch('/api/admin/products/bulk', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ rows: pending.rows, preview: false }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Impor gagal.');
+      setMessage(`${data.count} produk berhasil diproses: ${data.updated} diperbarui dan ${data.created} ditambahkan.`);
+      setPending(null);
+      await onDone();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Impor gagal.');
     }
     setBusy(false);
   }
@@ -433,6 +451,39 @@ function BulkImport({ onDone }: { onDone: () => void }) {
           </label>
         </div>
       </div>
+      {pending && (
+        <div className="mt-4 rounded-2xl border border-[#d8c8b3] bg-[#fffaf2] p-4">
+          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[.12em] text-[#a34f2c]">Pratinjau impor</p>
+              <b className="mt-1 block text-sm">{pending.fileName}</b>
+            </div>
+            <div className="flex gap-2">
+              <button type="button" disabled={busy} onClick={confirmImport} className="rounded-xl bg-[#243b2c] px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50">{busy ? 'Mengimpor…' : 'Konfirmasi Impor'}</button>
+              <button type="button" disabled={busy} onClick={() => { setPending(null); setMessage('Impor dibatalkan. Tidak ada data yang diubah.'); }} className="rounded-xl border bg-white px-4 py-2.5 text-xs font-bold">Batal</button>
+            </div>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {[
+              ['Baris CSV', pending.preview.rows],
+              ['Produk akhir', pending.preview.count],
+              ['Produk baru', pending.preview.created],
+              ['Diperbarui', pending.preview.updated],
+              ['Jadi variasi', pending.preview.groupedRows],
+              ['SKU disesuaikan', pending.preview.skuAdjusted],
+              ['Kategori dirapikan', pending.preview.normalizedFields],
+              ['Tanpa foto', pending.preview.newProductsWithoutImage],
+            ].map(([label, value]) => <div key={String(label)} className="rounded-xl bg-white p-3"><p className="text-[10px] font-bold uppercase text-[#68736b]">{label}</p><p className="mt-1 text-lg font-bold text-[#243b2c]">{value}</p></div>)}
+          </div>
+          {pending.preview.warnings?.length > 0 && (
+            <div className="mt-3 rounded-xl border border-[#edc59f] bg-[#fff3e5] p-3 text-xs text-[#7a3f25]">
+              <b>Perlu diperiksa:</b>
+              <ul className="mt-1 list-disc space-y-1 pl-5">{pending.preview.warnings.map((warning: string) => <li key={warning}>{warning}</li>)}</ul>
+            </div>
+          )}
+          <p className="mt-3 text-xs text-[#68736b]">Belum ada produk yang diubah. Data baru disimpan setelah tombol Konfirmasi Impor ditekan.</p>
+        </div>
+      )}
       {message && <p className="mt-3 text-xs font-semibold">{message}</p>}
     </div>
   );

@@ -78,20 +78,27 @@ export async function POST(request: Request) {
   if (!(await auth()))
     return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
   try {
-    const { rows } = (await request.json()) as { rows: any[] };
+    const { rows, preview = false } = (await request.json()) as { rows: any[]; preview?: boolean };
     if (!Array.isArray(rows) || !rows.length)
       throw new Error('File belum berisi data produk.');
     const groups = new Map<string, any>();
     let skuAdjusted = 0;
+    let normalizedFields = 0;
+    let highStockVariants = 0;
     for (const row of rows) {
       row.name = String(row.name || '').trim();
-      row.category = normalizeCategory(String(row.category || ''));
-      row.subcategory = normalizeSubcategory(String(row.subcategory || ''));
+      const originalCategory = String(row.category || '').trim();
+      const originalSubcategory = String(row.subcategory || '').trim();
+      row.category = normalizeCategory(originalCategory);
+      row.subcategory = normalizeSubcategory(originalSubcategory);
+      if (row.category !== originalCategory) normalizedFields++;
+      if (row.subcategory !== originalSubcategory) normalizedFields++;
       row.description = String(row.description || '').trim();
       const normalPrice = Number(row.normal_price);
       const discountPercent = Number(row.discount_percent || 0);
       const price = Math.round(normalPrice * (1 - discountPercent / 100));
       const stock = Number(row.stock);
+      if (stock >= 9999) highStockVariants++;
       if (
         !row.name || !row.category || !row.subcategory || !row.color ||
         !row.size || normalPrice <= 0 || discountPercent < 0 ||
@@ -137,6 +144,7 @@ export async function POST(request: Request) {
     const statements = [];
     let created = 0;
     let updated = 0;
+    let newProductsWithoutImage = 0;
     for (const group of groups.values()) {
       const price = Math.min(...group.variants.map((variant: any) => variant.price));
       const stock = group.variants.reduce((sum: number, variant: any) => sum + variant.stock, 0);
@@ -155,6 +163,7 @@ export async function POST(request: Request) {
         );
         updated++;
       } else {
+        if (!String(group.image_url || '').trim()) newProductsWithoutImage++;
         statements.push(
           database
             .prepare('INSERT INTO products (id,name,category,subcategory,tone,price,stock,description,variants_json,image_url,images_json,active,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
@@ -166,9 +175,16 @@ export async function POST(request: Request) {
         created++;
       }
     }
+    const warnings = [
+      highStockVariants ? `${highStockVariants} variasi memiliki stok 9.999 atau lebih.` : '',
+      newProductsWithoutImage ? `${newProductsWithoutImage} produk baru belum memiliki URL foto.` : '',
+      skuAdjusted ? `${skuAdjusted} SKU ganda akan dibuat unik otomatis.` : '',
+    ].filter(Boolean);
+    const summary = { ok: true, preview, rows: rows.length, count: groups.size, created, updated, groupedRows: rows.length - groups.size, skuAdjusted, normalizedFields, highStockVariants, newProductsWithoutImage, warnings };
+    if (preview) return NextResponse.json(summary);
     for (let index = 0; index < statements.length; index += 75)
       await database.batch(statements.slice(index, index + 75));
-    return NextResponse.json({ ok: true, count: groups.size, created, updated, groupedRows: rows.length - groups.size, skuAdjusted });
+    return NextResponse.json(summary);
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Impor gagal.' },
