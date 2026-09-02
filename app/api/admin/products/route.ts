@@ -15,7 +15,7 @@ async function auth() {
   );
 }
 async function images(files: File[]) {
-  if (files.length > 7) throw new Error('Maksimal 7 foto per produk.');
+  if (files.length > 9) throw new Error('Maksimal 9 foto per produk.');
   const keys: string[] = [];
   for (const file of files) {
     if (!file.size) continue;
@@ -203,8 +203,8 @@ export async function PATCH(req: Request) {
       finalKeys = combinedKeys;
     if (!name || !category || !subcategory || !description)
       throw new Error('Lengkapi nama, kategori, subkategori, dan deskripsi.');
-    if (finalKeys.length > 7)
-      throw new Error('Total foto maksimal 7 per produk.');
+    if (finalKeys.length > 9)
+      throw new Error('Total foto maksimal 9 per produk.');
     if (!finalKeys.length && old?.image_key) finalKeys.push(old.image_key);
     await d1
       .prepare(

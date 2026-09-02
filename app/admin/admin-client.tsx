@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Archive,
   CheckCircle2,
@@ -649,6 +649,9 @@ function ProductManager() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [handledEditLink, setHandledEditLink] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const selectedImagesRef = useRef<Array<{ file: File; url: string }>>([]);
+  const [selectedImages, setSelectedImages] = useState<Array<{ file: File; url: string }>>([]);
   const [productTab, setProductTab] = useState<'active' | 'archived' | 'trash'>('active');
   const [mergeIds, setMergeIds] = useState<string[]>([]);
   const [mergeTarget, setMergeTarget] = useState('');
@@ -660,6 +663,10 @@ function ProductManager() {
   useEffect(() => {
     load();
   }, []);
+  useEffect(() => {
+    selectedImagesRef.current = selectedImages;
+  }, [selectedImages]);
+  useEffect(() => () => selectedImagesRef.current.forEach((image) => URL.revokeObjectURL(image.url)), []);
   useEffect(() => {
     if (handledEditLink || !items.length) return;
     const editId = new URLSearchParams(window.location.search).get('edit');
@@ -685,6 +692,8 @@ function ProductManager() {
       body: fd,
     });
     if (r.ok) {
+      selectedImages.forEach((image) => URL.revokeObjectURL(image.url));
+      setSelectedImages([]);
       setOpen(false);
       setEditing(null);
       await load();
@@ -883,17 +892,31 @@ function ProductManager() {
           <VariantEditor initial={editing?.variants} />
           <label className="rounded-xl border bg-white px-4 py-3 text-sm sm:col-span-2">
             <span className="mb-2 block font-semibold">
-              Foto produk (maksimal 7)
+              Foto produk (maksimal 9)
             </span>
             <span className="mb-3 block text-xs text-[#68736b]">
               Pilih beberapa foto sekaligus. Foto pertama menjadi foto utama.
             </span>
             <input
+              ref={imageInputRef}
               name="images"
               type="file"
               required={!editing}
               multiple
               accept="image/jpeg,image/png,image/webp"
+              onChange={(event) => {
+                const files = Array.from(event.currentTarget.files || []);
+                if (files.length > 9) {
+                  event.currentTarget.value = '';
+                  selectedImages.forEach((image) => URL.revokeObjectURL(image.url));
+                  setSelectedImages([]);
+                  setError('Maksimal 9 foto per produk.');
+                  return;
+                }
+                setError('');
+                selectedImages.forEach((image) => URL.revokeObjectURL(image.url));
+                setSelectedImages(files.map((file) => ({ file, url: URL.createObjectURL(file) })));
+              }}
               className="max-w-full text-xs"
             />
             {editing && (
@@ -903,6 +926,35 @@ function ProductManager() {
               </label>
             )}
           </label>
+          {selectedImages.length > 0 && (
+            <div className="sm:col-span-2">
+              <p className="mb-2 text-xs font-semibold text-[#566158]">Pratinjau foto baru ({selectedImages.length}/9)</p>
+              <div className="flex flex-wrap gap-2">
+                {selectedImages.map((image, index) => (
+                  <div key={image.url} className="relative">
+                    <img src={image.url} alt={`Pratinjau foto ${index + 1}`} className="h-24 w-20 rounded-lg border object-cover" />
+                    <span className="absolute right-1 top-1 rounded bg-black/70 px-1.5 py-0.5 text-[9px] text-white">{index + 1}</span>
+                    {index === 0 && <span className="absolute bottom-1 left-1 rounded bg-[#243b2c] px-1.5 py-0.5 text-[9px] text-white">Utama</span>}
+                    <button
+                      type="button"
+                      aria-label={`Hapus foto ${index + 1}`}
+                      onClick={() => {
+                        URL.revokeObjectURL(image.url);
+                        const remaining = selectedImages.filter((_, imageIndex) => imageIndex !== index);
+                        const transfer = new DataTransfer();
+                        remaining.forEach((item) => transfer.items.add(item.file));
+                        if (imageInputRef.current) imageInputRef.current.files = transfer.files;
+                        setSelectedImages(remaining);
+                      }}
+                      className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-red-700 text-sm font-bold text-white shadow"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           {editing?.images?.length ? (
             <div className="flex flex-wrap gap-2 sm:col-span-2">
               {editing.images.map((src, index) => (
@@ -934,6 +986,8 @@ function ProductManager() {
             <button
               type="button"
               onClick={() => {
+                selectedImages.forEach((image) => URL.revokeObjectURL(image.url));
+                setSelectedImages([]);
                 setOpen(false);
                 setEditing(null);
               }}
