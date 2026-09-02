@@ -42,6 +42,12 @@ type Product = {
   images?: string[];
   tone: string;
   description: string;
+  material?: string;
+  care_instructions?: string;
+  production_estimate?: string;
+  size_guide?: string;
+  sold_count?: number;
+  created_at?: string;
   variants: Variant[];
 };
 type CartLine = { productId: string; variantIndex: number; quantity: number };
@@ -997,7 +1003,12 @@ export default function Home() {
             const average = productReviews.length
               ? productReviews.reduce((s, r) => s + r.rating, 0) /
                 productReviews.length
-              : 0;
+                : 0;
+            const relatedProducts = products
+              .filter((item) => item.id !== p.id && (
+                item.subcategory === p.subcategory || item.category === p.category
+              ))
+              .slice(0, 4);
             const moveImage = (direction: number) => {
               setSelectedImages((current) => ({
                 ...current,
@@ -1172,6 +1183,32 @@ export default function Home() {
                       <p className="mt-2 text-xs text-[#6f7b72]">
                         Stok tersedia: {variant.stock}
                       </p>
+                      <div className="mt-4 rounded-2xl border bg-[#fafbf9] p-4">
+                        <h3 className="text-sm font-bold">Stok per warna & ukuran</h3>
+                        <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                          {p.variants.map((item, index) => (
+                            <button
+                              type="button"
+                              key={`${item.color}-${item.size}-${index}`}
+                              onClick={() => setSelectedVariants((current) => ({ ...current, [p.id]: index }))}
+                              className={`rounded-lg border p-2 text-left ${variantIndex === index ? 'border-[#276344] bg-[#edf6ef]' : 'bg-white'}`}
+                            >
+                              <b>{item.color} · {item.size}</b>
+                              <span className={`mt-1 block ${item.stock > 0 ? 'text-[#276344]' : 'text-red-700'}`}>
+                                {item.stock > 0 ? `${item.stock} tersedia` : 'Habis'}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      {(p.material || p.care_instructions || p.production_estimate || p.size_guide) && (
+                        <div className="mt-4 space-y-3 rounded-2xl bg-[#f3f6f3] p-4 text-sm">
+                          {p.material && <div><b>Bahan</b><p className="mt-1 whitespace-pre-line text-[#5f6b63]">{p.material}</p></div>}
+                          {p.care_instructions && <div><b>Perawatan</b><p className="mt-1 whitespace-pre-line text-[#5f6b63]">{p.care_instructions}</p></div>}
+                          {p.production_estimate && <div><b>Estimasi produksi</b><p className="mt-1 text-[#5f6b63]">{p.production_estimate}</p></div>}
+                          {p.size_guide && <div><b>Panduan ukuran</b><p className="mt-1 whitespace-pre-line text-[#5f6b63]">{p.size_guide}</p></div>}
+                        </div>
+                      )}
                       <button
                         onClick={() => {
                           changeItem(p.id, variantIndex, 1);
@@ -1186,6 +1223,14 @@ export default function Home() {
                           ? 'Tambah ke keranjang'
                           : 'Stok habis'}
                       </button>
+                      <a
+                        href={`https://wa.me/6285172381996?text=${encodeURIComponent(`Halo Simple Ground, saya ingin bertanya tentang ${cleanLabel(p.name)}${variant.sku ? ` (SKU ${variant.sku})` : ''}, warna ${variant.color}, ukuran ${variant.size}.`)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-2 flex w-full items-center justify-center rounded-xl border border-[#276344] py-3 text-sm font-bold text-[#24593d]"
+                      >
+                        Tanya produk via WhatsApp
+                      </a>
                       <div className="mt-5 grid grid-cols-2 gap-2 text-xs">
                         <span className="rounded-xl bg-[#f3f6f3] p-3">
                           ✓ Pembayaran transfer Mandiri
@@ -1278,6 +1323,27 @@ export default function Home() {
                         )}
                       </div>
                     </div>
+                    {relatedProducts.length > 0 && (
+                      <div className="border-t p-5 md:col-span-2 sm:p-8">
+                        <h3 className="font-serif text-xl font-bold">Produk serupa</h3>
+                        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                          {relatedProducts.map((item) => (
+                            <button
+                              type="button"
+                              key={item.id}
+                              onClick={() => {
+                                setDetailId(item.id);
+                                setSelectedImages((current) => ({ ...current, [item.id]: 0 }));
+                              }}
+                              className="overflow-hidden rounded-xl border bg-white text-left transition hover:-translate-y-0.5 hover:shadow-md"
+                            >
+                              <img src={item.image} alt={cleanLabel(item.name)} className="aspect-square w-full object-cover" loading="lazy" />
+                              <span className="block p-3 text-xs font-bold">{cleanLabel(item.name)}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </section>
               </div>

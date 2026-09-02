@@ -103,8 +103,6 @@ type Variant = {
   discountPercent?: number;
   price: number;
   stock: number;
-  sold_count: number;
-  created_at?: string;
 };
 type Product = {
   id: string;
@@ -114,10 +112,16 @@ type Product = {
   tone: string;
   price: number;
   stock: number;
+  sold_count: number;
+  created_at?: string;
   active: number;
   image: string;
   images: string[];
   description: string;
+  material: string;
+  care_instructions: string;
+  production_estimate: string;
+  size_guide: string;
   variants: Variant[];
   deleted_at?: string | null;
 };
@@ -910,6 +914,30 @@ function ProductManager() {
             defaultValue={editing?.description}
             placeholder="Deskripsi produk, bahan, potongan, dan kegunaan"
             className="min-h-24 rounded-xl border bg-white px-4 py-3"
+          />
+          <textarea
+            name="material"
+            defaultValue={editing?.material}
+            placeholder="Bahan, contoh: Linen blend 55% linen, 45% rayon"
+            className="min-h-20 rounded-xl border bg-white px-4 py-3"
+          />
+          <textarea
+            name="care_instructions"
+            defaultValue={editing?.care_instructions}
+            placeholder="Perawatan, contoh: Cuci lembut, jangan gunakan pemutih"
+            className="min-h-20 rounded-xl border bg-white px-4 py-3"
+          />
+          <textarea
+            name="size_guide"
+            defaultValue={editing?.size_guide}
+            placeholder="Panduan ukuran, contoh: S: LD 96 cm · M: LD 100 cm · L: LD 104 cm"
+            className="min-h-20 rounded-xl border bg-white px-4 py-3"
+          />
+          <input
+            name="production_estimate"
+            defaultValue={editing?.production_estimate}
+            placeholder="Estimasi produksi, contoh: Siap kirim / 3–5 hari kerja"
+            className="rounded-xl border bg-white px-4 py-3"
           />
           <input
             name="category"

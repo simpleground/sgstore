@@ -87,7 +87,7 @@ function variants(raw: string) {
   return rows;
 }
 const select =
-  "SELECT id,name,category,subcategory,tone,price,stock,sold_count,active,created_at,description,variants_json,images_json,deleted_at,COALESCE('/api/product-image/' || image_key,image_url) AS image FROM products";
+  "SELECT id,name,category,subcategory,tone,price,stock,sold_count,active,created_at,description,material,care_instructions,production_estimate,size_guide,variants_json,images_json,deleted_at,COALESCE('/api/product-image/' || image_key,image_url) AS image FROM products";
 export async function GET() {
   if (!(await auth()))
     return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
@@ -117,7 +117,7 @@ export async function POST(req: Request) {
         now = new Date().toISOString();
       await d1
         .prepare(
-          "INSERT INTO products (id,name,category,subcategory,tone,price,stock,sold_count,description,variants_json,image_url,image_key,images_json,active,created_at,updated_at) SELECT ?,name||' (Salinan)',category,subcategory,tone,price,stock,sold_count,description,variants_json,image_url,image_key,images_json,0,?,? FROM products WHERE id=?",
+          "INSERT INTO products (id,name,category,subcategory,tone,price,stock,sold_count,description,material,care_instructions,production_estimate,size_guide,variants_json,image_url,image_key,images_json,active,created_at,updated_at) SELECT ?,name||' (Salinan)',category,subcategory,tone,price,stock,sold_count,description,material,care_instructions,production_estimate,size_guide,variants_json,image_url,image_key,images_json,0,?,? FROM products WHERE id=?",
         )
         .bind(id, now, now, copyId)
         .run();
@@ -127,6 +127,10 @@ export async function POST(req: Request) {
       category = normalizeCategory(String(f.get('category') || '')),
       subcategory = normalizeSubcategory(String(f.get('subcategory') || '')),
       description = String(f.get('description') || '').trim(),
+      material = String(f.get('material') || '').trim(),
+      careInstructions = String(f.get('care_instructions') || '').trim(),
+      productionEstimate = String(f.get('production_estimate') || '').trim(),
+      sizeGuide = String(f.get('size_guide') || '').trim(),
       soldCount = Number(f.get('sold_count') || 0),
       vs = variants(String(f.get('variants') || ''));
     const keys = await images(
@@ -142,7 +146,7 @@ export async function POST(req: Request) {
       now = new Date().toISOString();
     await d1
       .prepare(
-        'INSERT INTO products (id,name,category,subcategory,tone,price,stock,sold_count,description,variants_json,image_key,images_json,active,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        'INSERT INTO products (id,name,category,subcategory,tone,price,stock,sold_count,description,material,care_instructions,production_estimate,size_guide,variants_json,image_key,images_json,active,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
       )
       .bind(
         id,
@@ -154,6 +158,10 @@ export async function POST(req: Request) {
         stock,
         soldCount,
         description,
+        material,
+        careInstructions,
+        productionEstimate,
+        sizeGuide,
         JSON.stringify(vs),
         keys[0],
         JSON.stringify(keys),
@@ -181,6 +189,10 @@ export async function PATCH(req: Request) {
       category = normalizeCategory(String(f.get('category') || '')),
       subcategory = normalizeSubcategory(String(f.get('subcategory') || '')),
       description = String(f.get('description') || '').trim(),
+      material = String(f.get('material') || '').trim(),
+      careInstructions = String(f.get('care_instructions') || '').trim(),
+      productionEstimate = String(f.get('production_estimate') || '').trim(),
+      sizeGuide = String(f.get('size_guide') || '').trim(),
       soldCount = Number(f.get('sold_count') || 0),
       vs = variants(String(f.get('variants') || '')),
       active = String(f.get('active')) === 'true' ? 1 : 0,
@@ -211,7 +223,7 @@ export async function PATCH(req: Request) {
     if (!finalKeys.length && old?.image_key) finalKeys.push(old.image_key);
     await d1
       .prepare(
-        'UPDATE products SET name=?,category=?,subcategory=?,tone=?,price=?,stock=?,sold_count=?,description=?,variants_json=?,active=?,image_key=COALESCE(?,image_key),images_json=?,updated_at=? WHERE id=?',
+        'UPDATE products SET name=?,category=?,subcategory=?,tone=?,price=?,stock=?,sold_count=?,description=?,material=?,care_instructions=?,production_estimate=?,size_guide=?,variants_json=?,active=?,image_key=COALESCE(?,image_key),images_json=?,updated_at=? WHERE id=?',
       )
       .bind(
         name,
@@ -222,6 +234,10 @@ export async function PATCH(req: Request) {
         stock,
         soldCount,
         description,
+        material,
+        careInstructions,
+        productionEstimate,
+        sizeGuide,
         JSON.stringify(vs),
         active,
         finalKeys[0] ?? null,
