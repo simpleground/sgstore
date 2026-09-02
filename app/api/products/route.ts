@@ -91,7 +91,7 @@ export async function GET() {
       "SELECT id,name,category,subcategory,tone,price,stock,sold_count,created_at,description,variants_json,images_json,COALESCE('/api/product-image/' || image_key,image_url) AS image FROM products WHERE active=1 AND deleted_at IS NULL ORDER BY created_at ASC",
     )
     .all();
-  return NextResponse.json({
+  const response = NextResponse.json({
     products: result.results.map((p: any) => {
       const keys = readArray(p.images_json).filter(
         (key): key is string => typeof key === 'string' && Boolean(key),
@@ -106,4 +106,6 @@ export async function GET() {
       };
     }),
   });
+  response.headers.set('cache-control', 'public, max-age=15, stale-while-revalidate=60');
+  return response;
 }

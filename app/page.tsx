@@ -585,7 +585,18 @@ export default function Home() {
             <p className="mt-6 text-xs font-semibold text-[#4e6255]">Pengiriman ke seluruh Indonesia · Bantuan via WhatsApp</p>
           </div>
           <div className="relative min-h-72 lg:min-h-[430px]">
-            <img src={products[0]?.images?.[0] ?? products[0]?.image ?? defaultProducts[3].image} alt="Produk Simple Ground" className="absolute inset-0 h-full w-full object-cover" />
+            {products[0] ? (
+              <img
+                src={products[0].images?.[0] ?? products[0].image}
+                alt="Produk Simple Ground"
+                loading="eager"
+                fetchPriority="high"
+                decoding="async"
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+            ) : (
+              <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-[#d9d2c3] via-[#e9e4da] to-[#c7d1c6]" />
+            )}
             <div className="absolute inset-0 bg-gradient-to-t from-[#173c2b]/30 to-transparent" />
             <span className="absolute bottom-5 left-5 rounded-full bg-white/90 px-4 py-2 text-xs font-bold text-[#173c2b] backdrop-blur">Chef & Kitchen Wear</span>
           </div>
@@ -662,7 +673,7 @@ export default function Home() {
             </div>
           )}
           {!productsLoading && <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
-            {filtered.slice(0, visibleCount).map((p) => {
+            {filtered.slice(0, visibleCount).map((p, productIndex) => {
               const variantIndex = selectedVariants[p.id] ?? 0;
               const productImages = p.images?.length ? p.images : [p.image];
               const imageIndex = selectedImages[p.id] ?? 0;
@@ -691,6 +702,9 @@ export default function Home() {
                     <img
                       src={productImages[imageIndex] ?? productImages[0]}
                       alt={cleanLabel(p.name)}
+                      loading={productIndex < 4 ? 'eager' : 'lazy'}
+                      fetchPriority={productIndex < 4 ? 'high' : 'auto'}
+                      decoding="async"
                       className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
                     />
                     <span className="absolute left-2 top-2 rounded-md bg-white/90 px-2 py-1 text-[10px] font-bold">
