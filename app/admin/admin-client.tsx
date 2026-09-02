@@ -649,6 +649,7 @@ function ProductManager() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [handledEditLink, setHandledEditLink] = useState(false);
+  const [dedicatedEdit, setDedicatedEdit] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const selectedImagesRef = useRef<Array<{ file: File; url: string }>>([]);
   const [selectedImages, setSelectedImages] = useState<Array<{ file: File; url: string }>>([]);
@@ -672,6 +673,7 @@ function ProductManager() {
     const editId = new URLSearchParams(window.location.search).get('edit');
     const product = editId ? items.find((item) => item.id === editId) : null;
     if (product) {
+      setDedicatedEdit(true);
       setEditing(product);
       setOpen(true);
       requestAnimationFrame(() => document.getElementById('product-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
@@ -803,7 +805,7 @@ function ProductManager() {
     : !item.deleted_at && (productTab === 'active' ? item.active !== 0 : item.active === 0));
   return (
     <section className="rounded-3xl border bg-white p-5 sm:p-7">
-      <div className="flex items-center justify-between gap-4">
+      {!dedicatedEdit && <div className="flex items-center justify-between gap-4">
         <div>
           <p className="text-xs font-bold uppercase tracking-[.18em] text-[#a34f2c]">
             Katalog
@@ -819,10 +821,12 @@ function ProductManager() {
         >
           <Plus size={16} /> Tambah produk
         </button>
-      </div>
-      <BulkImport onDone={load} />
-      <CategoryManager items={items} onDone={load} />
-      {mergeIds.length > 0 && (
+      </div>}
+      {!dedicatedEdit && <>
+        <BulkImport onDone={load} />
+        <CategoryManager items={items} onDone={load} />
+      </>}
+      {!dedicatedEdit && mergeIds.length > 0 && (
         <div className="mt-5 rounded-2xl border border-[#d7c9b7] bg-[#fffaf2] p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <label className="flex-1 text-sm font-semibold">
@@ -840,6 +844,16 @@ function ProductManager() {
             <button type="button" onClick={() => { setMergeIds([]); setMergeTarget(''); }} className="rounded-xl border bg-white px-4 py-3 text-sm">Batal</button>
           </div>
           <p className="mt-2 text-xs text-[#68736b]">Semua variasi, foto, ulasan, dan keranjang pelanggan dipindahkan. Produk sumber kemudian diarsipkan.</p>
+        </div>
+      )}
+      {dedicatedEdit && editing && (
+        <div className="mb-5 flex flex-col justify-between gap-3 border-b pb-5 sm:flex-row sm:items-end">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[.18em] text-[#a34f2c]">Edit produk</p>
+            <h2 className="mt-1 font-serif text-3xl">{editing.name}</h2>
+            <p className="mt-1 text-sm text-[#68736b]">Perbarui informasi, variasi, stok, harga, dan foto produk ini.</p>
+          </div>
+          <button type="button" onClick={() => window.close()} className="rounded-full border px-4 py-2 text-sm font-semibold">Tutup tab</button>
         </div>
       )}
       {open && (
@@ -998,6 +1012,7 @@ function ProductManager() {
           </div>
         </form>
       )}
+      {!dedicatedEdit && <>
       <div className="mt-6 flex gap-1 rounded-xl bg-[#f1f1eb] p-1 sm:w-fit">
         {(
           [
@@ -1113,6 +1128,7 @@ function ProductManager() {
           </article>
         ))}
       </div>
+      </>}
     </section>
   );
 }
@@ -1307,9 +1323,16 @@ export function AdminDashboard({
 }) {
   const [orders, setOrders] = useState(initialOrders);
   const [filter, setFilter] = useState('semua');
+  const [editMode, setEditMode] = useState(false);
   const [section, setSection] = useState<
     'overview' | 'orders' | 'products' | 'reviews'
   >('overview');
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has('edit')) {
+      setEditMode(true);
+      setSection('products');
+    }
+  }, []);
   const visible =
     filter === 'semua' ? orders : orders.filter((o) => o.status === filter);
   async function update(orderNumber: string, status: string) {
@@ -1333,7 +1356,7 @@ export function AdminDashboard({
     .reduce((s, o) => s + o.total, 0);
   return (
     <div className="mx-auto max-w-[90rem] px-4 py-6 sm:px-8 sm:py-8">
-      <header className="flex flex-col justify-between gap-5 border-b pb-7 sm:flex-row sm:items-end">
+      {!editMode && <header className="flex flex-col justify-between gap-5 border-b pb-7 sm:flex-row sm:items-end">
         <div>
           <p className="text-xs font-bold uppercase tracking-[.2em] text-[#a34f2c]">
             Simple Ground Admin
@@ -1355,9 +1378,9 @@ export function AdminDashboard({
             Keluar
           </a>
         </div>
-      </header>
-      <div className="mt-6 grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
-        <aside className="lg:sticky lg:top-6 lg:self-start">
+      </header>}
+      <div className={`${editMode ? '' : 'mt-6 grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]'}`}>
+        {!editMode && <aside className="lg:sticky lg:top-6 lg:self-start">
           <nav className="flex gap-2 overflow-x-auto rounded-2xl border bg-white p-2 lg:flex-col lg:p-3">
             {[
               ['overview', 'Dashboard', LayoutDashboard],
@@ -1379,7 +1402,7 @@ export function AdminDashboard({
             Pilih menu untuk mengelola bagian toko tanpa halaman yang terlalu
             panjang.
           </p>
-        </aside>
+        </aside>}
         <main className="min-w-0">
           {section === 'overview' && (
             <section>
