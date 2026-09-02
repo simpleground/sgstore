@@ -33,6 +33,7 @@ export async function POST(req: Request) {
     const indexes = new Map<string, number>();
     const sourceVariantMaps = new Map<string, number[]>();
     const skuChanges: Array<{ product: string; from: string; to: string }> = [];
+    const target = products[0];
     for (const product of products) {
       let rows: Variant[] = [];
       try { rows = JSON.parse(product.variants_json || '[]'); } catch {}
@@ -61,7 +62,6 @@ export async function POST(req: Request) {
     }
     if (!merged.length) throw new Error('Produk yang dipilih tidak memiliki variasi.');
 
-    const target = products[0];
     const imageKeys: string[] = [];
     for (const product of products) {
       let keys: string[] = [];

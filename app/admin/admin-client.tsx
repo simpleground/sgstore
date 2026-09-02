@@ -438,7 +438,8 @@ function BulkImport({ onDone }: { onDone: () => void }) {
           <b className="text-sm">Edit & upload produk massal</b>
           <p className="mt-1 text-xs text-[#68736b]">
             Export katalog, edit di Excel atau Google Sheets, lalu upload kembali.
-            Baris dengan product_id diperbarui; baris tanpa ID menjadi produk baru.
+            Baris dengan product_id diperbarui. Baris tanpa ID yang namanya sangat mirip
+            otomatis masuk sebagai variasi; nama yang berbeda tetap menjadi produk baru.
             Foto produk lama tetap dipertahankan.
           </p>
         </div>
@@ -491,6 +492,7 @@ function BulkImport({ onDone }: { onDone: () => void }) {
               ['Produk baru', pending.preview.created],
               ['Diperbarui', pending.preview.updated],
               ['Jadi variasi', pending.preview.groupedRows],
+              ['Cocok otomatis', pending.preview.autoMatched],
               ['SKU disesuaikan', pending.preview.skuAdjusted],
               ['Kategori dirapikan', pending.preview.normalizedFields],
               ['Tanpa foto', pending.preview.newProductsWithoutImage],
@@ -500,6 +502,12 @@ function BulkImport({ onDone }: { onDone: () => void }) {
             <div className="mt-3 rounded-xl border border-[#edc59f] bg-[#fff3e5] p-3 text-xs text-[#7a3f25]">
               <b>Perlu diperiksa:</b>
               <ul className="mt-1 list-disc space-y-1 pl-5">{pending.preview.warnings.map((warning: string) => <li key={warning}>{warning}</li>)}</ul>
+            </div>
+          )}
+          {pending.preview.autoMatchedNames?.length > 0 && (
+            <div className="mt-3 rounded-xl border border-[#bad8c5] bg-[#f1faf4] p-3 text-xs text-[#24593d]">
+              <b>Dikenali sebagai produk yang sama:</b>
+              <ul className="mt-1 list-disc space-y-1 pl-5">{pending.preview.autoMatchedNames.map((item: string) => <li key={item}>{item}</li>)}</ul>
             </div>
           )}
           <p className="mt-3 text-xs text-[#68736b]">Belum ada produk yang diubah. Data baru disimpan setelah tombol Konfirmasi Impor ditekan.</p>

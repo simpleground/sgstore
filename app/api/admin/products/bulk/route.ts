@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getChatGPTUser } from '@/app/chatgpt-auth';
 import { getD1 } from '@/db';
-import { normalizeCategory, normalizeSubcategory, productIdentity } from '@/lib/catalog-normalize';
+import { normalizeCategory, normalizeSubcategory, productIdentity, productNameSimilarity } from '@/lib/catalog-normalize';
 
 async function auth() {
   const user = await getChatGPTUser();
@@ -25,6 +25,35 @@ const csvCell = (value: unknown) => {
   const text = String(value ?? '');
   return /[;"\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 };
+
+type ImportVariant = { sku?: string; color: string; size: string; normalPrice: number; price: number; stock: number };
+const optionKey = (variant: ImportVariant) => `${variant.color.trim().toLowerCase()}|${variant.size.trim().toLowerCase()}`;
+
+function mergeVariants(existing: ImportVariant[], incoming: ImportVariant[]) {
+  const merged = existing.map((variant) => ({ ...variant }));
+  let skuAdjusted = 0;
+  for (const row of incoming) {
+    const sku = String(row.sku || '').trim().toLowerCase();
+    const same = merged.findIndex((variant) =>
+      (sku && String(variant.sku || '').trim().toLowerCase() === sku) ||
+      optionKey(variant) === optionKey(row),
+    );
+    if (same >= 0) {
+      merged[same] = { ...merged[same], ...row };
+      continue;
+    }
+    const used = new Set(merged.map((variant) => String(variant.sku || '').trim().toLowerCase()).filter(Boolean));
+    let next = String(row.sku || '').trim();
+    if (next && used.has(next.toLowerCase())) {
+      let suffix = 2;
+      while (used.has(`${next}-${suffix}`.toLowerCase())) suffix++;
+      next = `${next}-${suffix}`;
+      skuAdjusted++;
+    }
+    merged.push({ ...row, sku: next });
+  }
+  return { variants: merged, skuAdjusted };
+}
 
 export async function GET() {
   if (!(await auth()))
@@ -137,15 +166,53 @@ export async function POST(request: Request) {
 
     const database = getD1();
     const now = new Date().toISOString();
-    const existingRows = await database.prepare('SELECT id FROM products WHERE deleted_at IS NULL').all();
+    const existingRows = await database.prepare('SELECT id,name,category,subcategory,variants_json,active FROM products WHERE deleted_at IS NULL').all();
     const existingIds = new Set(
       (existingRows.results as Array<{ id: string }>).map((row) => row.id),
     );
+    const activeCatalog = (existingRows.results as any[])
+      .filter((row) => Number(row.active) === 1)
+      .map((row) => ({
+        ...row,
+        category: normalizeCategory(String(row.category || '')),
+        subcategory: normalizeSubcategory(String(row.subcategory || '')),
+      }));
+    let autoMatched = 0;
+    const autoMatchedNames: string[] = [];
+    for (const group of groups.values()) {
+      if (group.productId) continue;
+      const candidates = activeCatalog
+        .filter((product) => product.category === group.category && product.subcategory === group.subcategory)
+        .map((product) => ({
+          product,
+          exact: productIdentity(product.name) === productIdentity(group.name),
+          score: productNameSimilarity(product.name, group.name),
+        }))
+        .sort((left, right) => Number(right.exact) - Number(left.exact) || right.score - left.score);
+      const best = candidates[0];
+      const runnerUp = candidates[1];
+      const exactMatches = candidates.filter((candidate) => candidate.exact);
+      const confident = best && (
+        exactMatches.length === 1 ||
+        (exactMatches.length === 0 && best.score >= 0.94 && best.score - (runnerUp?.score || 0) >= 0.08)
+      );
+      if (!confident) continue;
+      group.productId = best.product.id;
+      group.autoMatched = true;
+      try { group.existingVariants = JSON.parse(best.product.variants_json || '[]'); } catch { group.existingVariants = []; }
+      autoMatched++;
+      autoMatchedNames.push(`“${group.name}” → “${best.product.name}”`);
+    }
     const statements = [];
     let created = 0;
     let updated = 0;
     let newProductsWithoutImage = 0;
     for (const group of groups.values()) {
+      if (group.autoMatched) {
+        const combined = mergeVariants(group.existingVariants || [], group.variants);
+        group.variants = combined.variants;
+        skuAdjusted += combined.skuAdjusted;
+      }
       const price = Math.min(...group.variants.map((variant: any) => variant.price));
       const stock = group.variants.reduce((sum: number, variant: any) => sum + variant.stock, 0);
       const active = String(group.active ?? '1').toLowerCase();
@@ -179,8 +246,9 @@ export async function POST(request: Request) {
       highStockVariants ? `${highStockVariants} variasi memiliki stok 9.999 atau lebih.` : '',
       newProductsWithoutImage ? `${newProductsWithoutImage} produk baru belum memiliki URL foto.` : '',
       skuAdjusted ? `${skuAdjusted} SKU ganda akan dibuat unik otomatis.` : '',
+      autoMatched ? `${autoMatched} produk dikenali otomatis sebagai barang yang sudah ada.` : '',
     ].filter(Boolean);
-    const summary = { ok: true, preview, rows: rows.length, count: groups.size, created, updated, groupedRows: rows.length - groups.size, skuAdjusted, normalizedFields, highStockVariants, newProductsWithoutImage, warnings };
+    const summary = { ok: true, preview, rows: rows.length, count: groups.size, created, updated, groupedRows: rows.length - groups.size, skuAdjusted, normalizedFields, highStockVariants, newProductsWithoutImage, autoMatched, autoMatchedNames: autoMatchedNames.slice(0, 12), warnings };
     if (preview) return NextResponse.json(summary);
     for (let index = 0; index < statements.length; index += 75)
       await database.batch(statements.slice(index, index + 75));

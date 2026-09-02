@@ -32,7 +32,10 @@ const typoWords: Record<string, string> = { kemaja: 'kemeja', tshirt: 'kaos' };
 const normalizedWords = (value: string) => key(value)
   .split(' ')
   .map((word) => typoWords[word] || word)
-  .filter((word) => word && !colorWords.has(word));
+  .filter((word) => word && !colorWords.has(word))
+  .map((word) => /^\d+$/.test(word) ? String(Number(word)) : word);
+
+export const normalizedProductName = (value: string) => normalizedWords(value).join(' ');
 
 export function productIdentity(value: string) {
   const parts = value.split('|').map(clean).filter(Boolean);
@@ -41,7 +44,35 @@ export function productIdentity(value: string) {
   const code = hasCode ? first.toUpperCase() : '';
   const title = (hasCode ? parts.slice(1) : parts).join(' ') || value;
   const words = normalizedWords(title);
-  while (words.length && /^\d+$/.test(words[words.length - 1])) words.pop();
   const base = words.join(' ');
   return code ? `code:${code}|${base}` : `name:${base}`;
+}
+
+const editDistance = (left: string, right: string) => {
+  const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+  for (let row = 1; row <= left.length; row++) {
+    let diagonal = previous[0];
+    previous[0] = row;
+    for (let column = 1; column <= right.length; column++) {
+      const above = previous[column];
+      previous[column] = Math.min(
+        previous[column] + 1,
+        previous[column - 1] + 1,
+        diagonal + (left[row - 1] === right[column - 1] ? 0 : 1),
+      );
+      diagonal = above;
+    }
+  }
+  return previous[right.length];
+};
+
+export function productNameSimilarity(left: string, right: string) {
+  const a = normalizedProductName(left);
+  const b = normalizedProductName(right);
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  const leftNumbers = a.match(/\b\d+\b/g) || [];
+  const rightNumbers = b.match(/\b\d+\b/g) || [];
+  if (leftNumbers.join('|') !== rightNumbers.join('|')) return 0;
+  return 1 - editDistance(a, b) / Math.max(a.length, b.length);
 }
