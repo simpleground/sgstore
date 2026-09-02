@@ -665,6 +665,11 @@ function ProductManager() {
     load();
   }, []);
   useEffect(() => {
+    const channel = new BroadcastChannel('simple-ground-products');
+    channel.onmessage = () => load();
+    return () => channel.close();
+  }, []);
+  useEffect(() => {
     selectedImagesRef.current = selectedImages;
   }, [selectedImages]);
   useEffect(() => () => selectedImagesRef.current.forEach((image) => URL.revokeObjectURL(image.url)), []);
@@ -696,6 +701,13 @@ function ProductManager() {
     if (r.ok) {
       selectedImages.forEach((image) => URL.revokeObjectURL(image.url));
       setSelectedImages([]);
+      if (dedicatedEdit) {
+        const channel = new BroadcastChannel('simple-ground-products');
+        channel.postMessage('updated');
+        channel.close();
+        window.close();
+        return;
+      }
       setOpen(false);
       setEditing(null);
       await load();
