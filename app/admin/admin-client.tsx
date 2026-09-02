@@ -329,7 +329,7 @@ function BulkImport({ onDone }: { onDone: () => void }) {
   }
   async function upload(file: File) {
     setBusy(true);
-    setMessage('');
+    setMessage('Membaca file CSV…');
     try {
       const bytes = await file.arrayBuffer();
       let text = new TextDecoder('utf-8').decode(bytes);
@@ -355,10 +355,18 @@ function BulkImport({ onDone }: { onDone: () => void }) {
         ];
       if (!required.every((h) => headers.includes(h)))
         throw new Error('Kolom CSV tidak sesuai template.');
-      const rows = lines.slice(1).map((line) => {
+      const rows: Record<string, string>[] = [];
+      for (let index = 1; index < lines.length; index++) {
+        const line = lines[index];
         const values = cells(line, delimiter);
-        return Object.fromEntries(headers.map((h, i) => [h, values[i] ?? '']));
-      });
+        rows.push(Object.fromEntries(headers.map((h, i) => [h, values[i] ?? ''])));
+        if (index % 50 === 0) {
+          setMessage(`Membaca baris ${index} dari ${lines.length - 1}…`);
+          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+        }
+      }
+      setMessage(`Memeriksa ${rows.length} baris produk…`);
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
       const r = await fetch('/api/admin/products/bulk', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
