@@ -28,6 +28,8 @@ type Variant = {
   normalPrice?: number;
   price: number;
   stock: number;
+  sold_count?: number;
+  created_at?: string;
 };
 type Product = {
   id: string;
@@ -47,6 +49,7 @@ type Review = {
   id: string;
   product_id: string;
   display_name: string;
+  city: string;
   rating: number;
   body: string;
   created_at: string;
@@ -200,6 +203,7 @@ export default function Home() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewBody, setReviewBody] = useState('');
+  const [reviewCity, setReviewCity] = useState('');
   const [reviewMessage, setReviewMessage] = useState('');
   const [loginOpen, setLoginOpen] = useState(false);
   const filtered = useMemo(() => {
@@ -212,6 +216,10 @@ export default function Home() {
       );
     if (sort === 'termurah')
       return [...result].sort((a, b) => a.price - b.price);
+    if (sort === 'terlaris')
+      return [...result].sort((a, b) => (b.sold_count || 0) - (a.sold_count || 0));
+    if (sort === 'terbaru')
+      return [...result].sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
     if (sort === 'termahal')
       return [...result].sort((a, b) => b.price - a.price);
     if (sort === 'stok')
@@ -372,6 +380,7 @@ export default function Home() {
         productId,
         rating: reviewRating,
         body: reviewBody,
+        city: reviewCity,
       }),
     });
     const d = await r.json();
@@ -380,6 +389,7 @@ export default function Home() {
       return;
     }
     setReviewBody('');
+    setReviewCity('');
     setReviewMessage('Ulasan berhasil disimpan.');
     const fresh = await fetch('/api/reviews').then((x) => x.json());
     setReviews(fresh.reviews ?? []);
@@ -629,9 +639,10 @@ export default function Home() {
               URUTKAN
               <select value={sort} onChange={(event) => setSort(event.target.value)} className="mt-2 block w-full rounded-xl border bg-[#f8faf7] px-3 py-2.5 text-sm font-semibold outline-none">
                 <option value="rekomendasi">Rekomendasi</option>
-                <option value="termurah">Harga termurah</option>
-                <option value="termahal">Harga tertinggi</option>
-                <option value="stok">Stok terbanyak</option>
+                <option value="terlaris">Terlaris</option>
+                <option value="terbaru">Terbaru</option>
+                <option value="termurah">Termurah</option>
+                <option value="termahal">Tertinggi</option>
               </select>
             </label>
             <div className="rounded-xl bg-[#edf4ee] px-4 py-3 text-sm font-bold text-[#24593d]">{wishlist.length} wishlist</div>
@@ -717,7 +728,7 @@ export default function Home() {
                       )}
                     </div>
                     <p className="mt-1 text-[11px] text-[#6d786f]">
-                      {variant.color} · {variant.size} · stok {variant.stock}
+                      {variant.color} · {variant.size} · {p.sold_count || 0} terjual
                     </p>
                     <p className="mt-1 text-[11px] font-semibold text-[#8a5a22]">
                       ★ {average ? average.toFixed(1) : 'Baru'}{' '}
@@ -813,7 +824,7 @@ export default function Home() {
               <figure key={review.id} className="rounded-2xl bg-white/8 p-6 ring-1 ring-white/10">
                 <div className="text-[#e7b264]">{'★'.repeat(review.rating)}</div>
                 <blockquote className="mt-4 text-sm leading-7 text-[#e7ede8]">“{review.body}”</blockquote>
-                <figcaption className="mt-5 text-xs font-bold text-white">{review.display_name}</figcaption>
+                <figcaption className="mt-5 text-xs font-bold text-white">{review.display_name}{review.city ? ` · ${review.city}` : ''}</figcaption>
               </figure>
             ))}
             {!reviews.length && <p className="text-sm text-[#d5ded7]">Ulasan pelanggan akan tampil di sini setelah disetujui.</p>}
@@ -1181,7 +1192,7 @@ export default function Home() {
                                 className="rounded-xl bg-[#f5f7f4] p-3"
                               >
                                 <div className="flex justify-between gap-2">
-                                  <b className="text-sm">{r.display_name}</b>
+                                  <b className="text-sm">{r.display_name}{r.city ? ` · ${r.city}` : ''}</b>
                                   <span className="text-sm text-amber-600">
                                     {'★'.repeat(r.rating)}
                                   </span>
@@ -1225,9 +1236,16 @@ export default function Home() {
                               placeholder="Ceritakan pengalaman Anda dengan produk ini"
                               className="mt-2 min-h-20 w-full rounded-lg border p-3 text-sm"
                             />
+                            <input
+                              value={reviewCity}
+                              onChange={(e) => setReviewCity(e.target.value)}
+                              maxLength={80}
+                              placeholder="Kota, contoh: Bandung"
+                              className="mt-2 w-full rounded-lg border p-3 text-sm"
+                            />
                             <button
                               onClick={() => submitReview(p.id)}
-                              disabled={!reviewBody.trim()}
+                              disabled={!reviewBody.trim() || !reviewCity.trim()}
                               className="mt-2 rounded-lg bg-[#173c2b] px-4 py-2 text-sm font-bold text-white disabled:opacity-40"
                             >
                               Kirim ulasan

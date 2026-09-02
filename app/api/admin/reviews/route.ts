@@ -43,7 +43,7 @@ export async function POST(req: Request) {
   if (
     !b.productId ||
     !b.orderNumber ||
-    !b.displayName ||
+    !b.displayName || !b.city?.trim() ||
     b.rating < 1 ||
     b.rating > 5 ||
     !b.body?.trim()
@@ -55,13 +55,14 @@ export async function POST(req: Request) {
   const now = new Date().toISOString();
   await getD1()
     .prepare(
-      'INSERT INTO reviews (id,product_id,order_number,display_name,rating,body,active,admin_created,created_at,updated_at) VALUES (?,?,?,?,?,?,1,1,?,?)',
+      'INSERT INTO reviews (id,product_id,order_number,display_name,city,rating,body,active,admin_created,created_at,updated_at) VALUES (?,?,?,?,?,?,?,1,1,?,?)',
     )
     .bind(
       crypto.randomUUID(),
       b.productId,
       b.orderNumber,
       b.displayName.trim(),
+      b.city.trim(),
       b.rating,
       b.body.trim(),
       now,
@@ -74,14 +75,15 @@ export async function PATCH(req: Request) {
   if (!(await auth()))
     return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
   const b = (await req.json()) as any;
-  if (!b.id || b.rating < 1 || b.rating > 5 || !b.body?.trim())
+  if (!b.id || !b.city?.trim() || b.rating < 1 || b.rating > 5 || !b.body?.trim())
     return NextResponse.json({ error: 'Ulasan tidak valid.' }, { status: 400 });
   await getD1()
     .prepare(
-      'UPDATE reviews SET display_name=?,rating=?,body=?,active=?,updated_at=? WHERE id=?',
+      'UPDATE reviews SET display_name=?,city=?,rating=?,body=?,active=?,updated_at=? WHERE id=?',
     )
     .bind(
       b.displayName.trim(),
+      String(b.city || '').trim(),
       b.rating,
       b.body.trim(),
       b.active ? 1 : 0,

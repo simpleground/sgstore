@@ -103,6 +103,8 @@ type Variant = {
   discountPercent?: number;
   price: number;
   stock: number;
+  sold_count: number;
+  created_at?: string;
 };
 type Product = {
   id: string;
@@ -654,6 +656,9 @@ function ProductManager() {
   const selectedImagesRef = useRef<Array<{ file: File; url: string }>>([]);
   const [selectedImages, setSelectedImages] = useState<Array<{ file: File; url: string }>>([]);
   const [productTab, setProductTab] = useState<'active' | 'archived' | 'trash'>('active');
+  const [catalogSort, setCatalogSort] = useState('rekomendasi');
+  const [catalogCategory, setCatalogCategory] = useState('Semua');
+  const [catalogSubcategory, setCatalogSubcategory] = useState('Semua');
   const [mergeIds, setMergeIds] = useState<string[]>([]);
   const [mergeTarget, setMergeTarget] = useState('');
   const [merging, setMerging] = useState(false);
@@ -814,7 +819,16 @@ function ProductManager() {
   ).sort((a, b) => a.localeCompare(b, 'id'));
   const visibleItems = items.filter((item) => productTab === 'trash'
     ? Boolean(item.deleted_at)
-    : !item.deleted_at && (productTab === 'active' ? item.active !== 0 : item.active === 0));
+    : !item.deleted_at && (productTab === 'active' ? item.active !== 0 : item.active === 0))
+    .filter((item) => catalogCategory === 'Semua' || item.category === catalogCategory)
+    .filter((item) => catalogSubcategory === 'Semua' || item.subcategory === catalogSubcategory)
+    .sort((a, b) => {
+      if (catalogSort === 'terlaris') return (b.sold_count || 0) - (a.sold_count || 0);
+      if (catalogSort === 'terbaru') return String(b.created_at || '').localeCompare(String(a.created_at || ''));
+      if (catalogSort === 'termurah') return a.price - b.price;
+      if (catalogSort === 'tertinggi') return b.price - a.price;
+      return 0;
+    });
   return (
     <section className="rounded-3xl border bg-white p-5 sm:p-7">
       {!dedicatedEdit && <div className="flex items-center justify-between gap-4">
@@ -915,6 +929,18 @@ function ProductManager() {
               <option key={subcategory} value={subcategory} />
             ))}
           </datalist>
+          <label className="text-xs font-bold text-[#566158]">
+            JUMLAH TERJUAL
+            <input
+              name="sold_count"
+              type="number"
+              min="0"
+              step="1"
+              required
+              defaultValue={editing?.sold_count ?? 0}
+              className="mt-1 block w-full rounded-xl border bg-white px-4 py-3 text-sm font-normal"
+            />
+          </label>
           <VariantEditor initial={editing?.variants} />
           <label className="rounded-xl border bg-white px-4 py-3 text-sm sm:col-span-2">
             <span className="mb-2 block font-semibold">
@@ -1048,6 +1074,29 @@ function ProductManager() {
           </button>
         ))}
       </div>
+      <div className="mt-4 grid gap-3 rounded-2xl border bg-[#f7f4ec] p-4 sm:grid-cols-3">
+        <label className="text-xs font-bold text-[#566158]">KATEGORI
+          <select value={catalogCategory} onChange={(e) => { setCatalogCategory(e.target.value); setCatalogSubcategory('Semua'); }} className="mt-1 block w-full rounded-xl border bg-white px-3 py-2.5 text-sm font-normal">
+            <option value="Semua">Semua kategori</option>
+            {categoryOptions.map((value) => <option key={value} value={value}>{value}</option>)}
+          </select>
+        </label>
+        <label className="text-xs font-bold text-[#566158]">SUBKATEGORI
+          <select value={catalogSubcategory} onChange={(e) => setCatalogSubcategory(e.target.value)} className="mt-1 block w-full rounded-xl border bg-white px-3 py-2.5 text-sm font-normal">
+            <option value="Semua">Semua subkategori</option>
+            {subcategoryOptions.filter((value) => catalogCategory === 'Semua' || items.some((item) => item.category === catalogCategory && item.subcategory === value)).map((value) => <option key={value} value={value}>{value}</option>)}
+          </select>
+        </label>
+        <label className="text-xs font-bold text-[#566158]">URUTKAN
+          <select value={catalogSort} onChange={(e) => setCatalogSort(e.target.value)} className="mt-1 block w-full rounded-xl border bg-white px-3 py-2.5 text-sm font-normal">
+            <option value="rekomendasi">Rekomendasi</option>
+            <option value="terlaris">Terlaris</option>
+            <option value="terbaru">Terbaru</option>
+            <option value="termurah">Termurah</option>
+            <option value="tertinggi">Tertinggi</option>
+          </select>
+        </label>
+      </div>
       {visibleItems.length === 0 && (
         <div className="mt-4 rounded-2xl border border-dashed px-5 py-10 text-center text-sm text-[#68736b]">
           {productTab === 'active' ? 'Belum ada produk aktif.' : productTab === 'archived' ? 'Belum ada produk yang diarsipkan.' : 'Tong Sampah masih kosong.'}
@@ -1086,7 +1135,7 @@ function ProductManager() {
                 )}
               </div>
               <p className="mt-1 text-xs text-[#68736b]">
-                {p.category} › {p.subcategory} · stok {p.stock} ·{' '}
+                {p.category} › {p.subcategory} · stok {p.stock} · {p.sold_count || 0} terjual ·{' '}
                 {p.images?.length || 1} foto
               </p>
               <p className="mt-1 text-sm font-bold">{rupiah(p.price)}</p>
@@ -1155,6 +1204,7 @@ function ReviewManager() {
     productId: '',
     orderNumber: '',
     displayName: '',
+    city: '',
     rating: 5,
     body: '',
   });
@@ -1177,6 +1227,7 @@ function ReviewManager() {
         productId: '',
         orderNumber: '',
         displayName: '',
+        city: '',
         rating: 5,
         body: '',
       });
@@ -1187,6 +1238,8 @@ function ReviewManager() {
     const displayName = prompt('Nama pelanggan', review.display_name);
     if (!displayName) return;
     const rating = Number(prompt('Rating 1-5', String(review.rating)));
+    const city = prompt('Kota pelanggan', review.city || '');
+    if (!city) return;
     const body = prompt('Isi ulasan', review.body);
     if (!body) return;
     await fetch('/api/admin/reviews', {
@@ -1195,6 +1248,7 @@ function ReviewManager() {
       body: JSON.stringify({
         id: review.id,
         displayName,
+        city,
         rating,
         body,
         active: Boolean(review.active),
@@ -1209,6 +1263,7 @@ function ReviewManager() {
       body: JSON.stringify({
         id: review.id,
         displayName: review.display_name,
+        city: review.city,
         rating: review.rating,
         body: review.body,
         active: !review.active,
@@ -1268,6 +1323,13 @@ function ReviewManager() {
           placeholder="Nama yang ditampilkan"
           className="rounded-xl border bg-white px-4 py-3"
         />
+        <input
+          required
+          value={form.city}
+          onChange={(e) => setForm({ ...form, city: e.target.value })}
+          placeholder="Kota pelanggan"
+          className="rounded-xl border bg-white px-4 py-3"
+        />
         <select
           value={form.rating}
           onChange={(e) => setForm({ ...form, rating: Number(e.target.value) })}
@@ -1299,7 +1361,7 @@ function ReviewManager() {
             <div className="flex justify-between gap-3">
               <div>
                 <b className="text-sm">
-                  {r.display_name} · {'★'.repeat(r.rating)}
+                  {r.display_name}{r.city ? ` · ${r.city}` : ''} · {'★'.repeat(r.rating)}
                 </b>
                 <p className="text-xs text-[#68736b]">
                   {r.product_name}

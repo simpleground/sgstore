@@ -5,7 +5,7 @@ import { getD1 } from '@/db';
 export async function GET() {
   const r = await getD1()
     .prepare(
-      'SELECT id,product_id,display_name,rating,body,created_at FROM reviews WHERE active=1 ORDER BY created_at DESC',
+      'SELECT id,product_id,display_name,city,rating,body,created_at FROM reviews WHERE active=1 ORDER BY created_at DESC',
     )
     .all();
   return NextResponse.json({ reviews: r.results });
@@ -17,17 +17,18 @@ export async function POST(req: Request) {
       { error: 'Silakan masuk terlebih dahulu.' },
       { status: 401 },
     );
-  const { productId, rating, body } = (await req.json()) as {
+  const { productId, rating, body, city } = (await req.json()) as {
     productId?: string;
     rating?: number;
     body?: string;
+    city?: string;
   };
   if (
     !productId ||
     !Number.isInteger(rating) ||
     rating! < 1 ||
     rating! > 5 ||
-    !body?.trim() ||
+    !body?.trim() || !city?.trim() || city.trim().length > 80 ||
     body.trim().length > 1000
   )
     return NextResponse.json(
@@ -43,20 +44,21 @@ export async function POST(req: Request) {
   if (old)
     await d1
       .prepare(
-        'UPDATE reviews SET display_name=?,rating=?,body=?,active=1,updated_at=? WHERE id=?',
+        'UPDATE reviews SET display_name=?,city=?,rating=?,body=?,active=1,updated_at=? WHERE id=?',
       )
-      .bind(user.name, rating, body.trim(), now, old.id)
+      .bind(user.name, city.trim(), rating, body.trim(), now, old.id)
       .run();
   else
     await d1
       .prepare(
-        'INSERT INTO reviews (id,product_id,user_id,display_name,rating,body,active,admin_created,created_at,updated_at) VALUES (?,?,?,?,?,?,1,0,?,?)',
+        'INSERT INTO reviews (id,product_id,user_id,display_name,city,rating,body,active,admin_created,created_at,updated_at) VALUES (?,?,?,?,?,?,?,1,0,?,?)',
       )
       .bind(
         crypto.randomUUID(),
         productId,
         user.userId,
         user.name,
+        city.trim(),
         rating,
         body.trim(),
         now,
