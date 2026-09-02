@@ -354,7 +354,7 @@ function BulkImport({ onDone }: { onDone: () => void }) {
         d = await r.json();
       if (!r.ok) throw new Error(d.error || 'Impor gagal.');
       setMessage(
-        `${d.count} produk diproses: ${d.updated ?? 0} diperbarui, ${d.created ?? d.count} ditambahkan.`,
+        `${d.count} produk diproses: ${d.updated ?? 0} diperbarui, ${d.created ?? d.count} ditambahkan.${d.groupedRows ? ` ${d.groupedRows} baris mirip otomatis dijadikan variasi.` : ''}${d.skuAdjusted ? ` ${d.skuAdjusted} SKU ganda dibuat unik.` : ''}`,
       );
       onDone();
     } catch (e) {
@@ -479,6 +479,19 @@ function CategoryManager({
     }
     setBusy(false);
   }
+  async function normalizeAll() {
+    if (!confirm('Rapikan ejaan kategori dan subkategori pada seluruh produk?')) return;
+    setBusy(true);
+    setMessage('');
+    const response = await fetch('/api/admin/categories', { method: 'POST' });
+    const data = (await response.json()) as { error?: string; changed?: number };
+    if (!response.ok) setMessage(data.error ?? 'Normalisasi kategori gagal.');
+    else {
+      setMessage(`${data.changed ?? 0} produk berhasil dirapikan otomatis.`);
+      await onDone();
+    }
+    setBusy(false);
+  }
   return (
     <div className="mt-5 rounded-2xl border bg-[#f7f4ec] p-4">
       <div>
@@ -486,6 +499,9 @@ function CategoryManager({
         <p className="mt-1 text-xs text-[#68736b]">
           Ganti nama atau gabungkan kategori. Semua produk terkait akan ikut diperbarui.
         </p>
+        <button type="button" disabled={busy} onClick={normalizeAll} className="mt-3 rounded-xl border border-[#243b2c] bg-white px-4 py-2 text-xs font-bold text-[#243b2c] disabled:opacity-50">
+          Rapikan semua kategori otomatis
+        </button>
       </div>
       <form onSubmit={rename} className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5 lg:items-end">
         <label className="text-xs font-bold text-[#566158]">

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getChatGPTUser } from '@/app/chatgpt-auth';
 import { getD1, getFiles } from '@/db';
+import { normalizeCategory, normalizeSubcategory } from '@/lib/catalog-normalize';
 async function auth() {
   const u = await getChatGPTUser();
   return (
@@ -123,8 +124,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, id });
     }
     const name = String(f.get('name') || '').trim(),
-      category = String(f.get('category') || '').trim(),
-      subcategory = String(f.get('subcategory') || '').trim(),
+      category = normalizeCategory(String(f.get('category') || '')),
+      subcategory = normalizeSubcategory(String(f.get('subcategory') || '')),
       description = String(f.get('description') || '').trim(),
       vs = variants(String(f.get('variants') || ''));
     const keys = await images(
@@ -175,8 +176,8 @@ export async function PATCH(req: Request) {
       d1 = getD1(),
       id = String(f.get('id')),
       name = String(f.get('name') || '').trim(),
-      category = String(f.get('category') || '').trim(),
-      subcategory = String(f.get('subcategory') || '').trim(),
+      category = normalizeCategory(String(f.get('category') || '')),
+      subcategory = normalizeSubcategory(String(f.get('subcategory') || '')),
       description = String(f.get('description') || '').trim(),
       vs = variants(String(f.get('variants') || '')),
       active = String(f.get('active')) === 'true' ? 1 : 0,

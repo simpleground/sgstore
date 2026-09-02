@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getChatGPTUser } from '@/app/chatgpt-auth';
 import { getD1 } from '@/db';
+import { normalizeCategory, normalizeSubcategory, productIdentity } from '@/lib/catalog-normalize';
 
 async function auth() {
   const user = await getChatGPTUser();
@@ -81,10 +82,11 @@ export async function POST(request: Request) {
     if (!Array.isArray(rows) || !rows.length)
       throw new Error('File belum berisi data produk.');
     const groups = new Map<string, any>();
+    let skuAdjusted = 0;
     for (const row of rows) {
       row.name = String(row.name || '').trim();
-      row.category = String(row.category || '').trim();
-      row.subcategory = String(row.subcategory || '').trim();
+      row.category = normalizeCategory(String(row.category || ''));
+      row.subcategory = normalizeSubcategory(String(row.subcategory || ''));
       row.description = String(row.description || '').trim();
       const normalPrice = Number(row.normal_price);
       const discountPercent = Number(row.discount_percent || 0);
@@ -99,15 +101,24 @@ export async function POST(request: Request) {
       const productId = String(row.product_id || '').trim();
       const key = productId
         ? `id:${productId}`
-        : `new:${row.name}|${row.category}|${row.subcategory}`;
+        : `new:${productIdentity(row.name)}|${row.category.toLowerCase()}|${row.subcategory.toLowerCase()}`;
       const group = groups.get(key) ?? { ...row, productId, variants: [] };
       if (
-        group.name !== row.name || group.category !== row.category ||
+        productIdentity(group.name) !== productIdentity(row.name) || group.category !== row.category ||
         group.subcategory !== row.subcategory
       )
         throw new Error(`Baris dengan product_id ${productId} memiliki identitas produk berbeda.`);
+      const originalSku = String(row.sku || '').trim();
+      const usedSkus = new Set(group.variants.map((variant: any) => String(variant.sku || '').toLowerCase()).filter(Boolean));
+      let sku = originalSku;
+      if (sku && usedSkus.has(sku.toLowerCase())) {
+        let suffix = 2;
+        while (usedSkus.has(`${originalSku}-${suffix}`.toLowerCase())) suffix++;
+        sku = `${originalSku}-${suffix}`;
+        skuAdjusted++;
+      }
       group.variants.push({
-        sku: String(row.sku || '').trim(),
+        sku,
         color: String(row.color).trim(),
         size: String(row.size).trim(),
         normalPrice,
@@ -157,7 +168,7 @@ export async function POST(request: Request) {
     }
     for (let index = 0; index < statements.length; index += 75)
       await database.batch(statements.slice(index, index + 75));
-    return NextResponse.json({ ok: true, count: groups.size, created, updated });
+    return NextResponse.json({ ok: true, count: groups.size, created, updated, groupedRows: rows.length - groups.size, skuAdjusted });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Impor gagal.' },

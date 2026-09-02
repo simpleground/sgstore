@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getChatGPTUser } from '@/app/chatgpt-auth';
 import { getD1 } from '@/db';
+import { normalizeCategory, normalizeSubcategory } from '@/lib/catalog-normalize';
 
 async function authorized() {
   const user = await getChatGPTUser();
@@ -51,4 +52,24 @@ export async function PATCH(request: Request) {
       { status: 400 },
     );
   return NextResponse.json({ ok: true, changed: result.meta.changes ?? 0 });
+}
+
+export async function POST() {
+  if (!(await authorized()))
+    return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
+  const database = getD1();
+  const rows = await database.prepare('SELECT id,category,subcategory FROM products').all<any>();
+  const now = new Date().toISOString();
+  const statements = [];
+  let changed = 0;
+  for (const row of rows.results) {
+    const category = normalizeCategory(row.category || '');
+    const subcategory = normalizeSubcategory(row.subcategory || '');
+    if (category === row.category && subcategory === row.subcategory) continue;
+    statements.push(database.prepare('UPDATE products SET category=?,subcategory=?,updated_at=? WHERE id=?').bind(category, subcategory, now, row.id));
+    changed++;
+  }
+  for (let index = 0; index < statements.length; index += 75)
+    await database.batch(statements.slice(index, index + 75));
+  return NextResponse.json({ ok: true, changed });
 }
