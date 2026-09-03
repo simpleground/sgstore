@@ -20,6 +20,7 @@ import {
   UserRound,
   X,
 } from 'lucide-react';
+import { productPath } from '@/lib/product-slug';
 
 type Variant = {
   sku?: string;
@@ -702,7 +703,7 @@ export default function Home() {
                   className="group relative overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"
                 >
                   <button
-                    onClick={() => setDetailId(p.id)}
+                    onClick={() => window.location.assign(productPath(p.name))}
                     className="relative block aspect-square w-full overflow-hidden bg-[#ebe5d9] text-left"
                   >
                     <img
@@ -722,7 +723,7 @@ export default function Home() {
                   </button>
                   <div className="p-3 sm:p-4">
                     <button
-                      onClick={() => setDetailId(p.id)}
+                      onClick={() => window.location.assign(productPath(p.name))}
                       className="line-clamp-2 min-h-10 text-left text-sm font-semibold leading-5 sm:text-base"
                     >
                       {cleanLabel(p.name)}
@@ -757,7 +758,7 @@ export default function Home() {
                         : ''}
                     </p>
                     <button
-                      onClick={() => setDetailId(p.id)}
+                      onClick={() => window.location.assign(productPath(p.name))}
                       className="mt-3 w-full rounded-xl border border-[#276344] py-2.5 text-xs font-bold text-[#24593d] sm:text-sm"
                     >
                       Lihat & pilih varian
