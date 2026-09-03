@@ -213,6 +213,33 @@ export default function Home() {
   const [reviewCity, setReviewCity] = useState('');
   const [reviewMessage, setReviewMessage] = useState('');
   const [loginOpen, setLoginOpen] = useState(false);
+  const [heroIndex, setHeroIndex] = useState(0);
+  const [heroPaused, setHeroPaused] = useState(false);
+  const heroSlides = useMemo(() => {
+    const chef = products.find((product) => product.category.toLowerCase().includes('chef'));
+    const professional = products.find((product) => product.category.toLowerCase().includes('professional'));
+    const daily = products.find((product) => product.category.toLowerCase().includes('daily'));
+    const newest = [...products].sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')))[0];
+    const popular = [...products].sort((a, b) => (b.sold_count || 0) - (a.sold_count || 0))[0];
+    return [
+      { eyebrow: 'SIMPLE GROUND ESSENTIALS', title: 'Seragam kerja yang terasa senyaman pakaian sehari-hari.', body: 'Potongan fungsional, karakter tenang, dan pilihan produk untuk mendampingi rutinitas setiap hari.', category: 'Semua', image: products[0], tone: 'bg-[#dce8df]', label: 'Semua koleksi' },
+      { eyebrow: 'CHEF & KITCHEN WEAR', title: 'Dirancang untuk ritme dapur yang bergerak cepat.', body: 'Baju chef, apron, dan perlengkapan kerja dengan tampilan rapi serta pilihan varian yang mudah disesuaikan.', category: 'Chef & Kitchen Wear', image: chef || products[1] || products[0], tone: 'bg-[#d9d2c3]', label: 'Koleksi dapur' },
+      { eyebrow: 'PROFESSIONAL WORKWEAR', title: 'Tampil profesional tanpa kehilangan kenyamanan.', body: 'Seragam kerja dengan siluet bersih untuk tim, usaha, dan kebutuhan profesional sehari-hari.', category: 'Professional Workwear', image: professional || products[2] || products[0], tone: 'bg-[#dce2dc]', label: 'Workwear pilihan' },
+      { eyebrow: 'DAILY BASIC', title: 'Pilihan sederhana yang mudah dipakai berulang kali.', body: 'Kaos, kemeja, dan celana dengan warna serbaguna untuk membangun pakaian harian yang praktis.', category: 'Daily Basic', image: daily || products[3] || products[0], tone: 'bg-[#e7dfd1]', label: 'Daily essentials' },
+      { eyebrow: 'PILIHAN SIMPLE GROUND', title: 'Temukan produk terbaru dan yang paling banyak dipilih.', body: 'Jelajahi seluruh katalog, bandingkan warna dan ukuran, lalu pilih yang paling sesuai untukmu.', category: 'Semua', image: popular || newest || products[4] || products[0], tone: 'bg-[#d8e0d5]', label: 'Produk pilihan' },
+    ];
+  }, [products]);
+  useEffect(() => {
+    if (heroPaused || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const timer = window.setInterval(() => setHeroIndex((index) => (index + 1) % 5), 5500);
+    return () => window.clearInterval(timer);
+  }, [heroPaused]);
+  useEffect(() => {
+    heroSlides.forEach((slide) => {
+      const src = slide.image?.images?.[0] ?? slide.image?.image;
+      if (src) { const preload = new Image(); preload.src = src; }
+    });
+  }, [heroSlides]);
   const filtered = useMemo(() => {
     const result = products.filter(
         (p) =>
@@ -569,43 +596,54 @@ export default function Home() {
         id="home"
         className="mx-auto max-w-7xl px-4 pt-5 sm:px-8 sm:pt-7"
       >
-        <div className="grid overflow-hidden rounded-[1.75rem] bg-[#dce8df] lg:grid-cols-[1.05fr_.95fr]">
+        <div
+          className={`relative grid min-h-[520px] overflow-hidden rounded-[1.75rem] transition-colors duration-700 lg:min-h-[430px] lg:grid-cols-[1.05fr_.95fr] ${heroSlides[heroIndex].tone}`}
+          onMouseEnter={() => setHeroPaused(true)}
+          onMouseLeave={() => setHeroPaused(false)}
+          aria-roledescription="carousel"
+          aria-label="Koleksi pilihan Simple Ground"
+        >
           <div className="relative z-10 flex flex-col justify-center px-6 py-10 sm:px-10 sm:py-14 lg:px-14">
             <span className="inline-flex rounded-md bg-white/80 px-3 py-1 text-xs font-bold text-[#9a4a28]">
-              KOLEKSI SIMPLE GROUND
+              {heroSlides[heroIndex].eyebrow}
             </span>
-            <h1 className="mt-4 font-serif text-3xl font-bold leading-tight sm:text-5xl">
-              Seragam kerja yang terasa senyaman pakaian sehari-hari.
+            <h1 key={`title-${heroIndex}`} className="mt-4 animate-in fade-in slide-in-from-left-3 font-serif text-3xl font-bold leading-tight duration-500 sm:text-5xl">
+              {heroSlides[heroIndex].title}
             </h1>
             <p className="mt-3 max-w-lg text-sm leading-6 text-[#4e6255] sm:text-base">
-              Daily wear dan kitchen wear dengan material pilihan, potongan
-              fungsional, dan karakter tenang khas Simple Ground.
+              {heroSlides[heroIndex].body}
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
-              <a href="#koleksi" className="inline-flex items-center gap-2 rounded-xl bg-[#173c2b] px-5 py-3 text-sm font-bold text-white">
+              <button onClick={() => { setCategory(heroSlides[heroIndex].category); setSubcategory('Semua'); document.querySelector('#koleksi')?.scrollIntoView({ behavior: 'smooth' }); }} className="inline-flex items-center gap-2 rounded-xl bg-[#173c2b] px-5 py-3 text-sm font-bold text-white">
                 Lihat koleksi <ArrowRight size={17} />
-              </a>
+              </button>
               <a href="#cerita" className="rounded-xl border border-[#173c2b]/25 px-5 py-3 text-sm font-bold text-[#173c2b]">
                 Cerita kami
               </a>
             </div>
             <p className="mt-6 text-xs font-semibold text-[#4e6255]">Pengiriman ke seluruh Indonesia · Bantuan via WhatsApp</p>
+            <div className="mt-6 flex items-center gap-2" aria-label="Pilih banner">
+              {heroSlides.map((slide, index) => <button key={slide.eyebrow} onClick={() => setHeroIndex(index)} aria-label={`Banner ${index + 1}: ${slide.eyebrow}`} aria-current={heroIndex === index} className={`h-2.5 rounded-full transition-all ${heroIndex === index ? 'w-8 bg-[#173c2b]' : 'w-2.5 bg-[#173c2b]/30 hover:bg-[#173c2b]/60'}`} />)}
+            </div>
           </div>
           <div className="relative min-h-72 lg:min-h-[430px]">
-            {products[0] ? (
+            {heroSlides[heroIndex].image ? (
               <img
-                src={products[0].images?.[0] ?? products[0].image}
-                alt="Produk Simple Ground"
+                key={`hero-image-${heroIndex}`}
+                src={heroSlides[heroIndex].image?.images?.[0] ?? heroSlides[heroIndex].image?.image}
+                alt={heroSlides[heroIndex].image?.name || 'Produk Simple Ground'}
                 loading="eager"
                 fetchPriority="high"
                 decoding="async"
-                className="absolute inset-0 h-full w-full object-cover"
+                className="absolute inset-0 h-full w-full animate-in fade-in object-cover duration-700"
               />
             ) : (
               <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-[#d9d2c3] via-[#e9e4da] to-[#c7d1c6]" />
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-[#173c2b]/30 to-transparent" />
-            <span className="absolute bottom-5 left-5 rounded-full bg-white/90 px-4 py-2 text-xs font-bold text-[#173c2b] backdrop-blur">Chef & Kitchen Wear</span>
+            <button onClick={() => setHeroIndex((heroIndex - 1 + 5) % 5)} aria-label="Banner sebelumnya" className="absolute left-4 top-1/2 grid -translate-y-1/2 place-items-center rounded-full bg-white/85 p-2 text-[#173c2b] shadow"><ChevronLeft size={19} /></button>
+            <button onClick={() => setHeroIndex((heroIndex + 1) % 5)} aria-label="Banner berikutnya" className="absolute right-4 top-1/2 grid -translate-y-1/2 place-items-center rounded-full bg-white/85 p-2 text-[#173c2b] shadow"><ChevronRight size={19} /></button>
+            <span className="absolute bottom-5 left-5 rounded-full bg-white/90 px-4 py-2 text-xs font-bold text-[#173c2b] backdrop-blur">{heroSlides[heroIndex].label}</span>
           </div>
         </div>
         <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-4">
