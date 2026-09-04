@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getD1 } from '@/db';
+import { retrieveShippingRates } from '@/lib/biteship';
 
 type RequestedItem = { id: string; variantIndex: number; quantity: number };
 type StoredVariant = {
@@ -19,6 +20,8 @@ export async function POST(request: Request) {
       customerPhone?: string;
       shippingAddress?: string;
       paymentMethod?: 'midtrans' | 'manual';
+      destinationPostalCode?: string;
+      shippingOption?: { courierCode?: string; serviceCode?: string };
       items?: RequestedItem[];
     };
     const name = body.customerName?.trim();
@@ -27,6 +30,7 @@ export async function POST(request: Request) {
     const paymentMethod =
       body.paymentMethod === 'manual' ? 'manual' : 'midtrans';
     const requestedItems = body.items ?? [];
+    const destinationPostalCode = body.destinationPostalCode?.trim() || '';
     if (
       !name ||
       name.length < 2 ||
@@ -36,6 +40,9 @@ export async function POST(request: Request) {
       !address ||
       address.length < 10 ||
       address.length > 1000 ||
+      !/^\d{5}$/.test(destinationPostalCode) ||
+      !body.shippingOption?.courierCode ||
+      !body.shippingOption?.serviceCode ||
       !requestedItems.length ||
       requestedItems.length > 50 ||
       requestedItems.some(
@@ -108,7 +115,26 @@ export async function POST(request: Request) {
       (sum, item) => sum + item.price * item.quantity,
       0,
     );
-    const shipping = 18000;
+    const shippingOptions = await retrieveShippingRates(
+      destinationPostalCode,
+      items.map((item) => ({
+        name: item.name,
+        description: `${item.color} ${item.size}`.trim(),
+        value: item.price,
+        quantity: item.quantity,
+      })),
+    );
+    const selectedShipping = shippingOptions.find(
+      (option) =>
+        option.courierCode === body.shippingOption?.courierCode &&
+        option.serviceCode === body.shippingOption?.serviceCode,
+    );
+    if (!selectedShipping)
+      return NextResponse.json(
+        { error: 'Pilihan pengiriman sudah berubah. Silakan cek ongkir kembali.' },
+        { status: 409 },
+      );
+    const shipping = selectedShipping.price;
     const total = subtotal + shipping;
     const now = new Date().toISOString();
     const orderNumber = `SG-${Date.now().toString(36).toUpperCase()}-${crypto.randomUUID().slice(0, 4).toUpperCase()}`;
@@ -130,7 +156,7 @@ export async function POST(request: Request) {
         orderNumber,
         name,
         phone,
-        address,
+        `${address}\nKode pos: ${destinationPostalCode}\nKurir: ${selectedShipping.courierName} ${selectedShipping.serviceName}${selectedShipping.duration ? ` · ${selectedShipping.duration}` : ''}`,
         JSON.stringify(items),
         subtotal,
         shipping,

@@ -61,6 +61,14 @@ type Review = {
   body: string;
   created_at: string;
 };
+type ShippingOption = {
+  courierCode: string;
+  courierName: string;
+  serviceCode: string;
+  serviceName: string;
+  price: number;
+  duration: string;
+};
 
 const defaultProducts: Product[] = [
   {
@@ -202,6 +210,11 @@ export default function Home() {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [shippingAddress, setShippingAddress] = useState('');
+  const [destinationPostalCode, setDestinationPostalCode] = useState('');
+  const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
+  const [selectedShipping, setSelectedShipping] = useState<ShippingOption | null>(null);
+  const [shippingBusy, setShippingBusy] = useState(false);
+  const [shippingError, setShippingError] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'midtrans' | 'manual'>(
     'midtrans',
   );
@@ -372,7 +385,7 @@ export default function Home() {
     (sum, row) => sum + row.variant.price * row.quantity,
     0,
   );
-  const shipping = subtotal ? 18000 : 0;
+  const shipping = selectedShipping?.price ?? 0;
   useEffect(() => {
     try {
       setWishlist(JSON.parse(localStorage.getItem('sg_wishlist') || '[]'));
@@ -570,6 +583,36 @@ export default function Home() {
     setCheckout(true);
     setCartOpen(true);
   }
+  async function checkShippingRates() {
+    setShippingBusy(true);
+    setShippingError('');
+    setSelectedShipping(null);
+    const items = cartRows.map(({ product, quantity, key }) => ({
+      id: product.id,
+      variantIndex: Number(key.split(':').pop()),
+      quantity,
+    }));
+    try {
+      const response = await fetch('/api/shipping/rates', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ destinationPostalCode, items }),
+      });
+      const data = (await response.json()) as {
+        options?: ShippingOption[];
+        error?: string;
+      };
+      if (!response.ok) throw new Error(data.error || 'Ongkir belum tersedia.');
+      const options = data.options || [];
+      setShippingOptions(options);
+      if (!options.length) setShippingError('Belum ada layanan kurir untuk tujuan ini.');
+    } catch (error) {
+      setShippingOptions([]);
+      setShippingError(error instanceof Error ? error.message : 'Gagal memeriksa ongkir.');
+    } finally {
+      setShippingBusy(false);
+    }
+  }
   async function submitOrder() {
     setOrderBusy(true);
     setOrderError('');
@@ -586,6 +629,13 @@ export default function Home() {
           customerName,
           customerPhone,
           shippingAddress,
+          destinationPostalCode,
+          shippingOption: selectedShipping
+            ? {
+                courierCode: selectedShipping.courierCode,
+                serviceCode: selectedShipping.serviceCode,
+              }
+            : null,
           paymentMethod,
           items,
         }),
@@ -1943,6 +1993,75 @@ export default function Home() {
                     placeholder="Jalan, kecamatan, kota, kode pos"
                   />
                 </div>
+                <div className="mt-4">
+                  <label className="text-xs font-bold uppercase tracking-wider">
+                    Kode pos tujuan
+                  </label>
+                  <div className="mt-2 flex gap-2">
+                    <input
+                      value={destinationPostalCode}
+                      onChange={(event) => {
+                        setDestinationPostalCode(
+                          event.target.value.replace(/\D/g, '').slice(0, 5),
+                        );
+                        setShippingOptions([]);
+                        setSelectedShipping(null);
+                      }}
+                      inputMode="numeric"
+                      placeholder="5 digit"
+                      className="min-w-0 flex-1 rounded-xl border bg-white px-4 py-3 outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={checkShippingRates}
+                      disabled={shippingBusy || destinationPostalCode.length !== 5}
+                      className="rounded-xl bg-[#173c2b] px-4 text-sm font-bold text-white disabled:opacity-50"
+                    >
+                      {shippingBusy ? 'Memeriksa…' : 'Cek ongkir'}
+                    </button>
+                  </div>
+                  <p className="mt-2 text-[11px] text-[#758078]">
+                    Pengujian Biteship Sandbox · belum memanggil kurir sungguhan.
+                  </p>
+                  {shippingError && (
+                    <p className="mt-2 text-sm text-red-700">{shippingError}</p>
+                  )}
+                  {shippingOptions.length > 0 && (
+                    <div className="mt-3 max-h-52 space-y-2 overflow-auto">
+                      {shippingOptions.map((option) => {
+                        const key = `${option.courierCode}:${option.serviceCode}`;
+                        const selected =
+                          selectedShipping?.courierCode === option.courierCode &&
+                          selectedShipping?.serviceCode === option.serviceCode;
+                        return (
+                          <label
+                            key={key}
+                            className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-3 ${selected ? 'border-[#243b2c] bg-[#edf1e9]' : 'bg-white'}`}
+                          >
+                            <span className="flex items-center gap-3">
+                              <input
+                                type="radio"
+                                name="shipping"
+                                checked={selected}
+                                onChange={() => setSelectedShipping(option)}
+                                className="accent-[#243b2c]"
+                              />
+                              <span>
+                                <b className="block text-sm">
+                                  {option.courierName} {option.serviceName}
+                                </b>
+                                <span className="text-xs text-[#637067]">
+                                  {option.duration || 'Estimasi mengikuti kurir'}
+                                </span>
+                              </span>
+                            </span>
+                            <b className="shrink-0 text-sm">{rupiah(option.price)}</b>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
                 <div className="mt-6">
                   <p className="text-xs font-bold uppercase tracking-wider">
                     Pembayaran
@@ -1999,7 +2118,7 @@ export default function Home() {
                   </div>
                   <div className="mt-2 flex justify-between">
                     <span>Pengiriman</span>
-                    <span>{rupiah(shipping)}</span>
+                    <span>{selectedShipping ? rupiah(shipping) : 'Pilih kurir'}</span>
                   </div>
                   <div className="mt-3 flex justify-between border-t pt-3 font-bold">
                     <span>Total</span>
@@ -2012,7 +2131,8 @@ export default function Home() {
                     orderBusy ||
                     customerName.trim().length < 2 ||
                     customerPhone.trim().length < 8 ||
-                    shippingAddress.trim().length < 10
+                    shippingAddress.trim().length < 10 ||
+                    !selectedShipping
                   }
                   className="mt-5 w-full rounded-full bg-[#c0693c] py-3.5 font-semibold text-white disabled:opacity-60"
                 >
