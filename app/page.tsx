@@ -2030,8 +2030,9 @@ export default function Home() {
                     </button>
                   </div>
                   <p className="mt-2 text-[11px] text-[#758078]">
-                    Pengujian Biteship Sandbox · belum memanggil kurir
-                    sungguhan.
+                    Masukkan 5 digit kode pos lalu tekan Cek ongkir. Dalam mode
+                    Sandbox, harga yang bertanda estimasi belum merupakan tarif
+                    kurir sungguhan.
                   </p>
                   {shippingError && (
                     <p className="mt-2 text-sm text-red-700">{shippingError}</p>

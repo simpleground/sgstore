@@ -56,9 +56,40 @@ export async function retrieveShippingRates(
   const data = (await response.json().catch(() => ({}))) as {
     pricing?: Array<Record<string, unknown>>;
     message?: string;
+    error?: string;
   };
-  if (!response.ok || !Array.isArray(data.pricing))
-    throw new Error(data.message || 'Tarif pengiriman belum tersedia.');
+  if (!response.ok || !Array.isArray(data.pricing) || !data.pricing.length) {
+    if ((process.env.BITESHIP_MODE || '').toLowerCase() === 'sandbox') {
+      const totalWeight = items.reduce(
+        (sum, item) => sum + item.weight * item.quantity,
+        0,
+      );
+      const kilograms = Math.max(1, Math.ceil(totalWeight / 1000));
+      const basePrices: Record<string, number> = {
+        jne: 14000,
+        sicepat: 13000,
+        anteraja: 12000,
+        jnt: 13500,
+        tiki: 14500,
+        ninja: 12500,
+        lion: 11500,
+      };
+      return courierCodes.map((code) => {
+        const courier = SUPPORTED_COURIERS.find((item) => item.code === code);
+        return {
+          courierCode: code,
+          courierName: courier?.name || code.toUpperCase(),
+          serviceCode: 'sandbox_reg',
+          serviceName: 'REG · Estimasi Sandbox',
+          price: (basePrices[code] || 15000) * kilograms,
+          duration: '2–5 hari (simulasi)',
+        };
+      });
+    }
+    throw new Error(
+      data.message || data.error || 'Tarif pengiriman belum tersedia.',
+    );
+  }
   return data.pricing
     .map((rate) => ({
       courierCode: String(rate.courier_code || ''),
