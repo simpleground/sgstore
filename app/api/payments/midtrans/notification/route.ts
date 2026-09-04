@@ -59,11 +59,11 @@ export async function POST(request: Request) {
       .prepare('SELECT total FROM orders WHERE order_number=?')
       .bind(body.order_id)
       .first<{ total: number }>();
+    // Midtrans' dashboard sends a signed sample order when testing this URL.
+    // Acknowledge unknown orders without updating anything so the endpoint test
+    // succeeds and production retries are not triggered for irrelevant records.
     if (!order)
-      return NextResponse.json(
-        { error: 'Pesanan tidak ditemukan.' },
-        { status: 404 },
-      );
+      return NextResponse.json({ received: true, ignored: true });
     if (Math.round(Number(body.gross_amount)) !== order.total)
       return NextResponse.json(
         { error: 'Nominal pembayaran tidak cocok.' },
