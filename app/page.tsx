@@ -147,7 +147,7 @@ const defaultProducts: Product[] = [
     id: '6',
     name: 'Topi Chef Classic',
     category: 'Chef & Kitchen Wear',
-    subcategory: 'Topi Chef',
+    subcategory: 'Topi',
     price: 129000,
     stock: 30,
     image:
@@ -167,8 +167,9 @@ const cleanCategory = (value: string) =>
   value.replace(/^Proffesional Workwear$/i, 'Professional Workwear');
 const cleanLabel = (value: string) => {
   const corrected = value.replace(/Kemaja/gi, 'Kemeja');
-  return corrected.replace(/\b(kaos|celana|kemeja)\b/gi, (word) =>
-    word.charAt(0).toUpperCase() + word.slice(1).toLowerCase(),
+  return corrected.replace(
+    /\b(kaos|celana|kemeja)\b/gi,
+    (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase(),
   );
 };
 
@@ -216,65 +217,138 @@ export default function Home() {
   const [heroIndex, setHeroIndex] = useState(0);
   const [heroPaused, setHeroPaused] = useState(false);
   const heroSlides = useMemo(() => {
-    const chef = products.find((product) => product.category.toLowerCase().includes('chef'));
-    const professional = products.find((product) => product.category.toLowerCase().includes('professional'));
-    const daily = products.find((product) => product.category.toLowerCase().includes('daily'));
-    const newest = [...products].sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')))[0];
-    const popular = [...products].sort((a, b) => (b.sold_count || 0) - (a.sold_count || 0))[0];
+    const chef = products.find((product) =>
+      product.category.toLowerCase().includes('chef'),
+    );
+    const professional = products.find((product) =>
+      product.category.toLowerCase().includes('professional'),
+    );
+    const daily = products.find((product) =>
+      product.category.toLowerCase().includes('daily'),
+    );
+    const newest = [...products].sort((a, b) =>
+      String(b.created_at || '').localeCompare(String(a.created_at || '')),
+    )[0];
+    const popular = [...products].sort(
+      (a, b) => (b.sold_count || 0) - (a.sold_count || 0),
+    )[0];
     return [
-      { eyebrow: 'SIMPLE GROUND ESSENTIALS', title: 'Seragam kerja yang terasa senyaman pakaian sehari-hari.', body: 'Potongan fungsional, karakter tenang, dan pilihan produk untuk mendampingi rutinitas setiap hari.', category: 'Semua', image: products[0], tone: 'bg-[#dce8df]', label: 'Semua koleksi' },
-      { eyebrow: 'CHEF & KITCHEN WEAR', title: 'Dirancang untuk ritme dapur yang bergerak cepat.', body: 'Baju chef, apron, dan perlengkapan kerja dengan tampilan rapi serta pilihan varian yang mudah disesuaikan.', category: 'Chef & Kitchen Wear', image: chef || products[1] || products[0], tone: 'bg-[#d9d2c3]', label: 'Koleksi dapur' },
-      { eyebrow: 'PROFESSIONAL WORKWEAR', title: 'Tampil profesional tanpa kehilangan kenyamanan.', body: 'Seragam kerja dengan siluet bersih untuk tim, usaha, dan kebutuhan profesional sehari-hari.', category: 'Professional Workwear', image: professional || products[2] || products[0], tone: 'bg-[#dce2dc]', label: 'Workwear pilihan' },
-      { eyebrow: 'DAILY BASIC', title: 'Pilihan sederhana yang mudah dipakai berulang kali.', body: 'Kaos, kemeja, dan celana dengan warna serbaguna untuk membangun pakaian harian yang praktis.', category: 'Daily Basic', image: daily || products[3] || products[0], tone: 'bg-[#e7dfd1]', label: 'Daily essentials' },
-      { eyebrow: 'PILIHAN SIMPLE GROUND', title: 'Temukan produk terbaru dan yang paling banyak dipilih.', body: 'Jelajahi seluruh katalog, bandingkan warna dan ukuran, lalu pilih yang paling sesuai untukmu.', category: 'Semua', image: popular || newest || products[4] || products[0], tone: 'bg-[#d8e0d5]', label: 'Produk pilihan' },
+      {
+        eyebrow: 'SIMPLE GROUND ESSENTIALS',
+        title: 'Seragam kerja yang terasa senyaman pakaian sehari-hari.',
+        body: 'Potongan fungsional, karakter tenang, dan pilihan produk untuk mendampingi rutinitas setiap hari.',
+        category: 'Semua',
+        image: products[0],
+        tone: 'bg-[#dce8df]',
+        label: 'Semua koleksi',
+      },
+      {
+        eyebrow: 'CHEF & KITCHEN WEAR',
+        title: 'Dirancang untuk ritme dapur yang bergerak cepat.',
+        body: 'Baju chef, apron, dan perlengkapan kerja dengan tampilan rapi serta pilihan varian yang mudah disesuaikan.',
+        category: 'Chef & Kitchen Wear',
+        image: chef || products[1] || products[0],
+        tone: 'bg-[#d9d2c3]',
+        label: 'Koleksi dapur',
+      },
+      {
+        eyebrow: 'PROFESSIONAL WORKWEAR',
+        title: 'Tampil profesional tanpa kehilangan kenyamanan.',
+        body: 'Seragam kerja dengan siluet bersih untuk tim, usaha, dan kebutuhan profesional sehari-hari.',
+        category: 'Professional Workwear',
+        image: professional || products[2] || products[0],
+        tone: 'bg-[#dce2dc]',
+        label: 'Workwear pilihan',
+      },
+      {
+        eyebrow: 'DAILY BASIC',
+        title: 'Pilihan sederhana yang mudah dipakai berulang kali.',
+        body: 'Kaos, kemeja, dan celana dengan warna serbaguna untuk membangun pakaian harian yang praktis.',
+        category: 'Daily Basic',
+        image: daily || products[3] || products[0],
+        tone: 'bg-[#e7dfd1]',
+        label: 'Daily essentials',
+      },
+      {
+        eyebrow: 'PILIHAN SIMPLE GROUND',
+        title: 'Temukan produk terbaru dan yang paling banyak dipilih.',
+        body: 'Jelajahi seluruh katalog, bandingkan warna dan ukuran, lalu pilih yang paling sesuai untukmu.',
+        category: 'Semua',
+        image: popular || newest || products[4] || products[0],
+        tone: 'bg-[#d8e0d5]',
+        label: 'Produk pilihan',
+      },
     ];
   }, [products]);
   useEffect(() => {
-    if (heroPaused || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const timer = window.setInterval(() => setHeroIndex((index) => (index + 1) % 5), 5500);
+    if (
+      heroPaused ||
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    )
+      return;
+    const timer = window.setInterval(
+      () => setHeroIndex((index) => (index + 1) % 5),
+      5500,
+    );
     return () => window.clearInterval(timer);
   }, [heroPaused]);
   useEffect(() => {
     heroSlides.forEach((slide) => {
       const src = slide.image?.images?.[0] ?? slide.image?.image;
-      if (src) { const preload = new Image(); preload.src = src; }
+      if (src) {
+        const preload = new Image();
+        preload.src = src;
+      }
     });
   }, [heroSlides]);
   const filtered = useMemo(() => {
     const result = products.filter(
-        (p) =>
-          (category === 'Semua' || cleanCategory(p.category) === category) &&
-          (subcategory === 'Semua' || cleanLabel(p.subcategory) === subcategory) &&
-          cleanLabel(p.name).toLowerCase().includes(query.toLowerCase()) &&
-          Math.min(...p.variants.map((variant) => variant.price)) <= priceLimit,
-      );
+      (p) =>
+        (category === 'Semua' || cleanCategory(p.category) === category) &&
+        (subcategory === 'Semua' ||
+          cleanLabel(p.subcategory) === subcategory) &&
+        cleanLabel(p.name).toLowerCase().includes(query.toLowerCase()) &&
+        Math.min(...p.variants.map((variant) => variant.price)) <= priceLimit,
+    );
     if (sort === 'termurah')
       return [...result].sort((a, b) => a.price - b.price);
     if (sort === 'terlaris')
-      return [...result].sort((a, b) => (b.sold_count || 0) - (a.sold_count || 0));
+      return [...result].sort(
+        (a, b) => (b.sold_count || 0) - (a.sold_count || 0),
+      );
     if (sort === 'terbaru')
-      return [...result].sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+      return [...result].sort((a, b) =>
+        String(b.created_at || '').localeCompare(String(a.created_at || '')),
+      );
     if (sort === 'termahal')
       return [...result].sort((a, b) => b.price - a.price);
-    if (sort === 'stok')
-      return [...result].sort((a, b) => b.stock - a.stock);
+    if (sort === 'stok') return [...result].sort((a, b) => b.stock - a.stock);
     return result;
   }, [category, subcategory, query, products, priceLimit, sort]);
   const catalog = useMemo(() => {
     const suggestions: Record<string, string[]> = {
-      'Chef & Kitchen Wear': ['Baju Chef', 'Topi Chef', 'Apron'],
+      'Chef & Kitchen Wear': ['Baju Chef', 'Apron'],
       'Professional Workwear': ['Kemeja PDL', 'Seragam Kerja'],
       'Daily Basic': ['Kaos', 'Kemeja', 'Celana'],
     };
     for (const p of products) {
       const normalizedCategory = cleanCategory(p.category);
-      suggestions[normalizedCategory] = Array.from(
-        new Set([...(suggestions[normalizedCategory] ?? []), cleanLabel(p.subcategory)]),
-      );
+      const normalizedSubcategory = cleanLabel(p.subcategory);
+      if (normalizedSubcategory !== 'Topi Chef') {
+        suggestions[normalizedCategory] = Array.from(
+          new Set([
+            ...(suggestions[normalizedCategory] ?? []),
+            normalizedSubcategory,
+          ]),
+        );
+      }
     }
     return suggestions;
   }, [products]);
-  useEffect(() => setVisibleCount(16), [category, subcategory, query, priceLimit, sort]);
+  useEffect(
+    () => setVisibleCount(16),
+    [category, subcategory, query, priceLimit, sort],
+  );
   const count = Object.values(cart).reduce((a, b) => a + b.quantity, 0);
   const cartRows = Object.entries(cart).flatMap(([key, line]) => {
     const product = products.find((p) => p.id === line.productId);
@@ -302,7 +376,11 @@ export default function Home() {
         if (d.products?.length) setProducts(d.products);
         else setProductsError('Katalog belum memiliki produk aktif.');
       })
-      .catch(() => setProductsError('Katalog belum dapat dimuat. Coba muat ulang halaman.'))
+      .catch(() =>
+        setProductsError(
+          'Katalog belum dapat dimuat. Coba muat ulang halaman.',
+        ),
+      )
       .finally(() => setProductsLoading(false));
   }, []);
   function toggleWishlist(productId: string) {
@@ -607,31 +685,64 @@ export default function Home() {
             <span className="inline-flex rounded-md bg-white/80 px-3 py-1 text-xs font-bold text-[#9a4a28]">
               {heroSlides[heroIndex].eyebrow}
             </span>
-            <h1 key={`title-${heroIndex}`} className="mt-4 animate-in fade-in slide-in-from-left-3 font-serif text-3xl font-bold leading-tight duration-500 sm:text-5xl">
+            <h1
+              key={`title-${heroIndex}`}
+              className="mt-4 animate-in fade-in slide-in-from-left-3 font-serif text-3xl font-bold leading-tight duration-500 sm:text-5xl"
+            >
               {heroSlides[heroIndex].title}
             </h1>
             <p className="mt-3 max-w-lg text-sm leading-6 text-[#4e6255] sm:text-base">
               {heroSlides[heroIndex].body}
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
-              <button onClick={() => { setCategory(heroSlides[heroIndex].category); setSubcategory('Semua'); document.querySelector('#koleksi')?.scrollIntoView({ behavior: 'smooth' }); }} className="inline-flex items-center gap-2 rounded-xl bg-[#173c2b] px-5 py-3 text-sm font-bold text-white">
+              <button
+                onClick={() => {
+                  setCategory(heroSlides[heroIndex].category);
+                  setSubcategory('Semua');
+                  document
+                    .querySelector('#koleksi')
+                    ?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="inline-flex items-center gap-2 rounded-xl bg-[#173c2b] px-5 py-3 text-sm font-bold text-white"
+              >
                 Lihat koleksi <ArrowRight size={17} />
               </button>
-              <a href="#cerita" className="rounded-xl border border-[#173c2b]/25 px-5 py-3 text-sm font-bold text-[#173c2b]">
+              <a
+                href="#cerita"
+                className="rounded-xl border border-[#173c2b]/25 px-5 py-3 text-sm font-bold text-[#173c2b]"
+              >
                 Cerita kami
               </a>
             </div>
-            <p className="mt-6 text-xs font-semibold text-[#4e6255]">Pengiriman ke seluruh Indonesia · Bantuan via WhatsApp</p>
-            <div className="mt-6 flex items-center gap-2" aria-label="Pilih banner">
-              {heroSlides.map((slide, index) => <button key={slide.eyebrow} onClick={() => setHeroIndex(index)} aria-label={`Banner ${index + 1}: ${slide.eyebrow}`} aria-current={heroIndex === index} className={`h-2.5 rounded-full transition-all ${heroIndex === index ? 'w-8 bg-[#173c2b]' : 'w-2.5 bg-[#173c2b]/30 hover:bg-[#173c2b]/60'}`} />)}
+            <p className="mt-6 text-xs font-semibold text-[#4e6255]">
+              Pengiriman ke seluruh Indonesia · Bantuan via WhatsApp
+            </p>
+            <div
+              className="mt-6 flex items-center gap-2"
+              aria-label="Pilih banner"
+            >
+              {heroSlides.map((slide, index) => (
+                <button
+                  key={slide.eyebrow}
+                  onClick={() => setHeroIndex(index)}
+                  aria-label={`Banner ${index + 1}: ${slide.eyebrow}`}
+                  aria-current={heroIndex === index}
+                  className={`h-2.5 rounded-full transition-all ${heroIndex === index ? 'w-8 bg-[#173c2b]' : 'w-2.5 bg-[#173c2b]/30 hover:bg-[#173c2b]/60'}`}
+                />
+              ))}
             </div>
           </div>
           <div className="relative min-h-72 lg:min-h-[430px]">
             {heroSlides[heroIndex].image ? (
               <img
                 key={`hero-image-${heroIndex}`}
-                src={heroSlides[heroIndex].image?.images?.[0] ?? heroSlides[heroIndex].image?.image}
-                alt={heroSlides[heroIndex].image?.name || 'Produk Simple Ground'}
+                src={
+                  heroSlides[heroIndex].image?.images?.[0] ??
+                  heroSlides[heroIndex].image?.image
+                }
+                alt={
+                  heroSlides[heroIndex].image?.name || 'Produk Simple Ground'
+                }
                 loading="eager"
                 fetchPriority="high"
                 decoding="async"
@@ -641,9 +752,23 @@ export default function Home() {
               <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-[#d9d2c3] via-[#e9e4da] to-[#c7d1c6]" />
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-[#173c2b]/30 to-transparent" />
-            <button onClick={() => setHeroIndex((heroIndex - 1 + 5) % 5)} aria-label="Banner sebelumnya" className="absolute left-4 top-1/2 grid -translate-y-1/2 place-items-center rounded-full bg-white/85 p-2 text-[#173c2b] shadow"><ChevronLeft size={19} /></button>
-            <button onClick={() => setHeroIndex((heroIndex + 1) % 5)} aria-label="Banner berikutnya" className="absolute right-4 top-1/2 grid -translate-y-1/2 place-items-center rounded-full bg-white/85 p-2 text-[#173c2b] shadow"><ChevronRight size={19} /></button>
-            <span className="absolute bottom-5 left-5 rounded-full bg-white/90 px-4 py-2 text-xs font-bold text-[#173c2b] backdrop-blur">{heroSlides[heroIndex].label}</span>
+            <button
+              onClick={() => setHeroIndex((heroIndex - 1 + 5) % 5)}
+              aria-label="Banner sebelumnya"
+              className="absolute left-4 top-1/2 grid -translate-y-1/2 place-items-center rounded-full bg-white/85 p-2 text-[#173c2b] shadow"
+            >
+              <ChevronLeft size={19} />
+            </button>
+            <button
+              onClick={() => setHeroIndex((heroIndex + 1) % 5)}
+              aria-label="Banner berikutnya"
+              className="absolute right-4 top-1/2 grid -translate-y-1/2 place-items-center rounded-full bg-white/85 p-2 text-[#173c2b] shadow"
+            >
+              <ChevronRight size={19} />
+            </button>
+            <span className="absolute bottom-5 left-5 rounded-full bg-white/90 px-4 py-2 text-xs font-bold text-[#173c2b] backdrop-blur">
+              {heroSlides[heroIndex].label}
+            </span>
           </div>
         </div>
         <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-4">
@@ -669,7 +794,9 @@ export default function Home() {
                 Pilihan produk
               </h2>
               <p className="mt-1 text-sm text-[#68756c]">
-                {productsLoading ? 'Memuat katalog…' : `${filtered.length} produk ditemukan`}
+                {productsLoading
+                  ? 'Memuat katalog…'
+                  : `${filtered.length} produk ditemukan`}
               </p>
             </div>
             {(query || category !== 'Semua' || subcategory !== 'Semua') && (
@@ -688,12 +815,26 @@ export default function Home() {
           <div className="mt-6 grid gap-3 rounded-2xl border border-[#173c2b]/10 bg-white p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
             <label className="text-xs font-bold text-[#526158]">
               HARGA MAKSIMAL
-              <input type="range" min="150000" max="500000" step="25000" value={priceLimit} onChange={(event) => setPriceLimit(Number(event.target.value))} className="mt-2 block w-full accent-[#276344]" />
-              <span className="mt-1 block font-normal text-[#6d786f]">Sampai {rupiah(priceLimit)}</span>
+              <input
+                type="range"
+                min="150000"
+                max="500000"
+                step="25000"
+                value={priceLimit}
+                onChange={(event) => setPriceLimit(Number(event.target.value))}
+                className="mt-2 block w-full accent-[#276344]"
+              />
+              <span className="mt-1 block font-normal text-[#6d786f]">
+                Sampai {rupiah(priceLimit)}
+              </span>
             </label>
             <label className="text-xs font-bold text-[#526158]">
               URUTKAN
-              <select value={sort} onChange={(event) => setSort(event.target.value)} className="mt-2 block w-full rounded-xl border bg-[#f8faf7] px-3 py-2.5 text-sm font-semibold outline-none">
+              <select
+                value={sort}
+                onChange={(event) => setSort(event.target.value)}
+                className="mt-2 block w-full rounded-xl border bg-[#f8faf7] px-3 py-2.5 text-sm font-semibold outline-none"
+              >
                 <option value="rekomendasi">Rekomendasi</option>
                 <option value="terlaris">Terlaris</option>
                 <option value="terbaru">Terbaru</option>
@@ -701,12 +842,20 @@ export default function Home() {
                 <option value="termahal">Tertinggi</option>
               </select>
             </label>
-            <div className="rounded-xl bg-[#edf4ee] px-4 py-3 text-sm font-bold text-[#24593d]">{wishlist.length} wishlist</div>
+            <div className="rounded-xl bg-[#edf4ee] px-4 py-3 text-sm font-bold text-[#24593d]">
+              {wishlist.length} wishlist
+            </div>
           </div>
           {productsLoading && (
-            <div aria-label="Memuat produk" className="mt-6 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
+            <div
+              aria-label="Memuat produk"
+              className="mt-6 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4"
+            >
               {Array.from({ length: 8 }).map((_, index) => (
-                <div key={index} className="overflow-hidden rounded-2xl border border-black/5 bg-white">
+                <div
+                  key={index}
+                  className="overflow-hidden rounded-2xl border border-black/5 bg-white"
+                >
                   <div className="aspect-square animate-pulse bg-[#e2e7e1]" />
                   <div className="space-y-3 p-4">
                     <div className="h-4 w-4/5 animate-pulse rounded bg-[#e2e7e1]" />
@@ -717,98 +866,128 @@ export default function Home() {
               ))}
             </div>
           )}
-          {!productsLoading && <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
-            {filtered.slice(0, visibleCount).map((p, productIndex) => {
-              const variantIndex = selectedVariants[p.id] ?? 0;
-              const productImages = p.images?.length ? p.images : [p.image];
-              const imageIndex = selectedImages[p.id] ?? 0;
-              const variant = p.variants[variantIndex] ?? {
-                color: p.tone,
-                size: 'All Size',
-                price: p.price,
-                stock: p.stock,
-              };
-              const productReviews = reviews.filter(
-                (r) => r.product_id === p.id,
-              );
-              const average = productReviews.length
-                ? productReviews.reduce((s, r) => s + r.rating, 0) /
-                  productReviews.length
-                : 0;
-              return (
-                <article
-                  key={p.id}
-                  className="group relative overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"
-                >
-                  <button
-                    onClick={() => window.location.assign(productPath(p.name))}
-                    className="relative block aspect-square w-full overflow-hidden bg-[#ebe5d9] text-left"
+          {!productsLoading && (
+            <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
+              {filtered.slice(0, visibleCount).map((p, productIndex) => {
+                const variantIndex = selectedVariants[p.id] ?? 0;
+                const productImages = p.images?.length ? p.images : [p.image];
+                const imageIndex = selectedImages[p.id] ?? 0;
+                const variant = p.variants[variantIndex] ?? {
+                  color: p.tone,
+                  size: 'All Size',
+                  price: p.price,
+                  stock: p.stock,
+                };
+                const productReviews = reviews.filter(
+                  (r) => r.product_id === p.id,
+                );
+                const average = productReviews.length
+                  ? productReviews.reduce((s, r) => s + r.rating, 0) /
+                    productReviews.length
+                  : 0;
+                return (
+                  <article
+                    key={p.id}
+                    className="group relative overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"
                   >
-                    <img
-                      src={productImages[imageIndex] ?? productImages[0]}
-                      alt={cleanLabel(p.name)}
-                      loading={productIndex < 4 ? 'eager' : 'lazy'}
-                      fetchPriority={productIndex < 4 ? 'high' : 'auto'}
-                      decoding="async"
-                      className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
-                    />
-                    <span className="absolute left-2 top-2 rounded-md bg-white/90 px-2 py-1 text-[10px] font-bold">
-                      {p.subcategory}
-                    </span>
-                  </button>
-                  <button onClick={() => toggleWishlist(p.id)} aria-label={wishlist.includes(p.id) ? `Hapus ${cleanLabel(p.name)} dari wishlist` : `Simpan ${cleanLabel(p.name)} ke wishlist`} className="absolute right-2 top-2 z-10 grid h-9 w-9 place-items-center rounded-full bg-white/90 shadow-sm" style={{ marginTop: 0 }}>
-                    <Heart size={17} fill={wishlist.includes(p.id) ? 'currentColor' : 'none'} className={wishlist.includes(p.id) ? 'text-[#b4512d]' : 'text-[#34483b]'} />
-                  </button>
-                  <div className="p-3 sm:p-4">
                     <button
-                      onClick={() => window.location.assign(productPath(p.name))}
-                      className="line-clamp-2 min-h-10 text-left text-sm font-semibold leading-5 sm:text-base"
+                      onClick={() =>
+                        window.location.assign(productPath(p.name))
+                      }
+                      className="relative block aspect-square w-full overflow-hidden bg-[#ebe5d9] text-left"
                     >
-                      {cleanLabel(p.name)}
+                      <img
+                        src={productImages[imageIndex] ?? productImages[0]}
+                        alt={cleanLabel(p.name)}
+                        loading={productIndex < 4 ? 'eager' : 'lazy'}
+                        fetchPriority={productIndex < 4 ? 'high' : 'auto'}
+                        decoding="async"
+                        className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
+                      />
+                      <span className="absolute left-2 top-2 rounded-md bg-white/90 px-2 py-1 text-[10px] font-bold">
+                        {p.subcategory}
+                      </span>
                     </button>
-                    <div className="mt-2">
-                      <p className="text-base font-extrabold text-[#b4512d] sm:text-lg">
-                        {rupiah(variant.price)}
-                      </p>
-                      {(variant.normalPrice ?? variant.price) >
-                        variant.price && (
-                        <p className="text-[11px]">
-                          <span className="text-[#899188] line-through">
-                            {rupiah(variant.normalPrice!)}
-                          </span>
-                          <span className="ml-2 rounded bg-[#fee8df] px-1.5 py-0.5 font-bold text-[#b4512d]">
-                            -
-                            {Math.round(
-                              (1 - variant.price / variant.normalPrice!) * 100,
-                            )}
-                            %
-                          </span>
+                    <button
+                      onClick={() => toggleWishlist(p.id)}
+                      aria-label={
+                        wishlist.includes(p.id)
+                          ? `Hapus ${cleanLabel(p.name)} dari wishlist`
+                          : `Simpan ${cleanLabel(p.name)} ke wishlist`
+                      }
+                      className="absolute right-2 top-2 z-10 grid h-9 w-9 place-items-center rounded-full bg-white/90 shadow-sm"
+                      style={{ marginTop: 0 }}
+                    >
+                      <Heart
+                        size={17}
+                        fill={wishlist.includes(p.id) ? 'currentColor' : 'none'}
+                        className={
+                          wishlist.includes(p.id)
+                            ? 'text-[#b4512d]'
+                            : 'text-[#34483b]'
+                        }
+                      />
+                    </button>
+                    <div className="p-3 sm:p-4">
+                      <button
+                        onClick={() =>
+                          window.location.assign(productPath(p.name))
+                        }
+                        className="line-clamp-2 min-h-10 text-left text-sm font-semibold leading-5 sm:text-base"
+                      >
+                        {cleanLabel(p.name)}
+                      </button>
+                      <div className="mt-2">
+                        <p className="text-base font-extrabold text-[#b4512d] sm:text-lg">
+                          {rupiah(variant.price)}
                         </p>
-                      )}
+                        {(variant.normalPrice ?? variant.price) >
+                          variant.price && (
+                          <p className="text-[11px]">
+                            <span className="text-[#899188] line-through">
+                              {rupiah(variant.normalPrice!)}
+                            </span>
+                            <span className="ml-2 rounded bg-[#fee8df] px-1.5 py-0.5 font-bold text-[#b4512d]">
+                              -
+                              {Math.round(
+                                (1 - variant.price / variant.normalPrice!) *
+                                  100,
+                              )}
+                              %
+                            </span>
+                          </p>
+                        )}
+                      </div>
+                      <p className="mt-1 text-[11px] text-[#6d786f]">
+                        {variant.color} · {variant.size} · {p.sold_count || 0}{' '}
+                        terjual
+                      </p>
+                      <p className="mt-1 text-[11px] font-semibold text-[#8a5a22]">
+                        ★ {average ? average.toFixed(1) : 'Baru'}{' '}
+                        {productReviews.length
+                          ? `(${productReviews.length} ulasan)`
+                          : ''}
+                      </p>
+                      <button
+                        onClick={() =>
+                          window.location.assign(productPath(p.name))
+                        }
+                        className="mt-3 w-full rounded-xl border border-[#276344] py-2.5 text-xs font-bold text-[#24593d] sm:text-sm"
+                      >
+                        Lihat & pilih varian
+                      </button>
                     </div>
-                    <p className="mt-1 text-[11px] text-[#6d786f]">
-                      {variant.color} · {variant.size} · {p.sold_count || 0} terjual
-                    </p>
-                    <p className="mt-1 text-[11px] font-semibold text-[#8a5a22]">
-                      ★ {average ? average.toFixed(1) : 'Baru'}{' '}
-                      {productReviews.length
-                        ? `(${productReviews.length} ulasan)`
-                        : ''}
-                    </p>
-                    <button
-                      onClick={() => window.location.assign(productPath(p.name))}
-                      className="mt-3 w-full rounded-xl border border-[#276344] py-2.5 text-xs font-bold text-[#24593d] sm:text-sm"
-                    >
-                      Lihat & pilih varian
-                    </button>
-                  </div>
-                </article>
-              );
-            })}
-          </div>}
+                  </article>
+                );
+              })}
+            </div>
+          )}
           {!productsLoading && visibleCount < filtered.length && (
             <div className="mt-8 text-center">
-              <button onClick={() => setVisibleCount((count) => count + 16)} className="rounded-xl border border-[#276344] bg-white px-6 py-3 text-sm font-bold text-[#24593d]">
+              <button
+                onClick={() => setVisibleCount((count) => count + 16)}
+                className="rounded-xl border border-[#276344] bg-white px-6 py-3 text-sm font-bold text-[#24593d]"
+              >
                 Muat produk lainnya ({filtered.length - visibleCount})
               </button>
             </div>
@@ -816,7 +995,9 @@ export default function Home() {
           {!productsLoading && filtered.length === 0 && (
             <div className="mt-6 rounded-2xl border border-dashed bg-white py-16 text-center">
               <Search className="mx-auto text-[#8a958d]" />
-              <p className="mt-3 font-semibold">{productsError || 'Produk tidak ditemukan'}</p>
+              <p className="mt-3 font-semibold">
+                {productsError || 'Produk tidak ditemukan'}
+              </p>
               <button
                 onClick={() => {
                   setQuery('');
@@ -875,18 +1056,36 @@ export default function Home() {
       <section className="bg-[#173c2b] px-5 py-16 text-white sm:px-8">
         <div className="mx-auto max-w-7xl">
           <div className="max-w-2xl">
-            <p className="text-xs font-bold uppercase tracking-[.22em] text-[#d9b796]">Ulasan pelanggan</p>
-            <h2 className="mt-3 font-serif text-3xl sm:text-4xl">Pengalaman asli dari pembeli Simple Ground.</h2>
+            <p className="text-xs font-bold uppercase tracking-[.22em] text-[#d9b796]">
+              Ulasan pelanggan
+            </p>
+            <h2 className="mt-3 font-serif text-3xl sm:text-4xl">
+              Pengalaman asli dari pembeli Simple Ground.
+            </h2>
           </div>
           <div className="mt-8 grid gap-4 md:grid-cols-3">
             {reviews.slice(0, 3).map((review) => (
-              <figure key={review.id} className="rounded-2xl bg-white/8 p-6 ring-1 ring-white/10">
-                <div className="text-[#e7b264]">{'★'.repeat(review.rating)}</div>
-                <blockquote className="mt-4 text-sm leading-7 text-[#e7ede8]">“{review.body}”</blockquote>
-                <figcaption className="mt-5 text-xs font-bold text-white">{review.display_name}{review.city ? ` · ${review.city}` : ''}</figcaption>
+              <figure
+                key={review.id}
+                className="rounded-2xl bg-white/8 p-6 ring-1 ring-white/10"
+              >
+                <div className="text-[#e7b264]">
+                  {'★'.repeat(review.rating)}
+                </div>
+                <blockquote className="mt-4 text-sm leading-7 text-[#e7ede8]">
+                  “{review.body}”
+                </blockquote>
+                <figcaption className="mt-5 text-xs font-bold text-white">
+                  {review.display_name}
+                  {review.city ? ` · ${review.city}` : ''}
+                </figcaption>
               </figure>
             ))}
-            {!reviews.length && <p className="text-sm text-[#d5ded7]">Ulasan pelanggan akan tampil di sini setelah disetujui.</p>}
+            {!reviews.length && (
+              <p className="text-sm text-[#d5ded7]">
+                Ulasan pelanggan akan tampil di sini setelah disetujui.
+              </p>
+            )}
           </div>
         </div>
       </section>
@@ -894,17 +1093,41 @@ export default function Home() {
       <section className="px-5 py-16 sm:px-8">
         <div className="mx-auto grid max-w-7xl gap-8 overflow-hidden rounded-[2rem] bg-[#efe7d8] p-7 sm:p-10 lg:grid-cols-[1fr_auto] lg:items-center">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[.2em] text-[#a34f2c]">Ground Notes</p>
-            <h2 className="mt-3 font-serif text-3xl">Koleksi baru, cerita bahan, dan penawaran khusus.</h2>
-            <p className="mt-2 text-sm text-[#657066]">Kami mengirim seperlunya. Tidak ada pesan yang memenuhi kotak masuk.</p>
+            <p className="text-xs font-bold uppercase tracking-[.2em] text-[#a34f2c]">
+              Ground Notes
+            </p>
+            <h2 className="mt-3 font-serif text-3xl">
+              Koleksi baru, cerita bahan, dan penawaran khusus.
+            </h2>
+            <p className="mt-2 text-sm text-[#657066]">
+              Kami mengirim seperlunya. Tidak ada pesan yang memenuhi kotak
+              masuk.
+            </p>
           </div>
-          <form className="flex w-full min-w-0 max-w-md flex-col gap-2 sm:flex-row" onSubmit={submitNewsletter}>
+          <form
+            className="flex w-full min-w-0 max-w-md flex-col gap-2 sm:flex-row"
+            onSubmit={submitNewsletter}
+          >
             <label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl bg-white px-4 py-3">
               <Mail size={17} className="shrink-0 text-[#68736b]" />
-              <input type="email" required value={newsletterEmail} onChange={(event) => setNewsletterEmail(event.target.value)} aria-label="Alamat email" placeholder="Email kamu" className="min-w-0 flex-1 bg-transparent text-sm outline-none" />
+              <input
+                type="email"
+                required
+                value={newsletterEmail}
+                onChange={(event) => setNewsletterEmail(event.target.value)}
+                aria-label="Alamat email"
+                placeholder="Email kamu"
+                className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+              />
             </label>
-            <button className="min-h-11 rounded-xl bg-[#173c2b] px-5 text-sm font-bold text-white">Daftar</button>
-            {newsletterMessage && <p className="text-xs font-semibold text-[#526158] sm:hidden">{newsletterMessage}</p>}
+            <button className="min-h-11 rounded-xl bg-[#173c2b] px-5 text-sm font-bold text-white">
+              Daftar
+            </button>
+            {newsletterMessage && (
+              <p className="text-xs font-semibold text-[#526158] sm:hidden">
+                {newsletterMessage}
+              </p>
+            )}
           </form>
         </div>
       </section>
@@ -1042,11 +1265,14 @@ export default function Home() {
             const average = productReviews.length
               ? productReviews.reduce((s, r) => s + r.rating, 0) /
                 productReviews.length
-                : 0;
+              : 0;
             const relatedProducts = products
-              .filter((item) => item.id !== p.id && (
-                item.subcategory === p.subcategory || item.category === p.category
-              ))
+              .filter(
+                (item) =>
+                  item.id !== p.id &&
+                  (item.subcategory === p.subcategory ||
+                    item.category === p.category),
+              )
               .slice(0, 4);
             const moveImage = (direction: number) => {
               setSelectedImages((current) => ({
@@ -1223,29 +1449,73 @@ export default function Home() {
                         Stok tersedia: {variant.stock}
                       </p>
                       <div className="mt-4 rounded-2xl border bg-[#fafbf9] p-4">
-                        <h3 className="text-sm font-bold">Stok per warna & ukuran</h3>
+                        <h3 className="text-sm font-bold">
+                          Stok per warna & ukuran
+                        </h3>
                         <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
                           {p.variants.map((item, index) => (
                             <button
                               type="button"
                               key={`${item.color}-${item.size}-${index}`}
-                              onClick={() => setSelectedVariants((current) => ({ ...current, [p.id]: index }))}
+                              onClick={() =>
+                                setSelectedVariants((current) => ({
+                                  ...current,
+                                  [p.id]: index,
+                                }))
+                              }
                               className={`rounded-lg border p-2 text-left ${variantIndex === index ? 'border-[#276344] bg-[#edf6ef]' : 'bg-white'}`}
                             >
-                              <b>{item.color} · {item.size}</b>
-                              <span className={`mt-1 block ${item.stock > 0 ? 'text-[#276344]' : 'text-red-700'}`}>
-                                {item.stock > 0 ? `${item.stock} tersedia` : 'Habis'}
+                              <b>
+                                {item.color} · {item.size}
+                              </b>
+                              <span
+                                className={`mt-1 block ${item.stock > 0 ? 'text-[#276344]' : 'text-red-700'}`}
+                              >
+                                {item.stock > 0
+                                  ? `${item.stock} tersedia`
+                                  : 'Habis'}
                               </span>
                             </button>
                           ))}
                         </div>
                       </div>
-                      {(p.material || p.care_instructions || p.production_estimate || p.size_guide) && (
+                      {(p.material ||
+                        p.care_instructions ||
+                        p.production_estimate ||
+                        p.size_guide) && (
                         <div className="mt-4 space-y-3 rounded-2xl bg-[#f3f6f3] p-4 text-sm">
-                          {p.material && <div><b>Bahan</b><p className="mt-1 whitespace-pre-line text-[#5f6b63]">{p.material}</p></div>}
-                          {p.care_instructions && <div><b>Perawatan</b><p className="mt-1 whitespace-pre-line text-[#5f6b63]">{p.care_instructions}</p></div>}
-                          {p.production_estimate && <div><b>Estimasi produksi</b><p className="mt-1 text-[#5f6b63]">{p.production_estimate}</p></div>}
-                          {p.size_guide && <div><b>Panduan ukuran</b><p className="mt-1 whitespace-pre-line text-[#5f6b63]">{p.size_guide}</p></div>}
+                          {p.material && (
+                            <div>
+                              <b>Bahan</b>
+                              <p className="mt-1 whitespace-pre-line text-[#5f6b63]">
+                                {p.material}
+                              </p>
+                            </div>
+                          )}
+                          {p.care_instructions && (
+                            <div>
+                              <b>Perawatan</b>
+                              <p className="mt-1 whitespace-pre-line text-[#5f6b63]">
+                                {p.care_instructions}
+                              </p>
+                            </div>
+                          )}
+                          {p.production_estimate && (
+                            <div>
+                              <b>Estimasi produksi</b>
+                              <p className="mt-1 text-[#5f6b63]">
+                                {p.production_estimate}
+                              </p>
+                            </div>
+                          )}
+                          {p.size_guide && (
+                            <div>
+                              <b>Panduan ukuran</b>
+                              <p className="mt-1 whitespace-pre-line text-[#5f6b63]">
+                                {p.size_guide}
+                              </p>
+                            </div>
+                          )}
                         </div>
                       )}
                       <button
@@ -1290,7 +1560,10 @@ export default function Home() {
                                 className="rounded-xl bg-[#f5f7f4] p-3"
                               >
                                 <div className="flex justify-between gap-2">
-                                  <b className="text-sm">{r.display_name}{r.city ? ` · ${r.city}` : ''}</b>
+                                  <b className="text-sm">
+                                    {r.display_name}
+                                    {r.city ? ` · ${r.city}` : ''}
+                                  </b>
                                   <span className="text-sm text-amber-600">
                                     {'★'.repeat(r.rating)}
                                   </span>
@@ -1343,7 +1616,9 @@ export default function Home() {
                             />
                             <button
                               onClick={() => submitReview(p.id)}
-                              disabled={!reviewBody.trim() || !reviewCity.trim()}
+                              disabled={
+                                !reviewBody.trim() || !reviewCity.trim()
+                              }
                               className="mt-2 rounded-lg bg-[#173c2b] px-4 py-2 text-sm font-bold text-white disabled:opacity-40"
                             >
                               Kirim ulasan
@@ -1364,7 +1639,9 @@ export default function Home() {
                     </div>
                     {relatedProducts.length > 0 && (
                       <div className="border-t p-5 md:col-span-2 sm:p-8">
-                        <h3 className="font-serif text-xl font-bold">Produk serupa</h3>
+                        <h3 className="font-serif text-xl font-bold">
+                          Produk serupa
+                        </h3>
                         <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
                           {relatedProducts.map((item) => (
                             <button
@@ -1372,12 +1649,22 @@ export default function Home() {
                               key={item.id}
                               onClick={() => {
                                 setDetailId(item.id);
-                                setSelectedImages((current) => ({ ...current, [item.id]: 0 }));
+                                setSelectedImages((current) => ({
+                                  ...current,
+                                  [item.id]: 0,
+                                }));
                               }}
                               className="overflow-hidden rounded-xl border bg-white text-left transition hover:-translate-y-0.5 hover:shadow-md"
                             >
-                              <img src={item.image} alt={cleanLabel(item.name)} className="aspect-square w-full object-cover" loading="lazy" />
-                              <span className="block p-3 text-xs font-bold">{cleanLabel(item.name)}</span>
+                              <img
+                                src={item.image}
+                                alt={cleanLabel(item.name)}
+                                className="aspect-square w-full object-cover"
+                                loading="lazy"
+                              />
+                              <span className="block p-3 text-xs font-bold">
+                                {cleanLabel(item.name)}
+                              </span>
                             </button>
                           ))}
                         </div>
