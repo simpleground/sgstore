@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getChatGPTUser } from '@/app/chatgpt-auth';
 import { getD1 } from '@/db';
-import { normalizeCategory, normalizeSubcategory } from '@/lib/catalog-normalize';
+import {
+  normalizeCategory,
+  normalizeSubcategory,
+} from '@/lib/catalog-normalize';
 
 async function authorized() {
   const user = await getChatGPTUser();
@@ -35,17 +38,22 @@ export async function PATCH(request: Request) {
     );
   const database = getD1();
   const now = new Date().toISOString();
-  const result = body.type === 'category'
-    ? await database
-        .prepare('UPDATE products SET category=?,updated_at=? WHERE category=?')
-        .bind(to, now, from)
-        .run()
-    : category
+  const result =
+    body.type === 'category'
       ? await database
-          .prepare('UPDATE products SET subcategory=?,updated_at=? WHERE category=? AND subcategory=?')
-          .bind(to, now, category, from)
+          .prepare(
+            'UPDATE products SET category=?,updated_at=? WHERE category=?',
+          )
+          .bind(to, now, from)
           .run()
-      : null;
+      : category
+        ? await database
+            .prepare(
+              'UPDATE products SET subcategory=?,updated_at=? WHERE category=? AND subcategory=?',
+            )
+            .bind(to, now, category, from)
+            .run()
+        : null;
   if (!result)
     return NextResponse.json(
       { error: 'Kategori utama untuk subkategori belum dipilih.' },
@@ -58,7 +66,9 @@ export async function POST() {
   if (!(await authorized()))
     return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
   const database = getD1();
-  const rows = await database.prepare('SELECT id,category,subcategory FROM products').all<any>();
+  const rows = await database
+    .prepare('SELECT id,category,subcategory FROM products')
+    .all<any>();
   const now = new Date().toISOString();
   const statements = [];
   let changed = 0;
@@ -66,7 +76,13 @@ export async function POST() {
     const category = normalizeCategory(row.category || '');
     const subcategory = normalizeSubcategory(row.subcategory || '');
     if (category === row.category && subcategory === row.subcategory) continue;
-    statements.push(database.prepare('UPDATE products SET category=?,subcategory=?,updated_at=? WHERE id=?').bind(category, subcategory, now, row.id));
+    statements.push(
+      database
+        .prepare(
+          'UPDATE products SET category=?,subcategory=?,updated_at=? WHERE id=?',
+        )
+        .bind(category, subcategory, now, row.id),
+    );
     changed++;
   }
   for (let index = 0; index < statements.length; index += 75)

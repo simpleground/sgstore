@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getChatGPTUser } from '@/app/chatgpt-auth';
 import { getD1 } from '@/db';
-import { normalizeCategory, normalizeSubcategory, productIdentity, productNameSimilarity } from '@/lib/catalog-normalize';
+import {
+  normalizeCategory,
+  normalizeSubcategory,
+  productIdentity,
+  productNameSimilarity,
+} from '@/lib/catalog-normalize';
 
 async function auth() {
   const user = await getChatGPTUser();
@@ -17,8 +22,18 @@ async function auth() {
 }
 
 const columns = [
-  'product_id', 'active', 'name', 'category', 'subcategory', 'description',
-  'sku', 'color', 'size', 'normal_price', 'discount_percent', 'stock',
+  'product_id',
+  'active',
+  'name',
+  'category',
+  'subcategory',
+  'description',
+  'sku',
+  'color',
+  'size',
+  'normal_price',
+  'discount_percent',
+  'stock',
   'image_url',
 ];
 const csvCell = (value: unknown) => {
@@ -26,23 +41,45 @@ const csvCell = (value: unknown) => {
   return /[;"\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 };
 
-type ImportVariant = { sku?: string; color: string; size: string; normalPrice: number; price: number; stock: number };
-const optionKey = (variant: ImportVariant) => `${variant.color.trim().toLowerCase()}|${variant.size.trim().toLowerCase()}`;
+type ImportVariant = {
+  sku?: string;
+  color: string;
+  size: string;
+  normalPrice: number;
+  price: number;
+  stock: number;
+};
+const optionKey = (variant: ImportVariant) =>
+  `${variant.color.trim().toLowerCase()}|${variant.size.trim().toLowerCase()}`;
 
 function mergeVariants(existing: ImportVariant[], incoming: ImportVariant[]) {
   const merged = existing.map((variant) => ({ ...variant }));
   let skuAdjusted = 0;
   for (const row of incoming) {
-    const sku = String(row.sku || '').trim().toLowerCase();
-    const same = merged.findIndex((variant) =>
-      (sku && String(variant.sku || '').trim().toLowerCase() === sku) ||
-      optionKey(variant) === optionKey(row),
+    const sku = String(row.sku || '')
+      .trim()
+      .toLowerCase();
+    const same = merged.findIndex(
+      (variant) =>
+        (sku &&
+          String(variant.sku || '')
+            .trim()
+            .toLowerCase() === sku) ||
+        optionKey(variant) === optionKey(row),
     );
     if (same >= 0) {
       merged[same] = { ...merged[same], ...row };
       continue;
     }
-    const used = new Set(merged.map((variant) => String(variant.sku || '').trim().toLowerCase()).filter(Boolean));
+    const used = new Set(
+      merged
+        .map((variant) =>
+          String(variant.sku || '')
+            .trim()
+            .toLowerCase(),
+        )
+        .filter(Boolean),
+    );
     let next = String(row.sku || '').trim();
     if (next && used.has(next.toLowerCase())) {
       let suffix = 2;
@@ -66,13 +103,16 @@ export async function GET() {
   const rows: Record<string, unknown>[] = [];
   for (const product of result.results as any[]) {
     let variants: any[] = [];
-    try { variants = JSON.parse(product.variants_json || '[]'); } catch {}
+    try {
+      variants = JSON.parse(product.variants_json || '[]');
+    } catch {}
     for (const variant of variants) {
       const normalPrice = Number(variant.normalPrice ?? variant.price);
       const price = Number(variant.price);
-      const discount = normalPrice > 0
-        ? Math.round((1 - price / normalPrice) * 10000) / 100
-        : 0;
+      const discount =
+        normalPrice > 0
+          ? Math.round((1 - price / normalPrice) * 10000) / 100
+          : 0;
       rows.push({
         product_id: product.id,
         active: product.active ? 1 : 0,
@@ -90,10 +130,12 @@ export async function GET() {
       });
     }
   }
-  const csv = '\uFEFF' + [
-    columns.join(';'),
-    ...rows.map((row) => columns.map((key) => csvCell(row[key])).join(';')),
-  ].join('\r\n');
+  const csv =
+    '\uFEFF' +
+    [
+      columns.join(';'),
+      ...rows.map((row) => columns.map((key) => csvCell(row[key])).join(';')),
+    ].join('\r\n');
   return new Response(csv, {
     headers: {
       'content-type': 'text/csv; charset=utf-8',
@@ -107,7 +149,10 @@ export async function POST(request: Request) {
   if (!(await auth()))
     return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
   try {
-    const { rows, preview = false } = (await request.json()) as { rows: any[]; preview?: boolean };
+    const { rows, preview = false } = (await request.json()) as {
+      rows: any[];
+      preview?: boolean;
+    };
     if (!Array.isArray(rows) || !rows.length)
       throw new Error('File belum berisi data produk.');
     const groups = new Map<string, any>();
@@ -129,23 +174,40 @@ export async function POST(request: Request) {
       const stock = Number(row.stock);
       if (stock >= 9999) highStockVariants++;
       if (
-        !row.name || !row.category || !row.subcategory || !row.color ||
-        !row.size || normalPrice <= 0 || discountPercent < 0 ||
-        discountPercent >= 100 || price <= 0 || !Number.isInteger(stock) || stock < 0
+        !row.name ||
+        !row.category ||
+        !row.subcategory ||
+        !row.color ||
+        !row.size ||
+        normalPrice <= 0 ||
+        discountPercent < 0 ||
+        discountPercent >= 100 ||
+        price <= 0 ||
+        !Number.isInteger(stock) ||
+        stock < 0
       )
-        throw new Error(`Data produk "${row.name || '(tanpa nama)'}" belum lengkap.`);
+        throw new Error(
+          `Data produk "${row.name || '(tanpa nama)'}" belum lengkap.`,
+        );
       const productId = String(row.product_id || '').trim();
       const key = productId
         ? `id:${productId}`
         : `new:${productIdentity(row.name)}|${row.category.toLowerCase()}|${row.subcategory.toLowerCase()}`;
       const group = groups.get(key) ?? { ...row, productId, variants: [] };
       if (
-        productIdentity(group.name) !== productIdentity(row.name) || group.category !== row.category ||
+        productIdentity(group.name) !== productIdentity(row.name) ||
+        group.category !== row.category ||
         group.subcategory !== row.subcategory
       )
-        throw new Error(`Baris dengan product_id ${productId} memiliki identitas produk berbeda.`);
+        throw new Error(
+          `Baris dengan product_id ${productId} memiliki identitas produk berbeda.`,
+        );
       const originalSku = String(row.sku || '').trim();
-      const usedSkus = new Set(group.variants.map((variant: any) => String(variant.sku || '').toLowerCase()).filter(Boolean));
+      const usedSkus = new Set(
+        group.variants
+          .map((variant: any) => String(variant.sku || '').toLowerCase())
+          .filter(Boolean),
+      );
       let sku = originalSku;
       if (sku && usedSkus.has(sku.toLowerCase())) {
         let suffix = 2;
@@ -166,7 +228,11 @@ export async function POST(request: Request) {
 
     const database = getD1();
     const now = new Date().toISOString();
-    const existingRows = await database.prepare('SELECT id,name,category,subcategory,variants_json,active FROM products WHERE deleted_at IS NULL').all();
+    const existingRows = await database
+      .prepare(
+        'SELECT id,name,category,subcategory,variants_json,active FROM products WHERE deleted_at IS NULL',
+      )
+      .all();
     const existingIds = new Set(
       (existingRows.results as Array<{ id: string }>).map((row) => row.id),
     );
@@ -182,24 +248,38 @@ export async function POST(request: Request) {
     for (const group of groups.values()) {
       if (group.productId) continue;
       const candidates = activeCatalog
-        .filter((product) => product.category === group.category && product.subcategory === group.subcategory)
+        .filter(
+          (product) =>
+            product.category === group.category &&
+            product.subcategory === group.subcategory,
+        )
         .map((product) => ({
           product,
           exact: productIdentity(product.name) === productIdentity(group.name),
           score: productNameSimilarity(product.name, group.name),
         }))
-        .sort((left, right) => Number(right.exact) - Number(left.exact) || right.score - left.score);
+        .sort(
+          (left, right) =>
+            Number(right.exact) - Number(left.exact) ||
+            right.score - left.score,
+        );
       const best = candidates[0];
       const runnerUp = candidates[1];
       const exactMatches = candidates.filter((candidate) => candidate.exact);
-      const confident = best && (
-        exactMatches.length === 1 ||
-        (exactMatches.length === 0 && best.score >= 0.94 && best.score - (runnerUp?.score || 0) >= 0.08)
-      );
+      const confident =
+        best &&
+        (exactMatches.length === 1 ||
+          (exactMatches.length === 0 &&
+            best.score >= 0.94 &&
+            best.score - (runnerUp?.score || 0) >= 0.08));
       if (!confident) continue;
       group.productId = best.product.id;
       group.autoMatched = true;
-      try { group.existingVariants = JSON.parse(best.product.variants_json || '[]'); } catch { group.existingVariants = []; }
+      try {
+        group.existingVariants = JSON.parse(best.product.variants_json || '[]');
+      } catch {
+        group.existingVariants = [];
+      }
       autoMatched++;
       autoMatchedNames.push(`“${group.name}” → “${best.product.name}”`);
     }
@@ -209,46 +289,102 @@ export async function POST(request: Request) {
     let newProductsWithoutImage = 0;
     for (const group of groups.values()) {
       if (group.autoMatched) {
-        const combined = mergeVariants(group.existingVariants || [], group.variants);
+        const combined = mergeVariants(
+          group.existingVariants || [],
+          group.variants,
+        );
         group.variants = combined.variants;
         skuAdjusted += combined.skuAdjusted;
       }
-      const price = Math.min(...group.variants.map((variant: any) => variant.price));
-      const stock = group.variants.reduce((sum: number, variant: any) => sum + variant.stock, 0);
+      const price = Math.min(
+        ...group.variants.map((variant: any) => variant.price),
+      );
+      const stock = group.variants.reduce(
+        (sum: number, variant: any) => sum + variant.stock,
+        0,
+      );
       const active = String(group.active ?? '1').toLowerCase();
-      const activeValue = ['0', 'false', 'arsip', 'archived'].includes(active) ? 0 : 1;
+      const activeValue = ['0', 'false', 'arsip', 'archived'].includes(active)
+        ? 0
+        : 1;
       if (group.productId) {
         if (!existingIds.has(group.productId))
           throw new Error(`Produk ID ${group.productId} tidak ditemukan.`);
         statements.push(
           database
-            .prepare('UPDATE products SET name=?,category=?,subcategory=?,description=?,tone=?,price=?,stock=?,variants_json=?,active=?,updated_at=? WHERE id=?')
-            .bind(group.name, group.category, group.subcategory,
-              group.description || group.name, group.variants[0].color, price,
-              stock, JSON.stringify(group.variants), activeValue, now,
-              group.productId),
+            .prepare(
+              'UPDATE products SET name=?,category=?,subcategory=?,description=?,tone=?,price=?,stock=?,variants_json=?,active=?,updated_at=? WHERE id=?',
+            )
+            .bind(
+              group.name,
+              group.category,
+              group.subcategory,
+              group.description || group.name,
+              group.variants[0].color,
+              price,
+              stock,
+              JSON.stringify(group.variants),
+              activeValue,
+              now,
+              group.productId,
+            ),
         );
         updated++;
       } else {
         if (!String(group.image_url || '').trim()) newProductsWithoutImage++;
         statements.push(
           database
-            .prepare('INSERT INTO products (id,name,category,subcategory,tone,price,stock,description,variants_json,image_url,images_json,active,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
-            .bind(crypto.randomUUID(), group.name, group.category,
-              group.subcategory, group.variants[0].color, price, stock,
-              group.description || group.name, JSON.stringify(group.variants),
-              group.image_url || null, '[]', activeValue, now, now),
+            .prepare(
+              'INSERT INTO products (id,name,category,subcategory,tone,price,stock,description,variants_json,image_url,images_json,active,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+            )
+            .bind(
+              crypto.randomUUID(),
+              group.name,
+              group.category,
+              group.subcategory,
+              group.variants[0].color,
+              price,
+              stock,
+              group.description || group.name,
+              JSON.stringify(group.variants),
+              group.image_url || null,
+              '[]',
+              activeValue,
+              now,
+              now,
+            ),
         );
         created++;
       }
     }
     const warnings = [
-      highStockVariants ? `${highStockVariants} variasi memiliki stok 9.999 atau lebih.` : '',
-      newProductsWithoutImage ? `${newProductsWithoutImage} produk baru belum memiliki URL foto.` : '',
+      highStockVariants
+        ? `${highStockVariants} variasi memiliki stok 9.999 atau lebih.`
+        : '',
+      newProductsWithoutImage
+        ? `${newProductsWithoutImage} produk baru belum memiliki URL foto.`
+        : '',
       skuAdjusted ? `${skuAdjusted} SKU ganda akan dibuat unik otomatis.` : '',
-      autoMatched ? `${autoMatched} produk dikenali otomatis sebagai barang yang sudah ada.` : '',
+      autoMatched
+        ? `${autoMatched} produk dikenali otomatis sebagai barang yang sudah ada.`
+        : '',
     ].filter(Boolean);
-    const summary = { ok: true, preview, rows: rows.length, count: groups.size, created, updated, groupedRows: rows.length - groups.size, skuAdjusted, normalizedFields, highStockVariants, newProductsWithoutImage, autoMatched, autoMatchedNames: autoMatchedNames.slice(0, 12), warnings };
+    const summary = {
+      ok: true,
+      preview,
+      rows: rows.length,
+      count: groups.size,
+      created,
+      updated,
+      groupedRows: rows.length - groups.size,
+      skuAdjusted,
+      normalizedFields,
+      highStockVariants,
+      newProductsWithoutImage,
+      autoMatched,
+      autoMatchedNames: autoMatchedNames.slice(0, 12),
+      warnings,
+    };
     if (preview) return NextResponse.json(summary);
     for (let index = 0; index < statements.length; index += 75)
       await database.batch(statements.slice(index, index + 75));

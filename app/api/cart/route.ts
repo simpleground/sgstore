@@ -30,13 +30,22 @@ export async function PUT(req: Request) {
   const d = getD1();
   if (quantity > 0) {
     const product = await d
-      .prepare('SELECT variants_json FROM products WHERE id=? AND active=1 AND deleted_at IS NULL')
+      .prepare(
+        'SELECT variants_json FROM products WHERE id=? AND active=1 AND deleted_at IS NULL',
+      )
       .bind(productId)
       .first<{ variants_json: string }>();
     let variants: Array<{ stock?: number }> = [];
-    try { variants = JSON.parse(product?.variants_json || '[]'); } catch {}
+    try {
+      variants = JSON.parse(product?.variants_json || '[]');
+    } catch {}
     const variant = variants[variantIndex];
-    if (!product || !variant || !Number.isInteger(variant.stock) || quantity > variant.stock!)
+    if (
+      !product ||
+      !variant ||
+      !Number.isInteger(variant.stock) ||
+      quantity > variant.stock!
+    )
       return NextResponse.json(
         { error: 'Produk, varian, atau jumlah stok tidak tersedia.' },
         { status: 409 },

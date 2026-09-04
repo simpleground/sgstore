@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getChatGPTUser } from '@/app/chatgpt-auth';
 import { getD1, getFiles } from '@/db';
-import { normalizeCategory, normalizeSubcategory } from '@/lib/catalog-normalize';
+import {
+  normalizeCategory,
+  normalizeSubcategory,
+} from '@/lib/catalog-normalize';
 async function auth() {
   const u = await getChatGPTUser();
   return (
@@ -136,7 +139,15 @@ export async function POST(req: Request) {
     const keys = await images(
       f.getAll('images').filter((v): v is File => v instanceof File),
     );
-    if (!name || !category || !subcategory || !description || !keys.length || !Number.isInteger(soldCount) || soldCount < 0)
+    if (
+      !name ||
+      !category ||
+      !subcategory ||
+      !description ||
+      !keys.length ||
+      !Number.isInteger(soldCount) ||
+      soldCount < 0
+    )
       throw new Error(
         'Lengkapi nama, kategori, subkategori, deskripsi, dan foto.',
       );
@@ -216,7 +227,14 @@ export async function PATCH(req: Request) {
           ? newKeys
           : [...previousKeys, ...newKeys],
       finalKeys = combinedKeys;
-    if (!name || !category || !subcategory || !description || !Number.isInteger(soldCount) || soldCount < 0)
+    if (
+      !name ||
+      !category ||
+      !subcategory ||
+      !description ||
+      !Number.isInteger(soldCount) ||
+      soldCount < 0
+    )
       throw new Error('Lengkapi nama, kategori, subkategori, dan deskripsi.');
     if (finalKeys.length > 9)
       throw new Error('Total foto maksimal 9 per produk.');
@@ -264,11 +282,23 @@ export async function PUT(req: Request) {
       restoreDeleted?: boolean;
     };
     if (id && restoreDeleted) {
-      const product = await getD1().prepare('SELECT deleted_at FROM products WHERE id=?').bind(id).first<{ deleted_at: string | null }>();
-      if (!product?.deleted_at) throw new Error('Produk tidak ditemukan di Tong Sampah.');
+      const product = await getD1()
+        .prepare('SELECT deleted_at FROM products WHERE id=?')
+        .bind(id)
+        .first<{ deleted_at: string | null }>();
+      if (!product?.deleted_at)
+        throw new Error('Produk tidak ditemukan di Tong Sampah.');
       const expiresAt = new Date(product.deleted_at).getTime() + 30 * 86400000;
-      if (Date.now() > expiresAt) throw new Error('Masa pemulihan 30 hari sudah berakhir. Hapus produk secara permanen.');
-      await getD1().prepare('UPDATE products SET deleted_at=NULL,active=0,updated_at=? WHERE id=?').bind(new Date().toISOString(), id).run();
+      if (Date.now() > expiresAt)
+        throw new Error(
+          'Masa pemulihan 30 hari sudah berakhir. Hapus produk secara permanen.',
+        );
+      await getD1()
+        .prepare(
+          'UPDATE products SET deleted_at=NULL,active=0,updated_at=? WHERE id=?',
+        )
+        .bind(new Date().toISOString(), id)
+        .run();
       return NextResponse.json({ ok: true, restored: true });
     }
     if (!id || (active !== 0 && active !== 1))
@@ -289,33 +319,64 @@ export async function DELETE(req: Request) {
   if (!(await auth()))
     return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
   try {
-    const { id, permanent } = (await req.json()) as { id?: string; permanent?: boolean };
+    const { id, permanent } = (await req.json()) as {
+      id?: string;
+      permanent?: boolean;
+    };
     if (!id) throw new Error('Produk tidak valid.');
     const d1 = getD1();
     if (!permanent) {
-      const result = await d1.prepare('UPDATE products SET deleted_at=?,active=0,updated_at=? WHERE id=? AND deleted_at IS NULL').bind(new Date().toISOString(), new Date().toISOString(), id).run();
-      if (!(result.meta.changes ?? 0)) throw new Error('Produk tidak ditemukan atau sudah berada di Tong Sampah.');
+      const result = await d1
+        .prepare(
+          'UPDATE products SET deleted_at=?,active=0,updated_at=? WHERE id=? AND deleted_at IS NULL',
+        )
+        .bind(new Date().toISOString(), new Date().toISOString(), id)
+        .run();
+      if (!(result.meta.changes ?? 0))
+        throw new Error(
+          'Produk tidak ditemukan atau sudah berada di Tong Sampah.',
+        );
       return NextResponse.json({ ok: true, trashed: true });
     }
-    const product = await d1.prepare('SELECT image_key,images_json FROM products WHERE id=? AND deleted_at IS NOT NULL').bind(id).first<{ image_key: string | null; images_json: string }>();
-    if (!product) throw new Error('Hanya produk di Tong Sampah yang dapat dihapus permanen.');
+    const product = await d1
+      .prepare(
+        'SELECT image_key,images_json FROM products WHERE id=? AND deleted_at IS NOT NULL',
+      )
+      .bind(id)
+      .first<{ image_key: string | null; images_json: string }>();
+    if (!product)
+      throw new Error(
+        'Hanya produk di Tong Sampah yang dapat dihapus permanen.',
+      );
     let keys: string[] = [];
-    try { keys = JSON.parse(product.images_json || '[]'); } catch {}
-    if (product.image_key && !keys.includes(product.image_key)) keys.push(product.image_key);
+    try {
+      keys = JSON.parse(product.images_json || '[]');
+    } catch {}
+    if (product.image_key && !keys.includes(product.image_key))
+      keys.push(product.image_key);
     await d1.batch([
       d1.prepare('DELETE FROM cart_items WHERE product_id=?').bind(id),
       d1.prepare('DELETE FROM reviews WHERE product_id=?').bind(id),
       d1.prepare('DELETE FROM products WHERE id=?').bind(id),
     ]);
-    const remaining = await d1.prepare('SELECT image_key,images_json FROM products').all<any>();
+    const remaining = await d1
+      .prepare('SELECT image_key,images_json FROM products')
+      .all<any>();
     const referenced = new Set<string>();
     for (const row of remaining.results) {
       if (row.image_key) referenced.add(row.image_key);
-      try { for (const key of JSON.parse(row.images_json || '[]')) referenced.add(key); } catch {}
+      try {
+        for (const key of JSON.parse(row.images_json || '[]'))
+          referenced.add(key);
+      } catch {}
     }
-    for (const key of keys) if (!referenced.has(key)) await getFiles().delete(key);
+    for (const key of keys)
+      if (!referenced.has(key)) await getFiles().delete(key);
     return NextResponse.json({ ok: true, permanent: true });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Penghapusan gagal.' }, { status: 400 });
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Penghapusan gagal.' },
+      { status: 400 },
+    );
   }
 }

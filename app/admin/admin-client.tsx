@@ -313,7 +313,11 @@ function VariantEditor({ initial = [] }: { initial?: Variant[] }) {
 function BulkImport({ onDone }: { onDone: () => void }) {
   const [busy, setBusy] = useState(false),
     [message, setMessage] = useState(''),
-    [pending, setPending] = useState<{ fileName: string; rows: any[]; preview: any } | null>(null);
+    [pending, setPending] = useState<{
+      fileName: string;
+      rows: any[];
+      preview: any;
+    } | null>(null);
   function cells(line: string, delimiter: string) {
     const out: string[] = [];
     let value = '';
@@ -339,9 +343,9 @@ function BulkImport({ onDone }: { onDone: () => void }) {
     try {
       const bytes = await file.arrayBuffer();
       let text = new TextDecoder('utf-8').decode(bytes);
-      if (text.includes('\uFFFD')) text = new TextDecoder('windows-1252').decode(bytes);
-      const
-        lines = text
+      if (text.includes('\uFFFD'))
+        text = new TextDecoder('windows-1252').decode(bytes);
+      const lines = text
           .replace(/^\uFEFF/, '')
           .split(/\r?\n/)
           .filter(Boolean),
@@ -365,14 +369,20 @@ function BulkImport({ onDone }: { onDone: () => void }) {
       for (let index = 1; index < lines.length; index++) {
         const line = lines[index];
         const values = cells(line, delimiter);
-        rows.push(Object.fromEntries(headers.map((h, i) => [h, values[i] ?? ''])));
+        rows.push(
+          Object.fromEntries(headers.map((h, i) => [h, values[i] ?? ''])),
+        );
         if (index % 50 === 0) {
           setMessage(`Membaca baris ${index} dari ${lines.length - 1}…`);
-          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+          await new Promise<void>((resolve) =>
+            requestAnimationFrame(() => resolve()),
+          );
         }
       }
       setMessage(`Memeriksa ${rows.length} baris produk…`);
-      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => resolve()),
+      );
       const r = await fetch('/api/admin/products/bulk', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
@@ -381,7 +391,9 @@ function BulkImport({ onDone }: { onDone: () => void }) {
         d = await r.json();
       if (!r.ok) throw new Error(d.error || 'Impor gagal.');
       setPending({ fileName: file.name, rows, preview: d });
-      setMessage('Pratinjau siap. Periksa ringkasan sebelum mengonfirmasi impor.');
+      setMessage(
+        'Pratinjau siap. Periksa ringkasan sebelum mengonfirmasi impor.',
+      );
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Impor gagal.');
     }
@@ -393,12 +405,15 @@ function BulkImport({ onDone }: { onDone: () => void }) {
     setMessage('Menyimpan perubahan katalog…');
     try {
       const response = await fetch('/api/admin/products/bulk', {
-        method: 'POST', headers: { 'content-type': 'application/json' },
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ rows: pending.rows, preview: false }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Impor gagal.');
-      setMessage(`${data.count} produk berhasil diproses: ${data.updated} diperbarui dan ${data.created} ditambahkan.`);
+      setMessage(
+        `${data.count} produk berhasil diproses: ${data.updated} diperbarui dan ${data.created} ditambahkan.`,
+      );
       setPending(null);
       await onDone();
     } catch (error) {
@@ -423,7 +438,9 @@ function BulkImport({ onDone }: { onDone: () => void }) {
       if (!response.ok) throw new Error('Export produk gagal.');
       const blob = await response.blob();
       const disposition = response.headers.get('content-disposition') || '';
-      const filename = disposition.match(/filename="([^"]+)"/)?.[1] || 'produk-simple-ground.csv';
+      const filename =
+        disposition.match(/filename="([^"]+)"/)?.[1] ||
+        'produk-simple-ground.csv';
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
       link.download = filename;
@@ -431,7 +448,9 @@ function BulkImport({ onDone }: { onDone: () => void }) {
       URL.revokeObjectURL(link.href);
       setMessage('Data produk berhasil diekspor dan siap diedit.');
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Export produk gagal.');
+      setMessage(
+        error instanceof Error ? error.message : 'Export produk gagal.',
+      );
     }
     setBusy(false);
   }
@@ -441,10 +460,11 @@ function BulkImport({ onDone }: { onDone: () => void }) {
         <div>
           <b className="text-sm">Edit & upload produk massal</b>
           <p className="mt-1 text-xs text-[#68736b]">
-            Export katalog, edit di Excel atau Google Sheets, lalu upload kembali.
-            Baris dengan product_id diperbarui. Baris tanpa ID yang namanya sangat mirip
-            otomatis masuk sebagai variasi; nama yang berbeda tetap menjadi produk baru.
-            Foto produk lama tetap dipertahankan.
+            Export katalog, edit di Excel atau Google Sheets, lalu upload
+            kembali. Baris dengan product_id diperbarui. Baris tanpa ID yang
+            namanya sangat mirip otomatis masuk sebagai variasi; nama yang
+            berbeda tetap menjadi produk baru. Foto produk lama tetap
+            dipertahankan.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -481,12 +501,31 @@ function BulkImport({ onDone }: { onDone: () => void }) {
         <div className="mt-4 rounded-2xl border border-[#d8c8b3] bg-[#fffaf2] p-4">
           <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[.12em] text-[#a34f2c]">Pratinjau impor</p>
+              <p className="text-xs font-bold uppercase tracking-[.12em] text-[#a34f2c]">
+                Pratinjau impor
+              </p>
               <b className="mt-1 block text-sm">{pending.fileName}</b>
             </div>
             <div className="flex gap-2">
-              <button type="button" disabled={busy} onClick={confirmImport} className="rounded-xl bg-[#243b2c] px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50">{busy ? 'Mengimpor…' : 'Konfirmasi Impor'}</button>
-              <button type="button" disabled={busy} onClick={() => { setPending(null); setMessage('Impor dibatalkan. Tidak ada data yang diubah.'); }} className="rounded-xl border bg-white px-4 py-2.5 text-xs font-bold">Batal</button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={confirmImport}
+                className="rounded-xl bg-[#243b2c] px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50"
+              >
+                {busy ? 'Mengimpor…' : 'Konfirmasi Impor'}
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  setPending(null);
+                  setMessage('Impor dibatalkan. Tidak ada data yang diubah.');
+                }}
+                className="rounded-xl border bg-white px-4 py-2.5 text-xs font-bold"
+              >
+                Batal
+              </button>
             </div>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -500,21 +539,39 @@ function BulkImport({ onDone }: { onDone: () => void }) {
               ['SKU disesuaikan', pending.preview.skuAdjusted],
               ['Kategori dirapikan', pending.preview.normalizedFields],
               ['Tanpa foto', pending.preview.newProductsWithoutImage],
-            ].map(([label, value]) => <div key={String(label)} className="rounded-xl bg-white p-3"><p className="text-[10px] font-bold uppercase text-[#68736b]">{label}</p><p className="mt-1 text-lg font-bold text-[#243b2c]">{value}</p></div>)}
+            ].map(([label, value]) => (
+              <div key={String(label)} className="rounded-xl bg-white p-3">
+                <p className="text-[10px] font-bold uppercase text-[#68736b]">
+                  {label}
+                </p>
+                <p className="mt-1 text-lg font-bold text-[#243b2c]">{value}</p>
+              </div>
+            ))}
           </div>
           {pending.preview.warnings?.length > 0 && (
             <div className="mt-3 rounded-xl border border-[#edc59f] bg-[#fff3e5] p-3 text-xs text-[#7a3f25]">
               <b>Perlu diperiksa:</b>
-              <ul className="mt-1 list-disc space-y-1 pl-5">{pending.preview.warnings.map((warning: string) => <li key={warning}>{warning}</li>)}</ul>
+              <ul className="mt-1 list-disc space-y-1 pl-5">
+                {pending.preview.warnings.map((warning: string) => (
+                  <li key={warning}>{warning}</li>
+                ))}
+              </ul>
             </div>
           )}
           {pending.preview.autoMatchedNames?.length > 0 && (
             <div className="mt-3 rounded-xl border border-[#bad8c5] bg-[#f1faf4] p-3 text-xs text-[#24593d]">
               <b>Dikenali sebagai produk yang sama:</b>
-              <ul className="mt-1 list-disc space-y-1 pl-5">{pending.preview.autoMatchedNames.map((item: string) => <li key={item}>{item}</li>)}</ul>
+              <ul className="mt-1 list-disc space-y-1 pl-5">
+                {pending.preview.autoMatchedNames.map((item: string) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
             </div>
           )}
-          <p className="mt-3 text-xs text-[#68736b]">Belum ada produk yang diubah. Data baru disimpan setelah tombol Konfirmasi Impor ditekan.</p>
+          <p className="mt-3 text-xs text-[#68736b]">
+            Belum ada produk yang diubah. Data baru disimpan setelah tombol
+            Konfirmasi Impor ditekan.
+          </p>
         </div>
       )}
       {message && <p className="mt-3 text-xs font-semibold">{message}</p>}
@@ -554,7 +611,10 @@ function CategoryManager({
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ type, category, from, to }),
     });
-    const data = (await response.json()) as { error?: string; changed?: number };
+    const data = (await response.json()) as {
+      error?: string;
+      changed?: number;
+    };
     if (!response.ok) setMessage(data.error ?? 'Perubahan kategori gagal.');
     else {
       setMessage(`${data.changed ?? 0} produk berhasil diperbarui.`);
@@ -565,11 +625,15 @@ function CategoryManager({
     setBusy(false);
   }
   async function normalizeAll() {
-    if (!confirm('Rapikan ejaan kategori dan subkategori pada seluruh produk?')) return;
+    if (!confirm('Rapikan ejaan kategori dan subkategori pada seluruh produk?'))
+      return;
     setBusy(true);
     setMessage('');
     const response = await fetch('/api/admin/categories', { method: 'POST' });
-    const data = (await response.json()) as { error?: string; changed?: number };
+    const data = (await response.json()) as {
+      error?: string;
+      changed?: number;
+    };
     if (!response.ok) setMessage(data.error ?? 'Normalisasi kategori gagal.');
     else {
       setMessage(`${data.changed ?? 0} produk berhasil dirapikan otomatis.`);
@@ -582,13 +646,22 @@ function CategoryManager({
       <div>
         <b className="text-sm">Kelola kategori</b>
         <p className="mt-1 text-xs text-[#68736b]">
-          Ganti nama atau gabungkan kategori. Semua produk terkait akan ikut diperbarui.
+          Ganti nama atau gabungkan kategori. Semua produk terkait akan ikut
+          diperbarui.
         </p>
-        <button type="button" disabled={busy} onClick={normalizeAll} className="mt-3 rounded-xl border border-[#243b2c] bg-white px-4 py-2 text-xs font-bold text-[#243b2c] disabled:opacity-50">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={normalizeAll}
+          className="mt-3 rounded-xl border border-[#243b2c] bg-white px-4 py-2 text-xs font-bold text-[#243b2c] disabled:opacity-50"
+        >
           Rapikan semua kategori otomatis
         </button>
       </div>
-      <form onSubmit={rename} className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5 lg:items-end">
+      <form
+        onSubmit={rename}
+        className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5 lg:items-end"
+      >
         <label className="text-xs font-bold text-[#566158]">
           JENIS
           <select
@@ -616,7 +689,9 @@ function CategoryManager({
               className="mt-1 block w-full rounded-xl border bg-white px-3 py-2.5 text-sm"
             >
               <option value="">Pilih kategori</option>
-              {categories.map((item) => <option key={item}>{item}</option>)}
+              {categories.map((item) => (
+                <option key={item}>{item}</option>
+              ))}
             </select>
           </label>
         )}
@@ -666,8 +741,12 @@ function ProductManager() {
   const [dedicatedEdit, setDedicatedEdit] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const selectedImagesRef = useRef<Array<{ file: File; url: string }>>([]);
-  const [selectedImages, setSelectedImages] = useState<Array<{ file: File; url: string }>>([]);
-  const [productTab, setProductTab] = useState<'active' | 'archived' | 'trash'>('active');
+  const [selectedImages, setSelectedImages] = useState<
+    Array<{ file: File; url: string }>
+  >([]);
+  const [productTab, setProductTab] = useState<'active' | 'archived' | 'trash'>(
+    'active',
+  );
   const [catalogSort, setCatalogSort] = useState('rekomendasi');
   const [catalogCategory, setCatalogCategory] = useState('Semua');
   const [catalogSubcategory, setCatalogSubcategory] = useState('Semua');
@@ -689,7 +768,13 @@ function ProductManager() {
   useEffect(() => {
     selectedImagesRef.current = selectedImages;
   }, [selectedImages]);
-  useEffect(() => () => selectedImagesRef.current.forEach((image) => URL.revokeObjectURL(image.url)), []);
+  useEffect(
+    () => () =>
+      selectedImagesRef.current.forEach((image) =>
+        URL.revokeObjectURL(image.url),
+      ),
+    [],
+  );
   useEffect(() => {
     if (handledEditLink || !items.length) return;
     const editId = new URLSearchParams(window.location.search).get('edit');
@@ -698,7 +783,11 @@ function ProductManager() {
       setDedicatedEdit(true);
       setEditing(product);
       setOpen(true);
-      requestAnimationFrame(() => document.getElementById('product-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+      requestAnimationFrame(() =>
+        document
+          .getElementById('product-editor')
+          ?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+      );
     }
     setHandledEditLink(true);
   }, [handledEditLink, items]);
@@ -732,31 +821,46 @@ function ProductManager() {
     setBusy(false);
   }
   async function remove(id: string) {
-    if (!confirm('Pindahkan produk ke Tong Sampah? Produk dapat dipulihkan selama 30 hari.')) return;
+    if (
+      !confirm(
+        'Pindahkan produk ke Tong Sampah? Produk dapat dipulihkan selama 30 hari.',
+      )
+    )
+      return;
     const response = await fetch('/api/admin/products', {
       method: 'DELETE',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ id }),
     });
-    if (!response.ok) setError((await response.json()).error ?? 'Gagal memindahkan produk.');
+    if (!response.ok)
+      setError((await response.json()).error ?? 'Gagal memindahkan produk.');
     await load();
   }
   async function restoreDeleted(id: string) {
     const response = await fetch('/api/admin/products', {
-      method: 'PUT', headers: { 'content-type': 'application/json' },
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ id, restoreDeleted: true }),
     });
-    if (!response.ok) setError((await response.json()).error ?? 'Produk gagal dipulihkan.');
+    if (!response.ok)
+      setError((await response.json()).error ?? 'Produk gagal dipulihkan.');
     else setProductTab('archived');
     await load();
   }
   async function deletePermanently(id: string) {
-    if (!confirm('Hapus produk ini secara permanen? Produk, ulasan, dan data keranjangnya tidak dapat dipulihkan.')) return;
+    if (
+      !confirm(
+        'Hapus produk ini secara permanen? Produk, ulasan, dan data keranjangnya tidak dapat dipulihkan.',
+      )
+    )
+      return;
     const response = await fetch('/api/admin/products', {
-      method: 'DELETE', headers: { 'content-type': 'application/json' },
+      method: 'DELETE',
+      headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ id, permanent: true }),
     });
-    if (!response.ok) setError((await response.json()).error ?? 'Penghapusan permanen gagal.');
+    if (!response.ok)
+      setError((await response.json()).error ?? 'Penghapusan permanen gagal.');
     await load();
   }
   async function copy(id: string) {
@@ -787,17 +891,33 @@ function ProductManager() {
     const sourceIds = mergeIds.filter((id) => id !== mergeTarget);
     if (!mergeTarget || !sourceIds.length) return;
     const target = items.find((item) => item.id === mergeTarget);
-    const selected = [target, ...sourceIds.map((id) => items.find((item) => item.id === id))].filter(Boolean) as Product[];
+    const selected = [
+      target,
+      ...sourceIds.map((id) => items.find((item) => item.id === id)),
+    ].filter(Boolean) as Product[];
     const skuCounts = new Map<string, number>();
-    for (const product of selected) for (const variant of product.variants) {
-      const sku = variant.sku?.trim().toLowerCase();
-      if (sku) skuCounts.set(sku, (skuCounts.get(sku) || 0) + 1);
-    }
-    const duplicateSkus = Array.from(skuCounts.entries()).filter(([, count]) => count > 1).map(([sku]) => sku.toUpperCase());
+    for (const product of selected)
+      for (const variant of product.variants) {
+        const sku = variant.sku?.trim().toLowerCase();
+        if (sku) skuCounts.set(sku, (skuCounts.get(sku) || 0) + 1);
+      }
+    const duplicateSkus = Array.from(skuCounts.entries())
+      .filter(([, count]) => count > 1)
+      .map(([sku]) => sku.toUpperCase());
     const skuNotice = duplicateSkus.length
-      ? `\n\nSKU ganda akan diubah otomatis agar unik:\n${duplicateSkus.slice(0, 8).map((sku) => `• ${sku}`).join('\n')}${duplicateSkus.length > 8 ? `\n• dan ${duplicateSkus.length - 8} SKU lainnya` : ''}\n\nSKU pertama pada produk induk tetap dipertahankan.`
+      ? `\n\nSKU ganda akan diubah otomatis agar unik:\n${duplicateSkus
+          .slice(0, 8)
+          .map((sku) => `• ${sku}`)
+          .join(
+            '\n',
+          )}${duplicateSkus.length > 8 ? `\n• dan ${duplicateSkus.length - 8} SKU lainnya` : ''}\n\nSKU pertama pada produk induk tetap dipertahankan.`
       : '\n\nJika ditemukan SKU atau kombinasi variasi ganda, SKU berikutnya akan dibuat unik secara otomatis.';
-    if (!confirm(`Gabungkan ${sourceIds.length} produk ke "${target?.name}"? Produk sumber akan diarsipkan.${skuNotice}`)) return;
+    if (
+      !confirm(
+        `Gabungkan ${sourceIds.length} produk ke "${target?.name}"? Produk sumber akan diarsipkan.${skuNotice}`,
+      )
+    )
+      return;
     setMerging(true);
     setError('');
     const response = await fetch('/api/admin/products/merge', {
@@ -807,16 +927,24 @@ function ProductManager() {
     });
     const result = await response.json();
     if (response.ok) {
-      const changedSkuText = result.skuChanges?.length ? ` ${result.skuChanges.length} SKU diubah otomatis.` : '';
-      alert(`Berhasil: ${result.mergedVariants} variasi digabung dan ${result.archivedProducts} produk sumber diarsipkan.${changedSkuText}`);
+      const changedSkuText = result.skuChanges?.length
+        ? ` ${result.skuChanges.length} SKU diubah otomatis.`
+        : '';
+      alert(
+        `Berhasil: ${result.mergedVariants} variasi digabung dan ${result.archivedProducts} produk sumber diarsipkan.${changedSkuText}`,
+      );
       setMergeIds([]);
       setMergeTarget('');
       await load();
     } else setError(result.error || 'Gagal menggabungkan produk.');
     setMerging(false);
   }
-  const activeCount = items.filter((item) => !item.deleted_at && item.active !== 0).length;
-  const archivedCount = items.filter((item) => !item.deleted_at && item.active === 0).length;
+  const activeCount = items.filter(
+    (item) => !item.deleted_at && item.active !== 0,
+  ).length;
+  const archivedCount = items.filter(
+    (item) => !item.deleted_at && item.active === 0,
+  ).length;
   const trashCount = items.filter((item) => Boolean(item.deleted_at)).length;
   const categoryOptions = Array.from(
     new Set([
@@ -829,69 +957,125 @@ function ProductManager() {
   const subcategoryOptions = Array.from(
     new Set(items.map((item) => item.subcategory).filter(Boolean)),
   ).sort((a, b) => a.localeCompare(b, 'id'));
-  const visibleItems = items.filter((item) => productTab === 'trash'
-    ? Boolean(item.deleted_at)
-    : !item.deleted_at && (productTab === 'active' ? item.active !== 0 : item.active === 0))
-    .filter((item) => catalogCategory === 'Semua' || item.category === catalogCategory)
-    .filter((item) => catalogSubcategory === 'Semua' || item.subcategory === catalogSubcategory)
+  const visibleItems = items
+    .filter((item) =>
+      productTab === 'trash'
+        ? Boolean(item.deleted_at)
+        : !item.deleted_at &&
+          (productTab === 'active' ? item.active !== 0 : item.active === 0),
+    )
+    .filter(
+      (item) =>
+        catalogCategory === 'Semua' || item.category === catalogCategory,
+    )
+    .filter(
+      (item) =>
+        catalogSubcategory === 'Semua' ||
+        item.subcategory === catalogSubcategory,
+    )
     .sort((a, b) => {
-      if (catalogSort === 'terlaris') return (b.sold_count || 0) - (a.sold_count || 0);
-      if (catalogSort === 'terbaru') return String(b.created_at || '').localeCompare(String(a.created_at || ''));
+      if (catalogSort === 'terlaris')
+        return (b.sold_count || 0) - (a.sold_count || 0);
+      if (catalogSort === 'terbaru')
+        return String(b.created_at || '').localeCompare(
+          String(a.created_at || ''),
+        );
       if (catalogSort === 'termurah') return a.price - b.price;
       if (catalogSort === 'tertinggi') return b.price - a.price;
       return 0;
     });
   return (
     <section className="rounded-3xl border bg-white p-5 sm:p-7">
-      {!dedicatedEdit && <div className="flex items-center justify-between gap-4">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[.18em] text-[#a34f2c]">
-            Katalog
-          </p>
-          <h2 className="mt-1 font-serif text-2xl">Produk & harga</h2>
+      {!dedicatedEdit && (
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[.18em] text-[#a34f2c]">
+              Katalog
+            </p>
+            <h2 className="mt-1 font-serif text-2xl">Produk & harga</h2>
+          </div>
+          <button
+            onClick={() => {
+              setEditing(null);
+              setOpen(true);
+            }}
+            className="flex items-center gap-2 rounded-full bg-[#243b2c] px-4 py-2.5 text-sm font-semibold text-white"
+          >
+            <Plus size={16} /> Tambah produk
+          </button>
         </div>
-        <button
-          onClick={() => {
-            setEditing(null);
-            setOpen(true);
-          }}
-          className="flex items-center gap-2 rounded-full bg-[#243b2c] px-4 py-2.5 text-sm font-semibold text-white"
-        >
-          <Plus size={16} /> Tambah produk
-        </button>
-      </div>}
-      {!dedicatedEdit && <>
-        <BulkImport onDone={load} />
-        <CategoryManager items={items} onDone={load} />
-      </>}
+      )}
+      {!dedicatedEdit && (
+        <>
+          <BulkImport onDone={load} />
+          <CategoryManager items={items} onDone={load} />
+        </>
+      )}
       {!dedicatedEdit && mergeIds.length > 0 && (
         <div className="mt-5 rounded-2xl border border-[#d7c9b7] bg-[#fffaf2] p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <label className="flex-1 text-sm font-semibold">
               Produk induk ({mergeIds.length} produk dipilih)
-              <select value={mergeTarget} onChange={(e) => setMergeTarget(e.target.value)} className="mt-2 w-full rounded-xl border bg-white px-4 py-3 font-normal">
+              <select
+                value={mergeTarget}
+                onChange={(e) => setMergeTarget(e.target.value)}
+                className="mt-2 w-full rounded-xl border bg-white px-4 py-3 font-normal"
+              >
                 <option value="">Pilih produk yang dipertahankan</option>
-                {items.filter((item) => mergeIds.includes(item.id)).map((item) => (
-                  <option key={item.id} value={item.id}>{item.name} · {item.variants.length} variasi</option>
-                ))}
+                {items
+                  .filter((item) => mergeIds.includes(item.id))
+                  .map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name} · {item.variants.length} variasi
+                    </option>
+                  ))}
               </select>
             </label>
-            <button type="button" disabled={merging || !mergeTarget || mergeIds.length < 2} onClick={mergeProducts} className="rounded-xl bg-[#a34f2c] px-5 py-3 text-sm font-bold text-white disabled:opacity-40">
-              {merging ? 'Menggabungkan…' : `Gabungkan ${Math.max(0, mergeIds.length - 1)} produk`}
+            <button
+              type="button"
+              disabled={merging || !mergeTarget || mergeIds.length < 2}
+              onClick={mergeProducts}
+              className="rounded-xl bg-[#a34f2c] px-5 py-3 text-sm font-bold text-white disabled:opacity-40"
+            >
+              {merging
+                ? 'Menggabungkan…'
+                : `Gabungkan ${Math.max(0, mergeIds.length - 1)} produk`}
             </button>
-            <button type="button" onClick={() => { setMergeIds([]); setMergeTarget(''); }} className="rounded-xl border bg-white px-4 py-3 text-sm">Batal</button>
+            <button
+              type="button"
+              onClick={() => {
+                setMergeIds([]);
+                setMergeTarget('');
+              }}
+              className="rounded-xl border bg-white px-4 py-3 text-sm"
+            >
+              Batal
+            </button>
           </div>
-          <p className="mt-2 text-xs text-[#68736b]">Semua variasi, foto, ulasan, dan keranjang pelanggan dipindahkan. Produk sumber kemudian diarsipkan.</p>
+          <p className="mt-2 text-xs text-[#68736b]">
+            Semua variasi, foto, ulasan, dan keranjang pelanggan dipindahkan.
+            Produk sumber kemudian diarsipkan.
+          </p>
         </div>
       )}
       {dedicatedEdit && editing && (
         <div className="mb-5 flex flex-col justify-between gap-3 border-b pb-5 sm:flex-row sm:items-end">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[.18em] text-[#a34f2c]">Edit produk</p>
+            <p className="text-xs font-bold uppercase tracking-[.18em] text-[#a34f2c]">
+              Edit produk
+            </p>
             <h2 className="mt-1 font-serif text-3xl">{editing.name}</h2>
-            <p className="mt-1 text-sm text-[#68736b]">Perbarui informasi, variasi, stok, harga, dan foto produk ini.</p>
+            <p className="mt-1 text-sm text-[#68736b]">
+              Perbarui informasi, variasi, stok, harga, dan foto produk ini.
+            </p>
           </div>
-          <button type="button" onClick={() => window.close()} className="rounded-full border px-4 py-2 text-sm font-semibold">Tutup tab</button>
+          <button
+            type="button"
+            onClick={() => window.close()}
+            className="rounded-full border px-4 py-2 text-sm font-semibold"
+          >
+            Tutup tab
+          </button>
         </div>
       )}
       {open && (
@@ -996,14 +1180,23 @@ function ProductManager() {
                 const files = Array.from(event.currentTarget.files || []);
                 if (files.length > 9) {
                   event.currentTarget.value = '';
-                  selectedImages.forEach((image) => URL.revokeObjectURL(image.url));
+                  selectedImages.forEach((image) =>
+                    URL.revokeObjectURL(image.url),
+                  );
                   setSelectedImages([]);
                   setError('Maksimal 9 foto per produk.');
                   return;
                 }
                 setError('');
-                selectedImages.forEach((image) => URL.revokeObjectURL(image.url));
-                setSelectedImages(files.map((file) => ({ file, url: URL.createObjectURL(file) })));
+                selectedImages.forEach((image) =>
+                  URL.revokeObjectURL(image.url),
+                );
+                setSelectedImages(
+                  files.map((file) => ({
+                    file,
+                    url: URL.createObjectURL(file),
+                  })),
+                );
               }}
               className="max-w-full text-xs"
             />
@@ -1016,22 +1209,39 @@ function ProductManager() {
           </label>
           {selectedImages.length > 0 && (
             <div className="sm:col-span-2">
-              <p className="mb-2 text-xs font-semibold text-[#566158]">Pratinjau foto baru ({selectedImages.length}/9)</p>
+              <p className="mb-2 text-xs font-semibold text-[#566158]">
+                Pratinjau foto baru ({selectedImages.length}/9)
+              </p>
               <div className="flex flex-wrap gap-2">
                 {selectedImages.map((image, index) => (
                   <div key={image.url} className="relative">
-                    <img src={image.url} alt={`Pratinjau foto ${index + 1}`} className="h-24 w-20 rounded-lg border object-cover" />
-                    <span className="absolute right-1 top-1 rounded bg-black/70 px-1.5 py-0.5 text-[9px] text-white">{index + 1}</span>
-                    {index === 0 && <span className="absolute bottom-1 left-1 rounded bg-[#243b2c] px-1.5 py-0.5 text-[9px] text-white">Utama</span>}
+                    <img
+                      src={image.url}
+                      alt={`Pratinjau foto ${index + 1}`}
+                      className="h-24 w-20 rounded-lg border object-cover"
+                    />
+                    <span className="absolute right-1 top-1 rounded bg-black/70 px-1.5 py-0.5 text-[9px] text-white">
+                      {index + 1}
+                    </span>
+                    {index === 0 && (
+                      <span className="absolute bottom-1 left-1 rounded bg-[#243b2c] px-1.5 py-0.5 text-[9px] text-white">
+                        Utama
+                      </span>
+                    )}
                     <button
                       type="button"
                       aria-label={`Hapus foto ${index + 1}`}
                       onClick={() => {
                         URL.revokeObjectURL(image.url);
-                        const remaining = selectedImages.filter((_, imageIndex) => imageIndex !== index);
+                        const remaining = selectedImages.filter(
+                          (_, imageIndex) => imageIndex !== index,
+                        );
                         const transfer = new DataTransfer();
-                        remaining.forEach((item) => transfer.items.add(item.file));
-                        if (imageInputRef.current) imageInputRef.current.files = transfer.files;
+                        remaining.forEach((item) =>
+                          transfer.items.add(item.file),
+                        );
+                        if (imageInputRef.current)
+                          imageInputRef.current.files = transfer.files;
                         setSelectedImages(remaining);
                       }}
                       className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-red-700 text-sm font-bold text-white shadow"
@@ -1074,7 +1284,9 @@ function ProductManager() {
             <button
               type="button"
               onClick={() => {
-                selectedImages.forEach((image) => URL.revokeObjectURL(image.url));
+                selectedImages.forEach((image) =>
+                  URL.revokeObjectURL(image.url),
+                );
                 setSelectedImages([]);
                 setOpen(false);
                 setEditing(null);
@@ -1086,146 +1298,212 @@ function ProductManager() {
           </div>
         </form>
       )}
-      {!dedicatedEdit && <>
-      <div className="mt-6 flex gap-1 rounded-xl bg-[#f1f1eb] p-1 sm:w-fit">
-        {(
-          [
-            ['active', 'Produk Aktif', activeCount],
-            ['archived', 'Diarsipkan', archivedCount],
-            ['trash', 'Tong Sampah', trashCount],
-          ] as const
-        ).map(([value, label, count]) => (
-          <button
-            key={value}
-            type="button"
-            onClick={() => setProductTab(value)}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition sm:flex-none ${productTab === value ? 'bg-white text-[#243b2c] shadow-sm' : 'text-[#68736b] hover:text-[#243b2c]'}`}
-          >
-            {label}
-            <span
-              className={`rounded-full px-2 py-0.5 text-[10px] ${productTab === value ? 'bg-[#e5efe8] text-[#24593d]' : 'bg-[#dedfd9]'}`}
-            >
-              {count}
-            </span>
-          </button>
-        ))}
-      </div>
-      <div className="mt-4 grid gap-3 rounded-2xl border bg-[#f7f4ec] p-4 sm:grid-cols-3">
-        <label className="text-xs font-bold text-[#566158]">KATEGORI
-          <select value={catalogCategory} onChange={(e) => { setCatalogCategory(e.target.value); setCatalogSubcategory('Semua'); }} className="mt-1 block w-full rounded-xl border bg-white px-3 py-2.5 text-sm font-normal">
-            <option value="Semua">Semua kategori</option>
-            {categoryOptions.map((value) => <option key={value} value={value}>{value}</option>)}
-          </select>
-        </label>
-        <label className="text-xs font-bold text-[#566158]">SUBKATEGORI
-          <select value={catalogSubcategory} onChange={(e) => setCatalogSubcategory(e.target.value)} className="mt-1 block w-full rounded-xl border bg-white px-3 py-2.5 text-sm font-normal">
-            <option value="Semua">Semua subkategori</option>
-            {subcategoryOptions.filter((value) => catalogCategory === 'Semua' || items.some((item) => item.category === catalogCategory && item.subcategory === value)).map((value) => <option key={value} value={value}>{value}</option>)}
-          </select>
-        </label>
-        <label className="text-xs font-bold text-[#566158]">URUTKAN
-          <select value={catalogSort} onChange={(e) => setCatalogSort(e.target.value)} className="mt-1 block w-full rounded-xl border bg-white px-3 py-2.5 text-sm font-normal">
-            <option value="rekomendasi">Rekomendasi</option>
-            <option value="terlaris">Terlaris</option>
-            <option value="terbaru">Terbaru</option>
-            <option value="termurah">Termurah</option>
-            <option value="tertinggi">Tertinggi</option>
-          </select>
-        </label>
-      </div>
-      {visibleItems.length === 0 && (
-        <div className="mt-4 rounded-2xl border border-dashed px-5 py-10 text-center text-sm text-[#68736b]">
-          {productTab === 'active' ? 'Belum ada produk aktif.' : productTab === 'archived' ? 'Belum ada produk yang diarsipkan.' : 'Tong Sampah masih kosong.'}
-        </div>
-      )}
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {visibleItems.map((p) => (
-          <article
-            key={p.id}
-            className={`flex gap-3 rounded-2xl border p-3 ${p.active === 0 ? 'border-dashed bg-[#f1f1ed] opacity-75' : ''}`}
-          >
-            {productTab === 'active' && (
-              <input
-                type="checkbox"
-                aria-label={`Pilih ${p.name} untuk digabung`}
-                checked={mergeIds.includes(p.id)}
+      {!dedicatedEdit && (
+        <>
+          <div className="mt-6 flex gap-1 rounded-xl bg-[#f1f1eb] p-1 sm:w-fit">
+            {(
+              [
+                ['active', 'Produk Aktif', activeCount],
+                ['archived', 'Diarsipkan', archivedCount],
+                ['trash', 'Tong Sampah', trashCount],
+              ] as const
+            ).map(([value, label, count]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setProductTab(value)}
+                className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition sm:flex-none ${productTab === value ? 'bg-white text-[#243b2c] shadow-sm' : 'text-[#68736b] hover:text-[#243b2c]'}`}
+              >
+                {label}
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[10px] ${productTab === value ? 'bg-[#e5efe8] text-[#24593d]' : 'bg-[#dedfd9]'}`}
+                >
+                  {count}
+                </span>
+              </button>
+            ))}
+          </div>
+          <div className="mt-4 grid gap-3 rounded-2xl border bg-[#f7f4ec] p-4 sm:grid-cols-3">
+            <label className="text-xs font-bold text-[#566158]">
+              KATEGORI
+              <select
+                value={catalogCategory}
                 onChange={(e) => {
-                  setMergeIds((current) => e.target.checked ? [...current, p.id] : current.filter((id) => id !== p.id));
-                  if (!e.target.checked && mergeTarget === p.id) setMergeTarget('');
+                  setCatalogCategory(e.target.value);
+                  setCatalogSubcategory('Semua');
                 }}
-                className="mt-1 h-4 w-4 shrink-0 accent-[#a34f2c]"
-              />
-            )}
-            <img
-              src={p.images?.[0] ?? p.image ?? '/placeholder-product.svg'}
-              alt=""
-              className="h-24 w-20 rounded-xl object-cover"
-            />
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <b className="block min-w-0 truncate text-sm">{p.name}</b>
-                {p.active === 0 && (
-                  <span className="shrink-0 rounded-full bg-[#dfe3dd] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#566158]">
-                    {p.deleted_at ? 'Dihapus' : 'Diarsipkan'}
-                  </span>
-                )}
-              </div>
-              <p className="mt-1 text-xs text-[#68736b]">
-                {p.category} › {p.subcategory} · stok {p.stock} · {p.sold_count || 0} terjual ·{' '}
-                {p.images?.length || 1} foto
-              </p>
-              <p className="mt-1 text-sm font-bold">{rupiah(p.price)}</p>
-              {p.deleted_at && (
-                <p className="mt-1 text-[11px] font-semibold text-[#9b4b30]">Dihapus {new Date(p.deleted_at).toLocaleDateString('id-ID')} · dapat dipulihkan hingga {new Date(new Date(p.deleted_at).getTime() + 30 * 86400000).toLocaleDateString('id-ID')}</p>
-              )}
-              <div className="mt-2 flex flex-wrap gap-3">
-                {p.deleted_at ? (
-                  <>
-                    <button onClick={() => restoreDeleted(p.id)} className="flex items-center gap-1 text-xs font-semibold text-[#24593d]"><RotateCcw size={13} /> Pulihkan</button>
-                    <button onClick={() => deletePermanently(p.id)} className="flex items-center gap-1 text-xs font-semibold text-red-700"><Trash2 size={13} /> Hapus Permanen</button>
-                  </>
-                ) : <>
-                <a
-                  href={`/admin?edit=${encodeURIComponent(p.id)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-xs font-semibold"
-                >
-                  <Pencil size={13} /> Edit
-                </a>
-                <button
-                  onClick={() => copy(p.id)}
-                  className="text-xs font-semibold"
-                >
-                  Salin
-                </button>
-                <button
-                  onClick={() => setArchived(p)}
-                  className="flex items-center gap-1 text-xs font-semibold text-[#8a542f]"
-                >
-                  {p.active === 0 ? (
-                    <>
-                      <RotateCcw size={13} /> Pulihkan
-                    </>
-                  ) : (
-                    <>
-                      <Archive size={13} /> Arsipkan
-                    </>
-                  )}
-                </button>
-                <button
-                  onClick={() => remove(p.id)}
-                  className="flex items-center gap-1 text-xs font-semibold text-red-700"
-                >
-                  <Trash2 size={13} /> Hapus
-                </button>
-                </>}
-              </div>
+                className="mt-1 block w-full rounded-xl border bg-white px-3 py-2.5 text-sm font-normal"
+              >
+                <option value="Semua">Semua kategori</option>
+                {categoryOptions.map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-xs font-bold text-[#566158]">
+              SUBKATEGORI
+              <select
+                value={catalogSubcategory}
+                onChange={(e) => setCatalogSubcategory(e.target.value)}
+                className="mt-1 block w-full rounded-xl border bg-white px-3 py-2.5 text-sm font-normal"
+              >
+                <option value="Semua">Semua subkategori</option>
+                {subcategoryOptions
+                  .filter(
+                    (value) =>
+                      catalogCategory === 'Semua' ||
+                      items.some(
+                        (item) =>
+                          item.category === catalogCategory &&
+                          item.subcategory === value,
+                      ),
+                  )
+                  .map((value) => (
+                    <option key={value} value={value}>
+                      {value}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <label className="text-xs font-bold text-[#566158]">
+              URUTKAN
+              <select
+                value={catalogSort}
+                onChange={(e) => setCatalogSort(e.target.value)}
+                className="mt-1 block w-full rounded-xl border bg-white px-3 py-2.5 text-sm font-normal"
+              >
+                <option value="rekomendasi">Rekomendasi</option>
+                <option value="terlaris">Terlaris</option>
+                <option value="terbaru">Terbaru</option>
+                <option value="termurah">Termurah</option>
+                <option value="tertinggi">Tertinggi</option>
+              </select>
+            </label>
+          </div>
+          {visibleItems.length === 0 && (
+            <div className="mt-4 rounded-2xl border border-dashed px-5 py-10 text-center text-sm text-[#68736b]">
+              {productTab === 'active'
+                ? 'Belum ada produk aktif.'
+                : productTab === 'archived'
+                  ? 'Belum ada produk yang diarsipkan.'
+                  : 'Tong Sampah masih kosong.'}
             </div>
-          </article>
-        ))}
-      </div>
-      </>}
+          )}
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {visibleItems.map((p) => (
+              <article
+                key={p.id}
+                className={`flex gap-3 rounded-2xl border p-3 ${p.active === 0 ? 'border-dashed bg-[#f1f1ed] opacity-75' : ''}`}
+              >
+                {productTab === 'active' && (
+                  <input
+                    type="checkbox"
+                    aria-label={`Pilih ${p.name} untuk digabung`}
+                    checked={mergeIds.includes(p.id)}
+                    onChange={(e) => {
+                      setMergeIds((current) =>
+                        e.target.checked
+                          ? [...current, p.id]
+                          : current.filter((id) => id !== p.id),
+                      );
+                      if (!e.target.checked && mergeTarget === p.id)
+                        setMergeTarget('');
+                    }}
+                    className="mt-1 h-4 w-4 shrink-0 accent-[#a34f2c]"
+                  />
+                )}
+                <img
+                  src={p.images?.[0] ?? p.image ?? '/placeholder-product.svg'}
+                  alt=""
+                  className="h-24 w-20 rounded-xl object-cover"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <b className="block min-w-0 truncate text-sm">{p.name}</b>
+                    {p.active === 0 && (
+                      <span className="shrink-0 rounded-full bg-[#dfe3dd] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#566158]">
+                        {p.deleted_at ? 'Dihapus' : 'Diarsipkan'}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-xs text-[#68736b]">
+                    {p.category} › {p.subcategory} · stok {p.stock} ·{' '}
+                    {p.sold_count || 0} terjual · {p.images?.length || 1} foto
+                  </p>
+                  <p className="mt-1 text-sm font-bold">{rupiah(p.price)}</p>
+                  {p.deleted_at && (
+                    <p className="mt-1 text-[11px] font-semibold text-[#9b4b30]">
+                      Dihapus{' '}
+                      {new Date(p.deleted_at).toLocaleDateString('id-ID')} ·
+                      dapat dipulihkan hingga{' '}
+                      {new Date(
+                        new Date(p.deleted_at).getTime() + 30 * 86400000,
+                      ).toLocaleDateString('id-ID')}
+                    </p>
+                  )}
+                  <div className="mt-2 flex flex-wrap gap-3">
+                    {p.deleted_at ? (
+                      <>
+                        <button
+                          onClick={() => restoreDeleted(p.id)}
+                          className="flex items-center gap-1 text-xs font-semibold text-[#24593d]"
+                        >
+                          <RotateCcw size={13} /> Pulihkan
+                        </button>
+                        <button
+                          onClick={() => deletePermanently(p.id)}
+                          className="flex items-center gap-1 text-xs font-semibold text-red-700"
+                        >
+                          <Trash2 size={13} /> Hapus Permanen
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <a
+                          href={`/admin?edit=${encodeURIComponent(p.id)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-xs font-semibold"
+                        >
+                          <Pencil size={13} /> Edit
+                        </a>
+                        <button
+                          onClick={() => copy(p.id)}
+                          className="text-xs font-semibold"
+                        >
+                          Salin
+                        </button>
+                        <button
+                          onClick={() => setArchived(p)}
+                          className="flex items-center gap-1 text-xs font-semibold text-[#8a542f]"
+                        >
+                          {p.active === 0 ? (
+                            <>
+                              <RotateCcw size={13} /> Pulihkan
+                            </>
+                          ) : (
+                            <>
+                              <Archive size={13} /> Arsipkan
+                            </>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => remove(p.id)}
+                          className="flex items-center gap-1 text-xs font-semibold text-red-700"
+                        >
+                          <Trash2 size={13} /> Hapus
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </>
+      )}
     </section>
   );
 }
@@ -1397,7 +1675,8 @@ function ReviewManager() {
             <div className="flex justify-between gap-3">
               <div>
                 <b className="text-sm">
-                  {r.display_name}{r.city ? ` · ${r.city}` : ''} · {'★'.repeat(r.rating)}
+                  {r.display_name}
+                  {r.city ? ` · ${r.city}` : ''} · {'★'.repeat(r.rating)}
                 </b>
                 <p className="text-xs text-[#68736b]">
                   {r.product_name}
@@ -1466,53 +1745,59 @@ export function AdminDashboard({
     .reduce((s, o) => s + o.total, 0);
   return (
     <div className="mx-auto max-w-[90rem] px-4 py-6 sm:px-8 sm:py-8">
-      {!editMode && <header className="flex flex-col justify-between gap-5 border-b pb-7 sm:flex-row sm:items-end">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[.2em] text-[#a34f2c]">
-            Simple Ground Admin
-          </p>
-          <h1 className="mt-2 font-serif text-4xl">Kelola toko</h1>
-          <p className="mt-2 text-sm text-[#68736b]">Halo, {adminName}</p>
-        </div>
-        <div className="flex gap-2">
-          <a
-            href="/"
-            className="rounded-full border px-4 py-2 text-sm font-semibold"
-          >
-            Lihat toko
-          </a>
-          <a
-            href="/signout-with-chatgpt?return_to=/"
-            className="rounded-full bg-[#243b2c] px-4 py-2 text-sm font-semibold text-white"
-          >
-            Keluar
-          </a>
-        </div>
-      </header>}
-      <div className={`${editMode ? '' : 'mt-6 grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]'}`}>
-        {!editMode && <aside className="lg:sticky lg:top-6 lg:self-start">
-          <nav className="flex gap-2 overflow-x-auto rounded-2xl border bg-white p-2 lg:flex-col lg:p-3">
-            {[
-              ['overview', 'Dashboard', LayoutDashboard],
-              ['orders', 'Pesanan', ShoppingCart],
-              ['products', 'Produk', Package],
-              ['reviews', 'Ulasan', MessageSquareText],
-            ].map(([value, label, Icon]) => (
-              <button
-                key={String(value)}
-                type="button"
-                onClick={() => setSection(value as typeof section)}
-                className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition lg:w-full ${section === value ? 'bg-[#243b2c] text-white shadow-sm' : 'text-[#566158] hover:bg-[#f3f1e9]'}`}
-              >
-                <Icon size={17} /> {label}
-              </button>
-            ))}
-          </nav>
-          <p className="mt-4 hidden px-3 text-xs leading-5 text-[#7b847c] lg:block">
-            Pilih menu untuk mengelola bagian toko tanpa halaman yang terlalu
-            panjang.
-          </p>
-        </aside>}
+      {!editMode && (
+        <header className="flex flex-col justify-between gap-5 border-b pb-7 sm:flex-row sm:items-end">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[.2em] text-[#a34f2c]">
+              Simple Ground Admin
+            </p>
+            <h1 className="mt-2 font-serif text-4xl">Kelola toko</h1>
+            <p className="mt-2 text-sm text-[#68736b]">Halo, {adminName}</p>
+          </div>
+          <div className="flex gap-2">
+            <a
+              href="/"
+              className="rounded-full border px-4 py-2 text-sm font-semibold"
+            >
+              Lihat toko
+            </a>
+            <a
+              href="/signout-with-chatgpt?return_to=/"
+              className="rounded-full bg-[#243b2c] px-4 py-2 text-sm font-semibold text-white"
+            >
+              Keluar
+            </a>
+          </div>
+        </header>
+      )}
+      <div
+        className={`${editMode ? '' : 'mt-6 grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]'}`}
+      >
+        {!editMode && (
+          <aside className="lg:sticky lg:top-6 lg:self-start">
+            <nav className="flex gap-2 overflow-x-auto rounded-2xl border bg-white p-2 lg:flex-col lg:p-3">
+              {[
+                ['overview', 'Dashboard', LayoutDashboard],
+                ['orders', 'Pesanan', ShoppingCart],
+                ['products', 'Produk', Package],
+                ['reviews', 'Ulasan', MessageSquareText],
+              ].map(([value, label, Icon]) => (
+                <button
+                  key={String(value)}
+                  type="button"
+                  onClick={() => setSection(value as typeof section)}
+                  className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition lg:w-full ${section === value ? 'bg-[#243b2c] text-white shadow-sm' : 'text-[#566158] hover:bg-[#f3f1e9]'}`}
+                >
+                  <Icon size={17} /> {label}
+                </button>
+              ))}
+            </nav>
+            <p className="mt-4 hidden px-3 text-xs leading-5 text-[#7b847c] lg:block">
+              Pilih menu untuk mengelola bagian toko tanpa halaman yang terlalu
+              panjang.
+            </p>
+          </aside>
+        )}
         <main className="min-w-0">
           {section === 'overview' && (
             <section>

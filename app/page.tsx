@@ -201,6 +201,9 @@ export default function Home() {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [shippingAddress, setShippingAddress] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'midtrans' | 'manual'>(
+    'midtrans',
+  );
   const [orderNumber, setOrderNumber] = useState('');
   const [orderBusy, setOrderBusy] = useState(false);
   const [orderError, setOrderError] = useState('');
@@ -541,16 +544,24 @@ export default function Home() {
           customerName,
           customerPhone,
           shippingAddress,
+          paymentMethod,
           items,
         }),
       });
       const data = (await response.json()) as {
         orderNumber?: string;
+        redirectUrl?: string;
         error?: string;
       };
       if (!response.ok || !data.orderNumber)
         throw new Error(data.error || 'Pesanan gagal disimpan.');
       setOrderNumber(data.orderNumber);
+      if (paymentMethod === 'midtrans') {
+        if (!data.redirectUrl)
+          throw new Error('Link pembayaran belum tersedia.');
+        window.location.assign(data.redirectUrl);
+        return;
+      }
       setOrdered(true);
     } catch (error) {
       setOrderError(
@@ -1870,11 +1881,49 @@ export default function Home() {
                   <p className="text-xs font-bold uppercase tracking-wider">
                     Pembayaran
                   </p>
-                  <div className="mt-2 rounded-2xl border border-[#243b2c] bg-[#edf1e9] p-4">
-                    <b>Bank Mandiri</b>
-                    <p className="mt-1 text-sm">
-                      9000027694984 · Muhammad Arifin
-                    </p>
+                  <div className="mt-2 space-y-2">
+                    <label
+                      className={`block cursor-pointer rounded-2xl border p-4 transition ${paymentMethod === 'midtrans' ? 'border-[#243b2c] bg-[#edf1e9]' : 'bg-white'}`}
+                    >
+                      <span className="flex items-start gap-3">
+                        <input
+                          type="radio"
+                          name="payment"
+                          checked={paymentMethod === 'midtrans'}
+                          onChange={() => setPaymentMethod('midtrans')}
+                          className="mt-1 accent-[#243b2c]"
+                        />
+                        <span>
+                          <b>QRIS & Virtual Account</b>
+                          <span className="mt-1 block text-sm text-[#637067]">
+                            Bayar otomatis lewat QRIS atau VA bank. Status
+                            pesanan diperbarui otomatis.
+                          </span>
+                          <span className="mt-2 inline-block rounded-full bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[#24593d]">
+                            Direkomendasikan
+                          </span>
+                        </span>
+                      </span>
+                    </label>
+                    <label
+                      className={`block cursor-pointer rounded-2xl border p-4 transition ${paymentMethod === 'manual' ? 'border-[#243b2c] bg-[#edf1e9]' : 'bg-white'}`}
+                    >
+                      <span className="flex items-start gap-3">
+                        <input
+                          type="radio"
+                          name="payment"
+                          checked={paymentMethod === 'manual'}
+                          onChange={() => setPaymentMethod('manual')}
+                          className="mt-1 accent-[#243b2c]"
+                        />
+                        <span>
+                          <b>Transfer Bank Mandiri</b>
+                          <span className="mt-1 block text-sm text-[#637067]">
+                            Transfer manual lalu konfirmasi melalui WhatsApp.
+                          </span>
+                        </span>
+                      </span>
+                    </label>
                   </div>
                 </div>
                 <div className="mt-6 rounded-2xl bg-[#f1ecdf] p-4 text-sm">
@@ -1902,8 +1951,10 @@ export default function Home() {
                   className="mt-5 w-full rounded-full bg-[#c0693c] py-3.5 font-semibold text-white disabled:opacity-60"
                 >
                   {orderBusy
-                    ? 'Menyimpan pesanan…'
-                    : 'Buat pesanan & lihat rekening'}
+                    ? 'Menyiapkan pembayaran…'
+                    : paymentMethod === 'midtrans'
+                      ? 'Lanjut bayar QRIS / Virtual Account'
+                      : 'Buat pesanan & lihat rekening'}
                 </button>
                 {orderError && (
                   <p className="mt-3 text-center text-sm text-red-700">
@@ -1911,8 +1962,8 @@ export default function Home() {
                   </p>
                 )}
                 <p className="mt-3 text-center text-[11px] leading-4 text-[#758078]">
-                  Setelah membuat pesanan, transfer pembayaran lalu konfirmasi
-                  melalui WhatsApp.
+                  Pembayaran otomatis diproses aman oleh Midtrans. Simple Ground
+                  tidak menyimpan data kartu atau PIN pembayaran Anda.
                 </p>
               </div>
             )}

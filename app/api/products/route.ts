@@ -106,6 +106,9 @@ export async function GET() {
       };
     }),
   });
-  response.headers.set('cache-control', 'public, max-age=15, stale-while-revalidate=60');
+  response.headers.set(
+    'cache-control',
+    'public, max-age=15, stale-while-revalidate=60',
+  );
   return response;
 }

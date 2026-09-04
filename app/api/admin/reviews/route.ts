@@ -23,7 +23,11 @@ export async function GET() {
         'SELECT r.*,p.name product_name FROM reviews r LEFT JOIN products p ON p.id=r.product_id ORDER BY r.created_at DESC',
       )
       .all(),
-    d.prepare('SELECT id,name FROM products WHERE deleted_at IS NULL ORDER BY name').all(),
+    d
+      .prepare(
+        'SELECT id,name FROM products WHERE deleted_at IS NULL ORDER BY name',
+      )
+      .all(),
     d
       .prepare(
         'SELECT order_number,customer_name FROM orders ORDER BY created_at DESC LIMIT 200',
@@ -43,7 +47,8 @@ export async function POST(req: Request) {
   if (
     !b.productId ||
     !b.orderNumber ||
-    !b.displayName || !b.city?.trim() ||
+    !b.displayName ||
+    !b.city?.trim() ||
     b.rating < 1 ||
     b.rating > 5 ||
     !b.body?.trim()
@@ -75,7 +80,13 @@ export async function PATCH(req: Request) {
   if (!(await auth()))
     return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
   const b = (await req.json()) as any;
-  if (!b.id || !b.city?.trim() || b.rating < 1 || b.rating > 5 || !b.body?.trim())
+  if (
+    !b.id ||
+    !b.city?.trim() ||
+    b.rating < 1 ||
+    b.rating > 5 ||
+    !b.body?.trim()
+  )
     return NextResponse.json({ error: 'Ulasan tidak valid.' }, { status: 400 });
   await getD1()
     .prepare(

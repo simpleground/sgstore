@@ -28,7 +28,9 @@ export async function POST(req: Request) {
     !Number.isInteger(rating) ||
     rating! < 1 ||
     rating! > 5 ||
-    !body?.trim() || !city?.trim() || city.trim().length > 80 ||
+    !body?.trim() ||
+    !city?.trim() ||
+    city.trim().length > 80 ||
     body.trim().length > 1000
   )
     return NextResponse.json(
