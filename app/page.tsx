@@ -326,7 +326,7 @@ export default function Home() {
         (subcategory === 'Semua' ||
           cleanLabel(p.subcategory) === subcategory) &&
         cleanLabel(p.name).toLowerCase().includes(query.toLowerCase()) &&
-        Math.min(...p.variants.map((variant) => variant.price)) <= priceLimit,
+        (p.variants.length ? Math.min(...p.variants.map((variant) => variant.price)) : p.price) <= priceLimit,
     );
     if (sort === 'termurah')
       return [...result].sort((a, b) => a.price - b.price);
@@ -674,19 +674,21 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-[#f5f6f4] text-[#17251c]">
       <div className="bg-[#173c2b] px-4 py-2 text-center text-[11px] font-semibold text-white sm:text-xs">
-        Belanja mudah · Pembayaran transfer bank · Bantuan via WhatsApp
+        Belanja online · Bayar VA / QRIS · WhatsApp untuk konsultasi
       </div>
       <header className="sticky top-0 z-30 border-b bg-white/95 shadow-sm backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:px-8">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-4 py-3 sm:flex-nowrap sm:px-8">
           <a
             href="#home"
             className="shrink-0 font-serif text-xl font-bold tracking-[-.04em] sm:text-2xl"
           >
             simple ground<span className="text-[#c0693c]">.</span>
           </a>
-          <label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border-2 border-[#276344]/25 bg-[#f7faf7] px-3 py-2.5 focus-within:border-[#276344]">
+          <label className="order-last flex w-full min-w-0 items-center gap-2 rounded-xl border-2 border-[#276344]/25 bg-[#f7faf7] px-3 py-2.5 focus-within:border-[#276344] sm:order-none sm:w-auto sm:flex-1">
             <Search size={18} className="shrink-0 text-[#587064]" />
             <input
+              aria-label="Cari produk Simple Ground"
+              type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="min-w-0 flex-1 bg-transparent text-sm outline-none"
@@ -825,7 +827,7 @@ export default function Home() {
               </a>
             </div>
             <p className="mt-6 text-xs font-semibold text-[#4e6255]">
-              Pengiriman ke seluruh Indonesia · Bantuan via WhatsApp
+              Pilih produk · Cek ongkir · Bayar VA / QRIS
             </p>
             <div
               className="mt-6 flex items-center gap-2"
@@ -884,7 +886,7 @@ export default function Home() {
         <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-4">
           <div className="flex items-center gap-2 rounded-xl bg-white p-3 text-xs font-semibold sm:text-sm">
             <ShieldCheck className="shrink-0 text-[#2e704d]" size={20} />{' '}
-            Pembayaran aman
+            Pembayaran VA / QRIS
           </div>
           <div className="flex items-center gap-2 rounded-xl bg-white p-3 text-xs font-semibold sm:text-sm">
             <Truck className="shrink-0 text-[#2e704d]" size={20} /> Siap dikirim
@@ -909,12 +911,13 @@ export default function Home() {
                   : `${filtered.length} produk ditemukan`}
               </p>
             </div>
-            {(query || category !== 'Semua' || subcategory !== 'Semua') && (
+            {(query || category !== 'Semua' || subcategory !== 'Semua' || priceLimit !== 500000) && (
               <button
                 onClick={() => {
                   setQuery('');
                   setCategory('Semua');
                   setSubcategory('Semua');
+                  setPriceLimit(500000);
                 }}
                 className="text-sm font-semibold text-[#276344]"
               >
@@ -1069,11 +1072,11 @@ export default function Home() {
                         )}
                       </div>
                       <p className="mt-1 text-[11px] text-[#6d786f]">
-                        {variant.color} · {variant.size} · {p.sold_count || 0}{' '}
-                        terjual
+                        {variant.color} · Ukuran {variant.size}
+                        {p.sold_count ? ` · ${p.sold_count} terjual` : ''}
                       </p>
                       <p className="mt-1 text-[11px] font-semibold text-[#8a5a22]">
-                        ★ {average ? average.toFixed(1) : 'Baru'}{' '}
+                        {average ? `★ ${average.toFixed(1)}` : 'Belum ada ulasan'}{' '}
                         {productReviews.length
                           ? `(${productReviews.length} ulasan)`
                           : ''}
@@ -1084,7 +1087,7 @@ export default function Home() {
                           disabled={variant.stock < 1}
                           className="w-full rounded-xl bg-[#c0693c] py-2.5 text-xs font-bold text-white disabled:bg-gray-400 sm:text-sm"
                         >
-                          {variant.stock > 0 ? 'Beli langsung' : 'Stok habis'}
+                          {variant.stock > 0 ? `Beli ${variant.size}` : 'Stok habis'}
                         </button>
                         <button
                           onClick={() =>
@@ -1268,9 +1271,9 @@ export default function Home() {
               Belanja
             </p>
             <div className="mt-4 space-y-3 text-sm text-[#c6d0c6]">
-              <p>Koleksi Daily</p>
-              <p>Baju Chef</p>
-              <p>Apron & Topi Chef</p>
+              <a className="block hover:underline" href="#koleksi" onClick={() => { setCategory('Daily Basic'); setSubcategory('Semua'); setQuery(''); }}>Koleksi Daily</a>
+              <a className="block hover:underline" href="#koleksi" onClick={() => { setCategory('Chef & Kitchen Wear'); setSubcategory('Baju Chef'); setQuery(''); }}>Baju Chef</a>
+              <a className="block hover:underline" href="#koleksi" onClick={() => { setCategory('Chef & Kitchen Wear'); setSubcategory('Semua'); setQuery(''); }}>Chef & Kitchen Wear</a>
             </div>
           </div>
           <div>
@@ -1278,10 +1281,10 @@ export default function Home() {
               Bantuan
             </p>
             <div className="mt-4 space-y-3 text-sm text-[#c6d0c6]">
-              <p>Pengiriman & retur</p>
-              <p>Konfirmasi pembayaran</p>
+              <a className="block hover:underline" href="https://wa.me/6285172381996?text=Halo%20Simple%20Ground%2C%20saya%20ingin%20bertanya%20tentang%20pengiriman%20dan%20retur.">Tanya pengiriman & retur</a>
+              <p>Bayar online dengan VA / QRIS</p>
               <a href="https://wa.me/6285172381996" className="block">
-                WhatsApp: 0851-7238-1996
+                Konsultasi WhatsApp: 0851-7238-1996
               </a>
             </div>
           </div>
@@ -2117,9 +2120,9 @@ export default function Home() {
                           className="mt-1 accent-[#243b2c]"
                         />
                         <span>
-                          <b>Transfer Bank Mandiri</b>
+                          <b>Transfer manual — opsi cadangan</b>
                           <span className="mt-1 block text-sm text-[#637067]">
-                            Transfer manual lalu konfirmasi melalui WhatsApp.
+                            Perlu bantuan? Konsultasikan melalui WhatsApp sebelum transfer manual ke Bank Mandiri.
                           </span>
                         </span>
                       </span>
