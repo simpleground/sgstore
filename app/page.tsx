@@ -197,6 +197,7 @@ export default function Home() {
   const [cartOpen, setCartOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [checkout, setCheckout] = useState(false);
+  const [directPurchase, setDirectPurchase] = useState<CartLine | null>(null);
   const [ordered, setOrdered] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -353,7 +354,10 @@ export default function Home() {
     [category, subcategory, query, priceLimit, sort],
   );
   const count = Object.values(cart).reduce((a, b) => a + b.quantity, 0);
-  const cartRows = Object.entries(cart).flatMap(([key, line]) => {
+  const purchaseCart = directPurchase
+    ? { [`${directPurchase.productId}:${directPurchase.variantIndex}`]: directPurchase }
+    : cart;
+  const cartRows = Object.entries(purchaseCart).flatMap(([key, line]) => {
     const product = products.find((p) => p.id === line.productId);
     if (!product) return [];
     const variant = product.variants[line.variantIndex] ?? {
@@ -486,6 +490,36 @@ export default function Home() {
       .then((d) => setReviews(d.reviews ?? []))
       .catch(() => {});
   }, []);
+  useEffect(() => {
+    if (productsLoading || !products.length) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('checkout') !== '1') return;
+    try {
+      const line = JSON.parse(
+        sessionStorage.getItem('sg_buy_now') || 'null',
+      ) as CartLine | null;
+      if (
+        line &&
+        products.some(
+          (product) =>
+            product.id === line.productId &&
+            product.variants[line.variantIndex]?.stock > 0,
+        )
+      ) {
+        setDirectPurchase({ ...line, quantity: 1 });
+        setCheckout(true);
+        setCartOpen(true);
+      }
+    } catch {}
+    sessionStorage.removeItem('sg_buy_now');
+    params.delete('checkout');
+    const query = params.toString();
+    window.history.replaceState(
+      {},
+      '',
+      `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`,
+    );
+  }, [products, productsLoading]);
   async function submitReview(productId: string) {
     setReviewMessage('');
     const r = await fetch('/api/reviews', {
@@ -527,6 +561,14 @@ export default function Home() {
       else localStorage.setItem('sg_cart', JSON.stringify(result));
       return result;
     });
+  }
+  function buyNow(productId: string, variantIndex: number) {
+    setDirectPurchase({ productId, variantIndex, quantity: 1 });
+    setOrdered(false);
+    setOrderError('');
+    setDetailId(null);
+    setCheckout(true);
+    setCartOpen(true);
   }
   async function submitOrder() {
     setOrderBusy(true);
@@ -979,14 +1021,23 @@ export default function Home() {
                           ? `(${productReviews.length} ulasan)`
                           : ''}
                       </p>
-                      <button
-                        onClick={() =>
-                          window.location.assign(productPath(p.name))
-                        }
-                        className="mt-3 w-full rounded-xl border border-[#276344] py-2.5 text-xs font-bold text-[#24593d] sm:text-sm"
-                      >
-                        Lihat & pilih varian
-                      </button>
+                      <div className="mt-3 grid gap-2">
+                        <button
+                          onClick={() => buyNow(p.id, variantIndex)}
+                          disabled={variant.stock < 1}
+                          className="w-full rounded-xl bg-[#c0693c] py-2.5 text-xs font-bold text-white disabled:bg-gray-400 sm:text-sm"
+                        >
+                          {variant.stock > 0 ? 'Beli langsung' : 'Stok habis'}
+                        </button>
+                        <button
+                          onClick={() =>
+                            window.location.assign(productPath(p.name))
+                          }
+                          className="w-full rounded-xl border border-[#276344] py-2.5 text-xs font-bold text-[#24593d] sm:text-sm"
+                        >
+                          Lihat & pilih varian
+                        </button>
+                      </div>
                     </div>
                   </article>
                 );
@@ -1529,20 +1580,26 @@ export default function Home() {
                           )}
                         </div>
                       )}
-                      <button
-                        onClick={() => {
-                          changeItem(p.id, variantIndex, 1);
-                          setDetailId(null);
-                          setCartOpen(true);
-                        }}
-                        disabled={variant.stock < 1}
-                        className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#173c2b] py-3.5 font-bold text-white disabled:bg-gray-400"
-                      >
-                        <ShoppingBag size={18} />{' '}
-                        {variant.stock > 0
-                          ? 'Tambah ke keranjang'
-                          : 'Stok habis'}
-                      </button>
+                      <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                        <button
+                          onClick={() => {
+                            changeItem(p.id, variantIndex, 1);
+                            setDetailId(null);
+                            setCartOpen(true);
+                          }}
+                          disabled={variant.stock < 1}
+                          className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#173c2b] py-3.5 font-bold text-[#173c2b] disabled:border-gray-300 disabled:text-gray-400"
+                        >
+                          <ShoppingBag size={18} /> Tambah ke keranjang
+                        </button>
+                        <button
+                          onClick={() => buyNow(p.id, variantIndex)}
+                          disabled={variant.stock < 1}
+                          className="w-full rounded-xl bg-[#c0693c] py-3.5 font-bold text-white disabled:bg-gray-400"
+                        >
+                          {variant.stock > 0 ? 'Beli langsung' : 'Stok habis'}
+                        </button>
+                      </div>
                       <a
                         href={`https://wa.me/6285172381996?text=${encodeURIComponent(`Halo Simple Ground, saya ingin bertanya tentang ${cleanLabel(p.name)}${variant.sku ? ` (SKU ${variant.sku})` : ''}, warna ${variant.color}, ukuran ${variant.size}.`)}`}
                         target="_blank"
@@ -1690,9 +1747,11 @@ export default function Home() {
       {cartOpen && (
         <div
           className="fixed inset-0 z-50 bg-black/35"
-          onMouseDown={(e) =>
-            e.target === e.currentTarget && setCartOpen(false)
-          }
+          onMouseDown={(e) => {
+            if (e.target !== e.currentTarget) return;
+            setCartOpen(false);
+            setDirectPurchase(null);
+          }}
         >
           <aside className="ml-auto flex h-full w-full max-w-md flex-col bg-[#fffdf8] shadow-2xl">
             <div className="flex items-center justify-between border-b border-[#263e2e]/10 p-5">
@@ -1702,6 +1761,7 @@ export default function Home() {
                     onClick={() => {
                       setCheckout(false);
                       setOrdered(false);
+                      setDirectPurchase(null);
                     }}
                     className="mr-3 align-middle"
                   >
@@ -1713,7 +1773,13 @@ export default function Home() {
                   {!checkout && count > 0 && `(${count})`}
                 </b>
               </div>
-              <button onClick={() => setCartOpen(false)} aria-label="Tutup">
+              <button
+                onClick={() => {
+                  setCartOpen(false);
+                  setDirectPurchase(null);
+                }}
+                aria-label="Tutup"
+              >
                 <X />
               </button>
             </div>

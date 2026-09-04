@@ -84,6 +84,19 @@ export default function ProductDetailClient({
     );
   }
 
+  function buyNow() {
+    if (!variant || variant.stock < 1) return;
+    sessionStorage.setItem(
+      'sg_buy_now',
+      JSON.stringify({
+        productId: product.id,
+        variantIndex,
+        quantity: 1,
+      }),
+    );
+    window.location.assign('/?checkout=1');
+  }
+
   return (
     <main className="min-h-screen bg-[#f7f4ec] text-[#17251c]">
       <header className="sticky top-0 z-20 border-b bg-[#fffdf8]/95 backdrop-blur">
@@ -253,14 +266,22 @@ export default function ProductDetailClient({
                 </div>
               )}
 
-              <button
-                onClick={addToCart}
-                disabled={!variant || variant.stock < 1}
-                className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#173c2b] py-3.5 font-bold text-white disabled:bg-gray-400"
-              >
-                <ShoppingBag size={18} />
-                {variant?.stock ? 'Tambah ke keranjang' : 'Stok habis'}
-              </button>
+              <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                <button
+                  onClick={addToCart}
+                  disabled={!variant || variant.stock < 1}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#173c2b] py-3.5 font-bold text-[#173c2b] disabled:border-gray-300 disabled:text-gray-400"
+                >
+                  <ShoppingBag size={18} /> Tambah ke keranjang
+                </button>
+                <button
+                  onClick={buyNow}
+                  disabled={!variant || variant.stock < 1}
+                  className="w-full rounded-xl bg-[#c0693c] py-3.5 font-bold text-white disabled:bg-gray-400"
+                >
+                  {variant?.stock ? 'Beli langsung' : 'Stok habis'}
+                </button>
+              </div>
               <a
                 href={`https://wa.me/6285172381996?text=${encodeURIComponent(`Halo Simple Ground, saya ingin bertanya tentang ${product.name}${variant?.sku ? ` (SKU ${variant.sku})` : ''}, warna ${variant?.color}, ukuran ${variant?.size}.`)}`}
                 target="_blank"
