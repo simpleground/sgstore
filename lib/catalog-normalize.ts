@@ -1,5 +1,9 @@
 const clean = (value: string) => value.trim().replace(/\s+/g, ' ');
-const key = (value: string) => clean(value).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+const key = (value: string) =>
+  clean(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
 
 const categoryAliases: Record<string, string> = {
   'chef kitchen wear': 'Chef & Kitchen Wear',
@@ -21,26 +25,48 @@ const subcategoryAliases: Record<string, string> = {
   'pakaian tradisional': 'Pakaian Tradisional',
 };
 
-export const normalizeCategory = (value: string) => categoryAliases[key(value)] || clean(value);
-export const normalizeSubcategory = (value: string) => subcategoryAliases[key(value)] || clean(value).replace(/\b\w/g, (letter) => letter.toUpperCase());
+export const normalizeCategory = (value: string) =>
+  categoryAliases[key(value)] || clean(value);
+export const normalizeSubcategory = (value: string) =>
+  subcategoryAliases[key(value)] ||
+  clean(value).replace(/\b\w/g, (letter) => letter.toUpperCase());
 
 const colorWords = new Set([
-  'hitam', 'putih', 'maroon', 'navy', 'biru', 'merah', 'hijau', 'kuning',
-  'cokelat', 'coklat', 'kopi', 'abu', 'grey', 'gray', 'cream', 'krem',
+  'hitam',
+  'putih',
+  'maroon',
+  'navy',
+  'biru',
+  'merah',
+  'hijau',
+  'kuning',
+  'cokelat',
+  'coklat',
+  'kopi',
+  'abu',
+  'grey',
+  'gray',
+  'cream',
+  'krem',
 ]);
 const typoWords: Record<string, string> = { kemaja: 'kemeja', tshirt: 'kaos' };
-const normalizedWords = (value: string) => key(value)
-  .split(' ')
-  .map((word) => typoWords[word] || word)
-  .filter((word) => word && !colorWords.has(word))
-  .map((word) => /^\d+$/.test(word) ? String(Number(word)) : word);
+const normalizedWords = (value: string) =>
+  key(value)
+    .split(' ')
+    .map((word) => typoWords[word] || word)
+    .filter((word) => word && !colorWords.has(word))
+    .map((word) => (/^\d+$/.test(word) ? String(Number(word)) : word));
 
-export const normalizedProductName = (value: string) => normalizedWords(value).join(' ');
+export const normalizedProductName = (value: string) =>
+  normalizedWords(value).join(' ');
 
 export function productIdentity(value: string) {
   const parts = value.split('|').map(clean).filter(Boolean);
   const first = parts[0] || value;
-  const hasCode = /^[a-z0-9-]{2,12}$/i.test(first) && /[a-z]/i.test(first) && /\d/.test(first);
+  const hasCode =
+    /^[a-z0-9-]{2,12}$/i.test(first) &&
+    /[a-z]/i.test(first) &&
+    /\d/.test(first);
   const code = hasCode ? first.toUpperCase() : '';
   const title = (hasCode ? parts.slice(1) : parts).join(' ') || value;
   const words = normalizedWords(title);
@@ -49,7 +75,10 @@ export function productIdentity(value: string) {
 }
 
 const editDistance = (left: string, right: string) => {
-  const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+  const previous = Array.from(
+    { length: right.length + 1 },
+    (_, index) => index,
+  );
   for (let row = 1; row <= left.length; row++) {
     let diagonal = previous[0];
     previous[0] = row;

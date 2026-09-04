@@ -135,17 +135,12 @@
       "indexes": {
         "orders_order_number_unique": {
           "name": "orders_order_number_unique",
-          "columns": [
-            "order_number"
-          ],
+          "columns": ["order_number"],
           "isUnique": true
         },
         "idx_orders_status_created": {
           "name": "idx_orders_status_created",
-          "columns": [
-            "status",
-            "created_at"
-          ],
+          "columns": ["status", "created_at"],
           "isUnique": false
         }
       },
@@ -240,10 +235,7 @@
       "indexes": {
         "idx_products_active_category": {
           "name": "idx_products_active_category",
-          "columns": [
-            "active",
-            "category"
-          ],
+          "columns": ["active", "category"],
           "isUnique": false
         }
       },

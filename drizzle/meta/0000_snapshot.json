@@ -135,9 +135,7 @@
       "indexes": {
         "orders_order_number_unique": {
           "name": "orders_order_number_unique",
-          "columns": [
-            "order_number"
-          ],
+          "columns": ["order_number"],
           "isUnique": true
         }
       },

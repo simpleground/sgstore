@@ -77,9 +77,7 @@
       "indexes": {
         "idx_cart_items_user": {
           "name": "idx_cart_items_user",
-          "columns": [
-            "user_id"
-          ],
+          "columns": ["user_id"],
           "isUnique": false
         }
       },
@@ -123,9 +121,7 @@
       "indexes": {
         "idx_customer_sessions_user": {
           "name": "idx_customer_sessions_user",
-          "columns": [
-            "user_id"
-          ],
+          "columns": ["user_id"],
           "isUnique": false
         }
       },
@@ -169,9 +165,7 @@
       "indexes": {
         "customers_email_unique": {
           "name": "customers_email_unique",
-          "columns": [
-            "email"
-          ],
+          "columns": ["email"],
           "isUnique": true
         }
       },
@@ -319,17 +313,12 @@
       "indexes": {
         "orders_order_number_unique": {
           "name": "orders_order_number_unique",
-          "columns": [
-            "order_number"
-          ],
+          "columns": ["order_number"],
           "isUnique": true
         },
         "idx_orders_status_created": {
           "name": "idx_orders_status_created",
-          "columns": [
-            "status",
-            "created_at"
-          ],
+          "columns": ["status", "created_at"],
           "isUnique": false
         }
       },
@@ -471,17 +460,12 @@
       "indexes": {
         "idx_products_active_category": {
           "name": "idx_products_active_category",
-          "columns": [
-            "active",
-            "category"
-          ],
+          "columns": ["active", "category"],
           "isUnique": false
         },
         "idx_products_deleted_at": {
           "name": "idx_products_deleted_at",
-          "columns": [
-            "deleted_at"
-          ],
+          "columns": ["deleted_at"],
           "isUnique": false
         }
       },
@@ -584,10 +568,7 @@
       "indexes": {
         "idx_reviews_product_active": {
           "name": "idx_reviews_product_active",
-          "columns": [
-            "product_id",
-            "active"
-          ],
+          "columns": ["product_id", "active"],
           "isUnique": false
         }
       },
