@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getD1 } from '@/db';
 import { retrieveShippingRates } from '@/lib/biteship';
+import { getEnabledCourierCodes } from '@/lib/shipping-settings';
 
 type RequestedItem = { id: string; variantIndex: number; quantity: number };
 type StoredVariant = {
@@ -69,14 +70,20 @@ export async function POST(request: Request) {
       size: string;
       price: number;
       quantity: number;
+      weight: number;
     }> = [];
     for (const requested of requestedItems) {
       const product = await d1
         .prepare(
-          'SELECT id,name,variants_json FROM products WHERE id=? AND active=1 AND deleted_at IS NULL',
+          'SELECT id,name,variants_json,weight_grams FROM products WHERE id=? AND active=1 AND deleted_at IS NULL',
         )
         .bind(requested.id)
-        .first<{ id: string; name: string; variants_json: string }>();
+        .first<{
+          id: string;
+          name: string;
+          variants_json: string;
+          weight_grams: number;
+        }>();
       if (!product)
         return NextResponse.json(
           { error: 'Salah satu produk sudah tidak tersedia.' },
@@ -108,6 +115,7 @@ export async function POST(request: Request) {
         size: variant.size,
         price: variant.price,
         quantity: requested.quantity,
+        weight: product.weight_grams,
       });
     }
 
@@ -115,6 +123,12 @@ export async function POST(request: Request) {
       (sum, item) => sum + item.price * item.quantity,
       0,
     );
+    const enabledCouriers = await getEnabledCourierCodes();
+    if (!enabledCouriers.length)
+      return NextResponse.json(
+        { error: 'Pengiriman sedang dinonaktifkan.' },
+        { status: 409 },
+      );
     const shippingOptions = await retrieveShippingRates(
       destinationPostalCode,
       items.map((item) => ({
@@ -122,7 +136,9 @@ export async function POST(request: Request) {
         description: `${item.color} ${item.size}`.trim(),
         value: item.price,
         quantity: item.quantity,
+        weight: item.weight,
       })),
+      enabledCouriers,
     );
     const selectedShipping = shippingOptions.find(
       (option) =>
@@ -131,7 +147,10 @@ export async function POST(request: Request) {
     );
     if (!selectedShipping)
       return NextResponse.json(
-        { error: 'Pilihan pengiriman sudah berubah. Silakan cek ongkir kembali.' },
+        {
+          error:
+            'Pilihan pengiriman sudah berubah. Silakan cek ongkir kembali.',
+        },
         { status: 409 },
       );
     const shipping = selectedShipping.price;

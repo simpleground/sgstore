@@ -45,6 +45,7 @@ export const products = sqliteTable(
     price: integer('price').notNull(),
     stock: integer('stock').notNull().default(0),
     soldCount: integer('sold_count').notNull().default(0),
+    weightGrams: integer('weight_grams').notNull().default(500),
     imageUrl: text('image_url'),
     imageKey: text('image_key'),
     imagesJson: text('images_json').notNull().default('[]'),
@@ -58,6 +59,13 @@ export const products = sqliteTable(
     index('idx_products_deleted_at').on(table.deletedAt),
   ],
 );
+
+export const shippingSettings = sqliteTable('shipping_settings', {
+  courierCode: text('courier_code').primaryKey(),
+  courierName: text('courier_name').notNull(),
+  active: integer('active', { mode: 'boolean' }).notNull().default(true),
+  updatedAt: text('updated_at').notNull(),
+});
 
 export const customers = sqliteTable('customers', {
   userId: text('user_id').primaryKey(),

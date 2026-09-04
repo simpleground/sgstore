@@ -212,7 +212,8 @@ export default function Home() {
   const [shippingAddress, setShippingAddress] = useState('');
   const [destinationPostalCode, setDestinationPostalCode] = useState('');
   const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
-  const [selectedShipping, setSelectedShipping] = useState<ShippingOption | null>(null);
+  const [selectedShipping, setSelectedShipping] =
+    useState<ShippingOption | null>(null);
   const [shippingBusy, setShippingBusy] = useState(false);
   const [shippingError, setShippingError] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'midtrans' | 'manual'>(
@@ -368,7 +369,10 @@ export default function Home() {
   );
   const count = Object.values(cart).reduce((a, b) => a + b.quantity, 0);
   const purchaseCart = directPurchase
-    ? { [`${directPurchase.productId}:${directPurchase.variantIndex}`]: directPurchase }
+    ? {
+        [`${directPurchase.productId}:${directPurchase.variantIndex}`]:
+          directPurchase,
+      }
     : cart;
   const cartRows = Object.entries(purchaseCart).flatMap(([key, line]) => {
     const product = products.find((p) => p.id === line.productId);
@@ -605,10 +609,13 @@ export default function Home() {
       if (!response.ok) throw new Error(data.error || 'Ongkir belum tersedia.');
       const options = data.options || [];
       setShippingOptions(options);
-      if (!options.length) setShippingError('Belum ada layanan kurir untuk tujuan ini.');
+      if (!options.length)
+        setShippingError('Belum ada layanan kurir untuk tujuan ini.');
     } catch (error) {
       setShippingOptions([]);
-      setShippingError(error instanceof Error ? error.message : 'Gagal memeriksa ongkir.');
+      setShippingError(
+        error instanceof Error ? error.message : 'Gagal memeriksa ongkir.',
+      );
     } finally {
       setShippingBusy(false);
     }
@@ -2014,14 +2021,17 @@ export default function Home() {
                     <button
                       type="button"
                       onClick={checkShippingRates}
-                      disabled={shippingBusy || destinationPostalCode.length !== 5}
+                      disabled={
+                        shippingBusy || destinationPostalCode.length !== 5
+                      }
                       className="rounded-xl bg-[#173c2b] px-4 text-sm font-bold text-white disabled:opacity-50"
                     >
                       {shippingBusy ? 'Memeriksa…' : 'Cek ongkir'}
                     </button>
                   </div>
                   <p className="mt-2 text-[11px] text-[#758078]">
-                    Pengujian Biteship Sandbox · belum memanggil kurir sungguhan.
+                    Pengujian Biteship Sandbox · belum memanggil kurir
+                    sungguhan.
                   </p>
                   {shippingError && (
                     <p className="mt-2 text-sm text-red-700">{shippingError}</p>
@@ -2031,7 +2041,8 @@ export default function Home() {
                       {shippingOptions.map((option) => {
                         const key = `${option.courierCode}:${option.serviceCode}`;
                         const selected =
-                          selectedShipping?.courierCode === option.courierCode &&
+                          selectedShipping?.courierCode ===
+                            option.courierCode &&
                           selectedShipping?.serviceCode === option.serviceCode;
                         return (
                           <label
@@ -2051,11 +2062,14 @@ export default function Home() {
                                   {option.courierName} {option.serviceName}
                                 </b>
                                 <span className="text-xs text-[#637067]">
-                                  {option.duration || 'Estimasi mengikuti kurir'}
+                                  {option.duration ||
+                                    'Estimasi mengikuti kurir'}
                                 </span>
                               </span>
                             </span>
-                            <b className="shrink-0 text-sm">{rupiah(option.price)}</b>
+                            <b className="shrink-0 text-sm">
+                              {rupiah(option.price)}
+                            </b>
                           </label>
                         );
                       })}
@@ -2118,7 +2132,9 @@ export default function Home() {
                   </div>
                   <div className="mt-2 flex justify-between">
                     <span>Pengiriman</span>
-                    <span>{selectedShipping ? rupiah(shipping) : 'Pilih kurir'}</span>
+                    <span>
+                      {selectedShipping ? rupiah(shipping) : 'Pilih kurir'}
+                    </span>
                   </div>
                   <div className="mt-3 flex justify-between border-t pt-3 font-bold">
                     <span>Total</span>

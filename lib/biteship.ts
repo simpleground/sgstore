@@ -3,7 +3,18 @@ export type ShippingItem = {
   description: string;
   value: number;
   quantity: number;
+  weight: number;
 };
+
+export const SUPPORTED_COURIERS = [
+  { code: 'jne', name: 'JNE' },
+  { code: 'sicepat', name: 'SiCepat' },
+  { code: 'anteraja', name: 'AnterAja' },
+  { code: 'jnt', name: 'J&T Express' },
+  { code: 'tiki', name: 'TIKI' },
+  { code: 'ninja', name: 'Ninja Xpress' },
+  { code: 'lion', name: 'Lion Parcel' },
+] as const;
 
 export type ShippingOption = {
   courierCode: string;
@@ -15,11 +26,10 @@ export type ShippingOption = {
 };
 
 const ORIGIN_POSTAL_CODE = 44163;
-const DEFAULT_WEIGHT_GRAMS = 500;
-
 export async function retrieveShippingRates(
   destinationPostalCode: string,
   items: ShippingItem[],
+  courierCodes = SUPPORTED_COURIERS.map((courier) => courier.code),
 ): Promise<ShippingOption[]> {
   const apiKey = process.env.BITESHIP_API_KEY;
   if (!apiKey) throw new Error('Biteship belum dikonfigurasi.');
@@ -33,10 +43,10 @@ export async function retrieveShippingRates(
     body: JSON.stringify({
       origin_postal_code: ORIGIN_POSTAL_CODE,
       destination_postal_code: Number(destinationPostalCode),
-      couriers: 'jne,sicepat,anteraja,jnt,tiki,ninja,lion',
+      couriers: courierCodes.join(','),
       items: items.map((item) => ({
         ...item,
-        weight: DEFAULT_WEIGHT_GRAMS,
+        weight: item.weight,
         length: 30,
         width: 25,
         height: 5,

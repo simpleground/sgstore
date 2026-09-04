@@ -14,6 +14,7 @@ import {
   ShoppingCart,
   Trash2,
   Truck,
+  Printer,
   XCircle,
 } from 'lucide-react';
 
@@ -113,6 +114,7 @@ type Product = {
   price: number;
   stock: number;
   sold_count: number;
+  weight_grams: number;
   created_at?: string;
   active: number;
   image: string;
@@ -1161,7 +1163,22 @@ function ProductManager() {
               className="mt-1 block w-full rounded-xl border bg-white px-4 py-3 text-sm font-normal"
             />
           </label>
-          <VariantEditor initial={editing?.variants} />
+          <label className="text-xs font-bold text-[#566158]">
+            BERAT PRODUK (GRAM)
+            <input
+              name="weightGrams"
+              type="number"
+              min="1"
+              max="50000"
+              step="1"
+              required
+              defaultValue={editing?.weight_grams ?? 500}
+              className="mt-1 block w-full rounded-xl border bg-white px-4 py-3 text-sm font-normal"
+            />
+            <span className="mt-1 block font-normal text-[#7b847c]">
+              Dipakai untuk menghitung ongkir.
+            </span>
+          </label>
           <label className="rounded-xl border bg-white px-4 py-3 text-sm sm:col-span-2">
             <span className="mb-2 block font-semibold">
               Foto produk (maksimal 9)
@@ -1271,6 +1288,7 @@ function ProductManager() {
               ))}
             </div>
           ) : null}
+          <VariantEditor initial={editing?.variants} />
           {error && (
             <p className="text-sm text-red-700 sm:col-span-2">{error}</p>
           )}
@@ -1703,6 +1721,83 @@ function ReviewManager() {
   );
 }
 
+function ShippingManager() {
+  const [couriers, setCouriers] = useState<
+    { code: string; name: string; active: boolean }[]
+  >([]);
+  const [busy, setBusy] = useState('');
+  const [message, setMessage] = useState('');
+  useEffect(() => {
+    fetch('/api/admin/shipping-settings')
+      .then((response) => response.json())
+      .then((data) => setCouriers(data.couriers || []));
+  }, []);
+  async function toggle(code: string, active: boolean) {
+    setBusy(code);
+    setMessage('');
+    const response = await fetch('/api/admin/shipping-settings', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ code, active }),
+    });
+    if (response.ok) {
+      setCouriers((current) =>
+        current.map((courier) =>
+          courier.code === code ? { ...courier, active } : courier,
+        ),
+      );
+      setMessage('Pengaturan pengiriman tersimpan.');
+    } else setMessage('Pengaturan gagal disimpan. Coba lagi.');
+    setBusy('');
+  }
+  return (
+    <section>
+      <p className="text-xs font-bold uppercase tracking-[.18em] text-[#a34f2c]">
+        Logistik
+      </p>
+      <h2 className="mt-1 font-serif text-3xl">Pengaturan ekspedisi</h2>
+      <p className="mt-2 max-w-2xl text-sm leading-6 text-[#68736b]">
+        Matikan ekspedisi yang tidak ingin ditampilkan saat pelanggan mengecek
+        ongkir. Perubahan langsung berlaku di checkout.
+      </p>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        {couriers.map((courier) => (
+          <div
+            key={courier.code}
+            className="flex items-center justify-between rounded-2xl border bg-white p-4"
+          >
+            <div>
+              <b>{courier.name}</b>
+              <p className="mt-1 text-xs text-[#7b847c]">
+                {courier.active ? 'Aktif di checkout' : 'Tidak ditampilkan'}
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={busy === courier.code}
+              onClick={() => toggle(courier.code, !courier.active)}
+              aria-pressed={courier.active}
+              className={`relative h-7 w-12 rounded-full transition ${courier.active ? 'bg-[#24714b]' : 'bg-[#c9cdc9]'}`}
+            >
+              <span
+                className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${courier.active ? 'left-6' : 'left-1'}`}
+              />
+            </button>
+          </div>
+        ))}
+      </div>
+      {message && (
+        <p className="mt-4 text-sm font-semibold text-[#566158]">{message}</p>
+      )}
+      <div className="mt-5 rounded-2xl bg-[#efe7d8] p-4 text-sm leading-6 text-[#566158]">
+        Integrasi saat ini memakai mode sandbox Biteship. Ongkir dapat diuji,
+        tetapi pembuatan resi resmi dan pickup belum aktif sampai akun produksi
+        digunakan.
+      </div>
+    </section>
+  );
+}
+
 export function AdminDashboard({
   initialOrders,
   adminName,
@@ -1714,7 +1809,7 @@ export function AdminDashboard({
   const [filter, setFilter] = useState('semua');
   const [editMode, setEditMode] = useState(false);
   const [section, setSection] = useState<
-    'overview' | 'orders' | 'products' | 'reviews'
+    'overview' | 'orders' | 'products' | 'reviews' | 'shipping'
   >('overview');
   useEffect(() => {
     if (new URLSearchParams(window.location.search).has('edit')) {
@@ -1734,6 +1829,33 @@ export function AdminDashboard({
       setOrders((os) =>
         os.map((o) => (o.order_number === orderNumber ? { ...o, status } : o)),
       );
+  }
+  function printLabel(order: Order) {
+    const items = JSON.parse(order.items_json) as {
+      name: string;
+      quantity: number;
+      sku?: string;
+      color?: string;
+      size?: string;
+    }[];
+    const escape = (value: string) =>
+      value.replace(
+        /[&<>"']/g,
+        (character) =>
+          ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;',
+          })[character] || character,
+      );
+    const popup = window.open('', '_blank', 'width=620,height=880');
+    if (!popup) return;
+    popup.document.write(
+      `<!doctype html><html><head><title>Label ${escape(order.order_number)}</title><style>@page{size:A6 portrait;margin:7mm}*{box-sizing:border-box}body{font:12px Arial,sans-serif;margin:0;color:#111}.label{border:2px solid #111;padding:12px;min-height:134mm}.brand{font-size:20px;font-weight:800}.order{font-size:17px;font-weight:800;border:2px solid #111;padding:8px;margin:10px 0}.box{border-top:1px solid #111;padding-top:9px;margin-top:9px}.small{font-size:10px;line-height:1.4}h2{font-size:11px;margin:0 0 5px;text-transform:uppercase}p{white-space:pre-line;margin:2px 0;line-height:1.4}ul{padding-left:18px;margin:5px 0}</style></head><body><div class="label"><div class="brand">SIMPLE GROUND</div><div class="order">${escape(order.order_number)}</div><div class="box"><h2>Penerima</h2><b>${escape(order.customer_name)}</b><p>${escape(order.customer_phone)}</p><p>${escape(order.shipping_address)}</p></div><div class="box"><h2>Isi paket</h2><ul>${items.map((item) => `<li>${item.quantity}× ${escape(item.name)}${item.color || item.size ? ` — ${escape(item.color || '-')} / ${escape(item.size || '-')}` : ''}${item.sku ? ` (${escape(item.sku)})` : ''}</li>`).join('')}</ul></div><div class="box small"><h2>Pengirim</h2><b>Simple Ground · 085172381996</b><p>Kp. Dungus Maung RT 7 RW 4, Sirnagalih, Cisurupan, Garut, Jawa Barat 44163</p></div></div><script>window.onload=()=>{window.print()}<\/script></body></html>`,
+    );
+    popup.document.close();
   }
   const open = orders.filter(
     (o) => !['selesai', 'dibatalkan'].includes(o.status),
@@ -1781,6 +1903,7 @@ export function AdminDashboard({
                 ['orders', 'Pesanan', ShoppingCart],
                 ['products', 'Produk', Package],
                 ['reviews', 'Ulasan', MessageSquareText],
+                ['shipping', 'Pengiriman', Truck],
               ].map(([value, label, Icon]) => (
                 <button
                   key={String(value)}
@@ -1837,6 +1960,7 @@ export function AdminDashboard({
           )}
           {section === 'products' && <ProductManager />}
           {section === 'reviews' && <ReviewManager />}
+          {section === 'shipping' && <ShippingManager />}
           {section === 'orders' && (
             <section>
               <p className="text-xs font-bold uppercase tracking-[.18em] text-[#a34f2c]">
@@ -1912,19 +2036,28 @@ export function AdminDashboard({
                               )
                               .join(' · ')}
                           </p>
-                          <select
-                            value={o.status}
-                            onChange={(e) =>
-                              update(o.order_number, e.target.value)
-                            }
-                            className="mt-4 rounded-xl border bg-[#f7f4ec] px-3 py-2 text-sm font-semibold"
-                          >
-                            {Object.entries(labels).map(([v, l]) => (
-                              <option key={v} value={v}>
-                                {l}
-                              </option>
-                            ))}
-                          </select>
+                          <div className="mt-4 flex flex-wrap items-center gap-2">
+                            <select
+                              value={o.status}
+                              onChange={(e) =>
+                                update(o.order_number, e.target.value)
+                              }
+                              className="rounded-xl border bg-[#f7f4ec] px-3 py-2 text-sm font-semibold"
+                            >
+                              {Object.entries(labels).map(([v, l]) => (
+                                <option key={v} value={v}>
+                                  {l}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              onClick={() => printLabel(o)}
+                              className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold"
+                            >
+                              <Printer size={16} /> Cetak label A6
+                            </button>
+                          </div>
                         </div>
                       </article>
                     );

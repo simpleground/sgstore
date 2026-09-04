@@ -90,7 +90,7 @@ function variants(raw: string) {
   return rows;
 }
 const select =
-  "SELECT id,name,category,subcategory,tone,price,stock,sold_count,active,created_at,description,material,care_instructions,production_estimate,size_guide,variants_json,images_json,deleted_at,COALESCE('/api/product-image/' || image_key,image_url) AS image FROM products";
+  "SELECT id,name,category,subcategory,tone,price,stock,sold_count,weight_grams,active,created_at,description,material,care_instructions,production_estimate,size_guide,variants_json,images_json,deleted_at,COALESCE('/api/product-image/' || image_key,image_url) AS image FROM products";
 export async function GET() {
   if (!(await auth()))
     return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
@@ -120,7 +120,7 @@ export async function POST(req: Request) {
         now = new Date().toISOString();
       await d1
         .prepare(
-          "INSERT INTO products (id,name,category,subcategory,tone,price,stock,sold_count,description,material,care_instructions,production_estimate,size_guide,variants_json,image_url,image_key,images_json,active,created_at,updated_at) SELECT ?,name||' (Salinan)',category,subcategory,tone,price,stock,sold_count,description,material,care_instructions,production_estimate,size_guide,variants_json,image_url,image_key,images_json,0,?,? FROM products WHERE id=?",
+          "INSERT INTO products (id,name,category,subcategory,tone,price,stock,sold_count,weight_grams,description,material,care_instructions,production_estimate,size_guide,variants_json,image_url,image_key,images_json,active,created_at,updated_at) SELECT ?,name||' (Salinan)',category,subcategory,tone,price,stock,sold_count,weight_grams,description,material,care_instructions,production_estimate,size_guide,variants_json,image_url,image_key,images_json,0,?,? FROM products WHERE id=?",
         )
         .bind(id, now, now, copyId)
         .run();
@@ -135,6 +135,7 @@ export async function POST(req: Request) {
       productionEstimate = String(f.get('production_estimate') || '').trim(),
       sizeGuide = String(f.get('size_guide') || '').trim(),
       soldCount = Number(f.get('sold_count') || 0),
+      weightGrams = Number(f.get('weightGrams') || 500),
       vs = variants(String(f.get('variants') || ''));
     const keys = await images(
       f.getAll('images').filter((v): v is File => v instanceof File),
@@ -146,7 +147,10 @@ export async function POST(req: Request) {
       !description ||
       !keys.length ||
       !Number.isInteger(soldCount) ||
-      soldCount < 0
+      soldCount < 0 ||
+      !Number.isInteger(weightGrams) ||
+      weightGrams < 1 ||
+      weightGrams > 50000
     )
       throw new Error(
         'Lengkapi nama, kategori, subkategori, deskripsi, dan foto.',
@@ -157,7 +161,7 @@ export async function POST(req: Request) {
       now = new Date().toISOString();
     await d1
       .prepare(
-        'INSERT INTO products (id,name,category,subcategory,tone,price,stock,sold_count,description,material,care_instructions,production_estimate,size_guide,variants_json,image_key,images_json,active,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        'INSERT INTO products (id,name,category,subcategory,tone,price,stock,sold_count,weight_grams,description,material,care_instructions,production_estimate,size_guide,variants_json,image_key,images_json,active,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
       )
       .bind(
         id,
@@ -168,6 +172,7 @@ export async function POST(req: Request) {
         price,
         stock,
         soldCount,
+        weightGrams,
         description,
         material,
         careInstructions,
@@ -205,6 +210,7 @@ export async function PATCH(req: Request) {
       productionEstimate = String(f.get('production_estimate') || '').trim(),
       sizeGuide = String(f.get('size_guide') || '').trim(),
       soldCount = Number(f.get('sold_count') || 0),
+      weightGrams = Number(f.get('weightGrams') || 500),
       vs = variants(String(f.get('variants') || '')),
       active = String(f.get('active')) === 'true' ? 1 : 0,
       old = await d1
@@ -233,7 +239,10 @@ export async function PATCH(req: Request) {
       !subcategory ||
       !description ||
       !Number.isInteger(soldCount) ||
-      soldCount < 0
+      soldCount < 0 ||
+      !Number.isInteger(weightGrams) ||
+      weightGrams < 1 ||
+      weightGrams > 50000
     )
       throw new Error('Lengkapi nama, kategori, subkategori, dan deskripsi.');
     if (finalKeys.length > 9)
@@ -241,7 +250,7 @@ export async function PATCH(req: Request) {
     if (!finalKeys.length && old?.image_key) finalKeys.push(old.image_key);
     await d1
       .prepare(
-        'UPDATE products SET name=?,category=?,subcategory=?,tone=?,price=?,stock=?,sold_count=?,description=?,material=?,care_instructions=?,production_estimate=?,size_guide=?,variants_json=?,active=?,image_key=COALESCE(?,image_key),images_json=?,updated_at=? WHERE id=?',
+        'UPDATE products SET name=?,category=?,subcategory=?,tone=?,price=?,stock=?,sold_count=?,weight_grams=?,description=?,material=?,care_instructions=?,production_estimate=?,size_guide=?,variants_json=?,active=?,image_key=COALESCE(?,image_key),images_json=?,updated_at=? WHERE id=?',
       )
       .bind(
         name,
@@ -251,6 +260,7 @@ export async function PATCH(req: Request) {
         price,
         stock,
         soldCount,
+        weightGrams,
         description,
         material,
         careInstructions,

@@ -62,8 +62,7 @@ export async function POST(request: Request) {
     // Midtrans' dashboard sends a signed sample order when testing this URL.
     // Acknowledge unknown orders without updating anything so the endpoint test
     // succeeds and production retries are not triggered for irrelevant records.
-    if (!order)
-      return NextResponse.json({ received: true, ignored: true });
+    if (!order) return NextResponse.json({ received: true, ignored: true });
     if (Math.round(Number(body.gross_amount)) !== order.total)
       return NextResponse.json(
         { error: 'Nominal pembayaran tidak cocok.' },
