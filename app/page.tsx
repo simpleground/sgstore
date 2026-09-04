@@ -1141,9 +1141,13 @@ export default function Home() {
       >
         <div className="overflow-hidden rounded-[2rem]">
           <img
-            src="https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=1100&q=85"
-            alt="Detail kain dan proses produksi yang teliti"
-            className="aspect-[4/3] w-full object-cover"
+            src="/simple-ground-building.png"
+            alt="Gedung dengan identitas Simple Ground di tengah lanskap hijau"
+            width={1536}
+            height={1024}
+            loading="lazy"
+            decoding="async"
+            className="h-auto w-full bg-[#e8e4db] object-contain"
           />
         </div>
         <div className="lg:pl-14">
