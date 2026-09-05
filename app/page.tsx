@@ -1003,10 +1003,8 @@ export default function Home() {
                     key={p.id}
                     className="group relative overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"
                   >
-                    <button
-                      onClick={() =>
-                        window.location.assign(productPath(p.name))
-                      }
+                    <a
+                      href={productPath(p.name)}
                       className="relative block aspect-square w-full overflow-hidden bg-[#ebe5d9] text-left"
                     >
                       <img
@@ -1020,7 +1018,7 @@ export default function Home() {
                       <span className="absolute left-2 top-2 rounded-md bg-white/90 px-2 py-1 text-[10px] font-bold">
                         {p.subcategory}
                       </span>
-                    </button>
+                    </a>
                     <button
                       onClick={() => toggleWishlist(p.id)}
                       aria-label={
@@ -1042,14 +1040,12 @@ export default function Home() {
                       />
                     </button>
                     <div className="p-3 sm:p-4">
-                      <button
-                        onClick={() =>
-                          window.location.assign(productPath(p.name))
-                        }
+                      <a
+                        href={productPath(p.name)}
                         className="line-clamp-2 min-h-10 text-left text-sm font-semibold leading-5 sm:text-base"
                       >
                         {cleanLabel(p.name)}
-                      </button>
+                      </a>
                       <div className="mt-2">
                         <p className="text-base font-extrabold text-[#b4512d] sm:text-lg">
                           {rupiah(variant.price)}

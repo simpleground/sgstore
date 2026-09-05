@@ -46,12 +46,13 @@ export async function generateMetadata({
   const { slug } = await params;
   const product = await findProduct(slug);
   if (!product) return { title: 'Produk tidak ditemukan | Simple Ground' };
-  const description = product.description.slice(0, 155);
+  const description = (product.description || `Lihat ${product.name} dari Simple Ground. Temukan pilihan warna, ukuran, harga, dan ketersediaan produk.`).slice(0, 155);
   const image = product.image.startsWith('http')
     ? product.image
     : `https://simpleground.online${product.image}`;
   return {
     title: `${product.name} | Simple Ground`,
+    alternates: { canonical: `https://simpleground.online/produk/${productSlug(product.name)}` },
     description,
     openGraph: { title: product.name, description, images: [image] },
     twitter: {

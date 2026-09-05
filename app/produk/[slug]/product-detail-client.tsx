@@ -177,9 +177,9 @@ export default function ProductDetailClient({
                 {rupiah(variant?.price || 0)}
               </p>
               <p className="mt-2 text-sm font-bold text-[#8a5a22]">
-                ★ {average ? average.toFixed(1) : 'Belum ada rating'}{' '}
-                {reviews.length ? `· ${reviews.length} ulasan` : ''} ·{' '}
-                {product.sold_count || 0} terjual
+                {average ? `★ ${average.toFixed(1)}` : 'Belum ada ulasan'}{' '}
+                {reviews.length ? `· ${reviews.length} ulasan` : ''}
+                {product.sold_count ? ` · ${product.sold_count} terjual` : ''}
               </p>
               <p className="mt-5 whitespace-pre-line text-sm leading-7 text-[#5f6b63]">
                 {product.description}
@@ -207,12 +207,16 @@ export default function ProductDetailClient({
                   ))}
                 </select>
               </label>
-              <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
+              <details className="mt-4 rounded-xl border p-3">
+                <summary className="cursor-pointer text-sm font-semibold">Lihat semua pilihan warna & ukuran ({product.variants.length})</summary>
+              <div className="mt-3 grid max-h-72 grid-cols-2 gap-2 overflow-y-auto text-xs">
                 {product.variants.map((item, index) => (
                   <button
                     key={`${item.color}-${item.size}-${index}`}
                     onClick={() => setVariantIndex(index)}
-                    className={`rounded-xl border p-3 text-left ${index === variantIndex ? 'border-[#276344] bg-[#edf6ef]' : ''}`}
+                    disabled={item.stock < 1}
+                    aria-pressed={index === variantIndex}
+                    className={`rounded-xl border p-3 text-left disabled:opacity-50 ${index === variantIndex ? 'border-[#276344] bg-[#edf6ef]' : ''}`}
                   >
                     <b>
                       {item.color} · {item.size}
@@ -225,6 +229,7 @@ export default function ProductDetailClient({
                   </button>
                 ))}
               </div>
+              </details>
 
               {(product.material ||
                 product.care_instructions ||
