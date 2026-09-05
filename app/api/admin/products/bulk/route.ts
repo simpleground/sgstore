@@ -28,6 +28,12 @@ const columns = [
   'category',
   'subcategory',
   'description',
+  'material',
+  'care_instructions',
+  'production_estimate',
+  'size_guide',
+  'weight_grams',
+  'sold_count',
   'sku',
   'color',
   'size',
@@ -92,16 +98,19 @@ function mergeVariants(existing: ImportVariant[], incoming: ImportVariant[]) {
   return { variants: merged, skuAdjusted };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   if (!(await auth()))
     return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
   const result = await getD1()
     .prepare(
-      'SELECT id,name,category,subcategory,description,variants_json,image_url,active FROM products WHERE deleted_at IS NULL ORDER BY name,id',
+      'SELECT * FROM products WHERE deleted_at IS NULL ORDER BY name,id',
     )
     .all();
   const rows: Record<string, unknown>[] = [];
+  const ids = new URL(request.url).searchParams.getAll('id');
+  const selected = new Set(ids);
   for (const product of result.results as any[]) {
+    if (selected.size && !selected.has(product.id)) continue;
     let variants: any[] = [];
     try {
       variants = JSON.parse(product.variants_json || '[]');
@@ -120,6 +129,12 @@ export async function GET() {
         category: product.category,
         subcategory: product.subcategory,
         description: product.description,
+        material: product.material,
+        care_instructions: product.care_instructions,
+        production_estimate: product.production_estimate,
+        size_guide: product.size_guide,
+        weight_grams: product.weight_grams,
+        sold_count: product.sold_count,
         sku: variant.sku ?? '',
         color: variant.color,
         size: variant.size,
@@ -168,6 +183,20 @@ export async function POST(request: Request) {
       if (row.category !== originalCategory) normalizedFields++;
       if (row.subcategory !== originalSubcategory) normalizedFields++;
       row.description = String(row.description || '').trim();
+      if (row.image_url) {
+        const image = new URL(String(row.image_url));
+        if (!['http:', 'https:'].includes(image.protocol)) throw new Error(`${row.name}: URL foto harus HTTP atau HTTPS.`);
+      }
+      for (const field of ['material', 'care_instructions', 'production_estimate', 'size_guide']) {
+        if (row[field] !== undefined) row[field] = String(row[field]).trim();
+      }
+      for (const field of ['weight_grams', 'sold_count']) {
+        if (row[field] === undefined) continue;
+        const value = Number(row[field]);
+        if (String(row[field]).trim() === '' || !Number.isSafeInteger(value) || value < (field === 'weight_grams' ? 1 : 0))
+          throw new Error(`${row.name}: ${field} harus bilangan bulat ${field === 'weight_grams' ? 'lebih dari 0' : '0 atau lebih'}.`);
+        row[field] = value;
+      }
       const normalPrice = Number(row.normal_price);
       const discountPercent = Number(row.discount_percent || 0);
       const price = Math.round(normalPrice * (1 - discountPercent / 100));
@@ -179,6 +208,8 @@ export async function POST(request: Request) {
         !row.subcategory ||
         !row.color ||
         !row.size ||
+        !Number.isFinite(normalPrice) ||
+        !Number.isFinite(discountPercent) ||
         normalPrice <= 0 ||
         discountPercent < 0 ||
         discountPercent >= 100 ||
@@ -194,6 +225,10 @@ export async function POST(request: Request) {
         ? `id:${productId}`
         : `new:${productIdentity(row.name)}|${row.category.toLowerCase()}|${row.subcategory.toLowerCase()}`;
       const group = groups.get(key) ?? { ...row, productId, variants: [] };
+      for (const field of ['description', 'material', 'care_instructions', 'production_estimate', 'size_guide', 'weight_grams', 'sold_count', 'active', 'image_url']) {
+        if (String(group[field] ?? '') !== String(row[field] ?? ''))
+          throw new Error(`${row.name}: kolom ${field} harus sama pada semua baris varian produk ini.`);
+      }
       if (
         productIdentity(group.name) !== productIdentity(row.name) ||
         group.category !== row.category ||
@@ -310,12 +345,21 @@ export async function POST(request: Request) {
       if (group.productId) {
         if (!existingIds.has(group.productId))
           throw new Error(`Produk ID ${group.productId} tidak ditemukan.`);
+        if (String(group.image_url || '').trim()) {
+          statements.push(database.prepare('UPDATE products SET image_url=?,image_key=NULL,images_json=? WHERE id=? AND COALESCE(image_url,\'\')!=?').bind(String(group.image_url).trim(), '[]', group.productId, String(group.image_url).trim()));
+        }
         statements.push(
           database
             .prepare(
-              'UPDATE products SET name=?,category=?,subcategory=?,description=?,tone=?,price=?,stock=?,variants_json=?,active=?,updated_at=? WHERE id=?',
+              'UPDATE products SET material=COALESCE(?,material),care_instructions=COALESCE(?,care_instructions),production_estimate=COALESCE(?,production_estimate),size_guide=COALESCE(?,size_guide),weight_grams=COALESCE(?,weight_grams),sold_count=COALESCE(?,sold_count),name=?,category=?,subcategory=?,description=?,tone=?,price=?,stock=?,variants_json=?,active=?,updated_at=? WHERE id=?',
             )
             .bind(
+              group.material ?? null,
+              group.care_instructions ?? null,
+              group.production_estimate ?? null,
+              group.size_guide ?? null,
+              group.weight_grams ?? null,
+              group.sold_count ?? null,
               group.name,
               group.category,
               group.subcategory,
@@ -335,9 +379,15 @@ export async function POST(request: Request) {
         statements.push(
           database
             .prepare(
-              'INSERT INTO products (id,name,category,subcategory,tone,price,stock,description,variants_json,image_url,images_json,active,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+              'INSERT INTO products (material,care_instructions,production_estimate,size_guide,weight_grams,sold_count,id,name,category,subcategory,tone,price,stock,description,variants_json,image_url,images_json,active,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
             )
             .bind(
+              group.material ?? '',
+              group.care_instructions ?? '',
+              group.production_estimate ?? '',
+              group.size_guide ?? '',
+              group.weight_grams ?? 500,
+              group.sold_count ?? 0,
               crypto.randomUUID(),
               group.name,
               group.category,
