@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import { Switch } from '@/components/ui/switch';
 import {
   Archive,
   CheckCircle2,
@@ -733,7 +734,7 @@ function CategoryManager({
     </div>
   );
 }
-function ProductManager() {
+export function ProductManager() {
   const [items, setItems] = useState<Product[]>([]);
   const [editing, setEditing] = useState<Product | null>(null);
   const [open, setOpen] = useState(false);
@@ -750,6 +751,7 @@ function ProductManager() {
     'active',
   );
   const [catalogSort, setCatalogSort] = useState('rekomendasi');
+  const [search, setSearch] = useState('');
   const [catalogCategory, setCatalogCategory] = useState('Semua');
   const [catalogSubcategory, setCatalogSubcategory] = useState('Semua');
   const [mergeIds, setMergeIds] = useState<string[]>([]);
@@ -758,6 +760,7 @@ function ProductManager() {
   async function load() {
     const r = await fetch('/api/admin/products');
     if (r.ok) setItems((await r.json()).products);
+    else setError('Katalog gagal dimuat. Muat ulang halaman untuk mencoba lagi.');
   }
   useEffect(() => {
     load();
@@ -802,6 +805,7 @@ function ProductManager() {
       fd.set('id', editing.id);
       fd.set('active', String(editing.active !== 0));
     }
+    try {
     const r = await fetch('/api/admin/products', {
       method: editing ? 'PATCH' : 'POST',
       body: fd,
@@ -820,7 +824,8 @@ function ProductManager() {
       setEditing(null);
       await load();
     } else setError((await r.json()).error ?? 'Gagal menyimpan.');
-    setBusy(false);
+    } catch { setError('Koneksi terputus. Produk belum tersimpan. Silakan coba lagi.'); }
+    finally { setBusy(false); }
   }
   async function remove(id: string) {
     if (
@@ -868,8 +873,13 @@ function ProductManager() {
   async function copy(id: string) {
     const fd = new FormData();
     fd.set('copyId', id);
-    await fetch('/api/admin/products', { method: 'POST', body: fd });
-    await load();
+    try {
+      const response = await fetch('/api/admin/products', { method: 'POST', body: fd });
+      const data = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(data.error || 'Produk gagal disalin.');
+      setProductTab('archived');
+      await load();
+    } catch (error) { setError(error instanceof Error ? error.message : 'Koneksi terputus. Coba lagi.'); }
   }
   async function setArchived(product: Product) {
     const archive = product.active !== 0;
@@ -960,6 +970,7 @@ function ProductManager() {
     new Set(items.map((item) => item.subcategory).filter(Boolean)),
   ).sort((a, b) => a.localeCompare(b, 'id'));
   const visibleItems = items
+    .filter((item) => `${item.name} ${item.variants.map((v) => v.sku || '').join(' ')}`.toLowerCase().includes(search.toLowerCase()))
     .filter((item) =>
       productTab === 'trash'
         ? Boolean(item.deleted_at)
@@ -1009,8 +1020,8 @@ function ProductManager() {
       )}
       {!dedicatedEdit && (
         <>
-          <BulkImport onDone={load} />
-          <CategoryManager items={items} onDone={load} />
+          <details className="admin-tool"><summary>Impor produk dari CSV</summary><BulkImport onDone={load} /></details>
+          <details className="admin-tool"><summary>Kelola kategori & subkategori</summary><CategoryManager items={items} onDone={load} /></details>
         </>
       )}
       {!dedicatedEdit && mergeIds.length > 0 && (
@@ -1318,6 +1329,8 @@ function ProductManager() {
       )}
       {!dedicatedEdit && (
         <>
+          {error && <p role="alert" className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+          <input aria-label="Cari produk atau SKU" placeholder="Cari nama produk atau SKU…" value={search} onChange={(event) => setSearch(event.target.value)} className="mt-5 w-full rounded-lg border bg-white px-4 py-3 text-sm" />
           <div className="mt-6 flex gap-1 rounded-xl bg-[#f1f1eb] p-1 sm:w-fit">
             {(
               [
@@ -1409,11 +1422,11 @@ function ProductManager() {
                   : 'Tong Sampah masih kosong.'}
             </div>
           )}
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="admin-product-list mt-4">
             {visibleItems.map((p) => (
               <article
                 key={p.id}
-                className={`flex gap-3 rounded-2xl border p-3 ${p.active === 0 ? 'border-dashed bg-[#f1f1ed] opacity-75' : ''}`}
+                className={`admin-product-row flex gap-3 border-b p-4 ${p.active === 0 ? 'bg-[#f1f1ed]' : ''}`}
               >
                 {productTab === 'active' && (
                   <input
@@ -1448,7 +1461,7 @@ function ProductManager() {
                   </div>
                   <p className="mt-1 text-xs text-[#68736b]">
                     {p.category} › {p.subcategory} · stok {p.stock} ·{' '}
-                    {p.sold_count || 0} terjual · {p.images?.length || 1} foto
+                    {p.sold_count || 0} terjual · {p.weight_grams || 500} gram · {p.images?.length || 1} foto
                   </p>
                   <p className="mt-1 text-sm font-bold">{rupiah(p.price)}</p>
                   {p.deleted_at && (
@@ -1526,7 +1539,7 @@ function ProductManager() {
   );
 }
 
-function ReviewManager() {
+export function ReviewManager() {
   const [data, setData] = useState<any>({
     reviews: [],
     products: [],
@@ -1721,7 +1734,7 @@ function ReviewManager() {
   );
 }
 
-function ShippingManager() {
+export function ShippingManager() {
   const [couriers, setCouriers] = useState<
     { code: string; name: string; active: boolean }[]
   >([]);
@@ -1729,12 +1742,14 @@ function ShippingManager() {
   const [message, setMessage] = useState('');
   useEffect(() => {
     fetch('/api/admin/shipping-settings')
-      .then((response) => response.json())
-      .then((data) => setCouriers(data.couriers || []));
+      .then((response) => response.json() as Promise<{couriers?: {code:string;name:string;active:boolean}[]}> )
+      .then((data) => { if (!data.couriers) throw new Error('Pengaturan gagal dimuat.'); setCouriers(data.couriers); })
+      .catch(() => setMessage('Pengaturan gagal dimuat. Muat ulang halaman untuk mencoba lagi.'));
   }, []);
   async function toggle(code: string, active: boolean) {
     setBusy(code);
     setMessage('');
+    try {
     const response = await fetch('/api/admin/shipping-settings', {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
@@ -1748,7 +1763,8 @@ function ShippingManager() {
       );
       setMessage('Pengaturan pengiriman tersimpan.');
     } else setMessage('Pengaturan gagal disimpan. Coba lagi.');
-    setBusy('');
+    } catch { setMessage('Koneksi terputus. Perubahan belum tersimpan.'); }
+    finally { setBusy(''); }
   }
   return (
     <section>
@@ -1772,17 +1788,12 @@ function ShippingManager() {
                 {courier.active ? 'Aktif di checkout' : 'Tidak ditampilkan'}
               </p>
             </div>
-            <button
-              type="button"
+            <Switch
               disabled={busy === courier.code}
-              onClick={() => toggle(courier.code, !courier.active)}
-              aria-pressed={courier.active}
-              className={`relative h-7 w-12 rounded-full transition ${courier.active ? 'bg-[#24714b]' : 'bg-[#c9cdc9]'}`}
-            >
-              <span
-                className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${courier.active ? 'left-6' : 'left-1'}`}
-              />
-            </button>
+              checked={courier.active}
+              onCheckedChange={(checked) => toggle(courier.code, checked)}
+              aria-label={`Aktifkan ${courier.name}`}
+            />
           </div>
         ))}
       </div>
@@ -1798,39 +1809,7 @@ function ShippingManager() {
   );
 }
 
-export function AdminDashboard({
-  initialOrders,
-  adminName,
-}: {
-  initialOrders: Order[];
-  adminName: string;
-}) {
-  const [orders, setOrders] = useState(initialOrders);
-  const [filter, setFilter] = useState('semua');
-  const [editMode, setEditMode] = useState(false);
-  const [section, setSection] = useState<
-    'overview' | 'orders' | 'products' | 'reviews' | 'shipping'
-  >('overview');
-  useEffect(() => {
-    if (new URLSearchParams(window.location.search).has('edit')) {
-      setEditMode(true);
-      setSection('products');
-    }
-  }, []);
-  const visible =
-    filter === 'semua' ? orders : orders.filter((o) => o.status === filter);
-  async function update(orderNumber: string, status: string) {
-    const r = await fetch('/api/admin/orders', {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ orderNumber, status }),
-    });
-    if (r.ok)
-      setOrders((os) =>
-        os.map((o) => (o.order_number === orderNumber ? { ...o, status } : o)),
-      );
-  }
-  function printLabel(order: Order) {
+export function printLabel(order: Order) {
     const items = JSON.parse(order.items_json) as {
       name: string;
       quantity: number;
@@ -1857,217 +1836,3 @@ export function AdminDashboard({
     );
     popup.document.close();
   }
-  const open = orders.filter(
-    (o) => !['selesai', 'dibatalkan'].includes(o.status),
-  ).length;
-  const revenue = orders
-    .filter((o) =>
-      ['dibayar', 'diproses', 'dikirim', 'selesai'].includes(o.status),
-    )
-    .reduce((s, o) => s + o.total, 0);
-  return (
-    <div className="mx-auto max-w-[90rem] px-4 py-6 sm:px-8 sm:py-8">
-      {!editMode && (
-        <header className="flex flex-col justify-between gap-5 border-b pb-7 sm:flex-row sm:items-end">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[.2em] text-[#a34f2c]">
-              Simple Ground Admin
-            </p>
-            <h1 className="mt-2 font-serif text-4xl">Kelola toko</h1>
-            <p className="mt-2 text-sm text-[#68736b]">Halo, {adminName}</p>
-          </div>
-          <div className="flex gap-2">
-            <a
-              href="/"
-              className="rounded-full border px-4 py-2 text-sm font-semibold"
-            >
-              Lihat toko
-            </a>
-            <a
-              href="/signout-with-chatgpt?return_to=/"
-              className="rounded-full bg-[#243b2c] px-4 py-2 text-sm font-semibold text-white"
-            >
-              Keluar
-            </a>
-          </div>
-        </header>
-      )}
-      <div
-        className={`${editMode ? '' : 'mt-6 grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]'}`}
-      >
-        {!editMode && (
-          <aside className="lg:sticky lg:top-6 lg:self-start">
-            <nav className="flex gap-2 overflow-x-auto rounded-2xl border bg-white p-2 lg:flex-col lg:p-3">
-              {[
-                ['overview', 'Dashboard', LayoutDashboard],
-                ['orders', 'Pesanan', ShoppingCart],
-                ['products', 'Produk', Package],
-                ['reviews', 'Ulasan', MessageSquareText],
-                ['shipping', 'Pengiriman', Truck],
-              ].map(([value, label, Icon]) => (
-                <button
-                  key={String(value)}
-                  type="button"
-                  onClick={() => setSection(value as typeof section)}
-                  className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition lg:w-full ${section === value ? 'bg-[#243b2c] text-white shadow-sm' : 'text-[#566158] hover:bg-[#f3f1e9]'}`}
-                >
-                  <Icon size={17} /> {label}
-                </button>
-              ))}
-            </nav>
-            <p className="mt-4 hidden px-3 text-xs leading-5 text-[#7b847c] lg:block">
-              Pilih menu untuk mengelola bagian toko tanpa halaman yang terlalu
-              panjang.
-            </p>
-          </aside>
-        )}
-        <main className="min-w-0">
-          {section === 'overview' && (
-            <section>
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[.18em] text-[#a34f2c]">
-                  Dashboard
-                </p>
-                <h2 className="mt-1 font-serif text-3xl">
-                  Kondisi toko hari ini
-                </h2>
-              </div>
-              <div className="mt-5 grid gap-4 sm:grid-cols-3">
-                <div className="rounded-2xl bg-[#243b2c] p-5 text-white">
-                  <p className="text-xs text-white/70">Perlu ditangani</p>
-                  <b className="mt-2 block font-serif text-4xl">{open}</b>
-                </div>
-                <div className="rounded-2xl bg-white p-5">
-                  <p className="text-xs text-[#68736b]">Total pesanan</p>
-                  <b className="mt-2 block font-serif text-4xl">
-                    {orders.length}
-                  </b>
-                </div>
-                <div className="rounded-2xl bg-[#efe7d8] p-5">
-                  <p className="text-xs text-[#68736b]">
-                    Penjualan terkonfirmasi
-                  </p>
-                  <b className="mt-2 block font-serif text-2xl">
-                    {rupiah(revenue)}
-                  </b>
-                </div>
-              </div>
-              <div className="mt-5 rounded-2xl border bg-white p-5 text-sm leading-6 text-[#566158]">
-                Gunakan menu di samping untuk menangani pesanan, memperbarui
-                produk, dan mengelola ulasan pelanggan.
-              </div>
-            </section>
-          )}
-          {section === 'products' && <ProductManager />}
-          {section === 'reviews' && <ReviewManager />}
-          {section === 'shipping' && <ShippingManager />}
-          {section === 'orders' && (
-            <section>
-              <p className="text-xs font-bold uppercase tracking-[.18em] text-[#a34f2c]">
-                Transaksi
-              </p>
-              <h2 className="mt-1 font-serif text-3xl">Pesanan pelanggan</h2>
-              <div className="mt-4 flex gap-2 overflow-auto pb-2">
-                {['semua', ...Object.keys(labels)].map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => setFilter(s)}
-                    className={`whitespace-nowrap rounded-full border px-4 py-2 text-sm ${filter === s ? 'bg-[#243b2c] text-white' : 'bg-white'}`}
-                  >
-                    {s === 'semua' ? 'Semua' : labels[s]}
-                  </button>
-                ))}
-              </div>
-              <div className="mt-4 space-y-4">
-                {visible.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed p-12 text-center text-[#68736b]">
-                    Belum ada pesanan pada status ini.
-                  </div>
-                ) : (
-                  visible.map((o) => {
-                    const Icon = icons[o.status] ?? Clock3;
-                    const items = JSON.parse(o.items_json) as {
-                      name: string;
-                      quantity: number;
-                      sku?: string;
-                      color?: string;
-                      size?: string;
-                    }[];
-                    return (
-                      <article
-                        key={o.order_number}
-                        className="rounded-2xl border bg-white p-5 shadow-sm"
-                      >
-                        <div className="flex flex-col justify-between gap-4 sm:flex-row">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <Icon size={17} />
-                              <b>{o.order_number}</b>
-                              <span className="rounded-full bg-[#edf1e9] px-2.5 py-1 text-[11px] font-semibold">
-                                {labels[o.status]}
-                              </span>
-                            </div>
-                            <p className="mt-2 text-sm font-semibold">
-                              {o.customer_name} ·{' '}
-                              <a
-                                className="underline"
-                                href={`https://wa.me/${o.customer_phone.replace(/\D/g, '').replace(/^0/, '62')}`}
-                              >
-                                {o.customer_phone}
-                              </a>
-                            </p>
-                            <p className="mt-1 max-w-xl text-xs leading-5 text-[#68736b]">
-                              {o.shipping_address}
-                            </p>
-                          </div>
-                          <div className="sm:text-right">
-                            <b className="text-lg">{rupiah(o.total)}</b>
-                            <p className="mt-1 text-xs text-[#68736b]">
-                              {new Date(o.created_at).toLocaleString('id-ID')}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="mt-4 border-t pt-4">
-                          <p className="text-sm">
-                            {items
-                              .map(
-                                (i) =>
-                                  `${i.quantity}× ${i.name}${i.color || i.size ? ` (${i.color ?? '-'} / ${i.size ?? '-'})` : ''}${i.sku ? ` · SKU ${i.sku}` : ''}`,
-                              )
-                              .join(' · ')}
-                          </p>
-                          <div className="mt-4 flex flex-wrap items-center gap-2">
-                            <select
-                              value={o.status}
-                              onChange={(e) =>
-                                update(o.order_number, e.target.value)
-                              }
-                              className="rounded-xl border bg-[#f7f4ec] px-3 py-2 text-sm font-semibold"
-                            >
-                              {Object.entries(labels).map(([v, l]) => (
-                                <option key={v} value={v}>
-                                  {l}
-                                </option>
-                              ))}
-                            </select>
-                            <button
-                              type="button"
-                              onClick={() => printLabel(o)}
-                              className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold"
-                            >
-                              <Printer size={16} /> Cetak label A6
-                            </button>
-                          </div>
-                        </div>
-                      </article>
-                    );
-                  })
-                )}
-              </div>
-            </section>
-          )}
-        </main>
-      </div>
-    </div>
-  );
-}

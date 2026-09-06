@@ -1,6 +1,7 @@
 import { requireChatGPTUser } from '@/app/chatgpt-auth';
 import { getD1 } from '@/db';
-import { AdminDashboard, AdminSetup } from './admin-client';
+import { AdminSetup } from './admin-client';
+import { AdminDashboard } from './dashboard';
 
 export const dynamic = 'force-dynamic';
 const adminSql = `CREATE TABLE IF NOT EXISTS admin_users (user_id TEXT PRIMARY KEY, email TEXT NOT NULL, created_at TEXT NOT NULL)`;
