@@ -1,4 +1,5 @@
 'use client';
+import { csvRecords } from '@/lib/catalog-csv';
 import { useEffect, useRef, useState } from 'react';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -313,7 +314,12 @@ function VariantEditor({ initial = [] }: { initial?: Variant[] }) {
     </div>
   );
 }
-function BulkImport({ onDone }: { onDone: () => void }) {
+function BulkImport({ onDone, products }: { onDone: () => void; products: Product[] }) {
+  const [exportScope, setExportScope] = useState('all');
+  const [exportIds, setExportIds] = useState<string[]>([]);
+  const [exportQuery, setExportQuery] = useState('');
+  const exportable = products.filter(p => !p.deleted_at);
+  const selectedIds = exportIds.filter(id => exportable.some(p => p.id === id));
   const [busy, setBusy] = useState(false),
     [message, setMessage] = useState(''),
     [pending, setPending] = useState<{
@@ -348,11 +354,8 @@ function BulkImport({ onDone }: { onDone: () => void }) {
       let text = new TextDecoder('utf-8').decode(bytes);
       if (text.includes('\uFFFD'))
         text = new TextDecoder('windows-1252').decode(bytes);
-      const lines = text
-          .replace(/^\uFEFF/, '')
-          .split(/\r?\n/)
-          .filter(Boolean),
-        delimiter = lines[0].includes(';') ? ';' : ',',
+      const lines = csvRecords(text.replace(/^\uFEFF/, '')),
+        delimiter = (lines[0] || '').includes(';') ? ';' : ',',
         headers = cells(lines[0], delimiter).map((x) => x.toLowerCase()),
         required = [
           'name',
@@ -426,7 +429,7 @@ function BulkImport({ onDone }: { onDone: () => void }) {
   }
   function template() {
     const csv =
-      'product_id;active;name;category;subcategory;description;sku;color;size;normal_price;discount_percent;stock;image_url\n;1;Kaos Daily Basic;Daily Basic;Kaos;Kaos nyaman sehari-hari;KAOS-HITAM-M;Hitam;M;65000;16;20;\n;1;Kaos Daily Basic;Daily Basic;Kaos;Kaos nyaman sehari-hari;KAOS-HITAM-L;Hitam;L;67000;15;15;';
+      'product_id;active;name;category;subcategory;description;material;care_instructions;production_estimate;size_guide;weight_grams;sold_count;sku;color;size;normal_price;discount_percent;stock;image_url\n;1;Contoh produk;Daily Basic;Kaos;Isi deskripsi produk;;;;;500;0;CONTOH-M;Hitam;M;65000;0;20;\n;1;Contoh produk;Daily Basic;Kaos;Isi deskripsi produk;;;;;500;0;CONTOH-L;Hitam;L;67000;0;15;';
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
     a.download = 'template-produk-simple-ground.csv';
@@ -437,7 +440,10 @@ function BulkImport({ onDone }: { onDone: () => void }) {
     setBusy(true);
     setMessage('Menyiapkan data produk…');
     try {
-      const response = await fetch('/api/admin/products/bulk');
+      if (exportScope === 'selected' && !selectedIds.length) throw new Error('Pilih setidaknya satu produk.');
+      const params = new URLSearchParams();
+      if (exportScope === 'selected') selectedIds.forEach(id => params.append('id', id));
+      const response = await fetch(`/api/admin/products/bulk?${params}`);
       if (!response.ok) throw new Error('Export produk gagal.');
       const blob = await response.blob();
       const disposition = response.headers.get('content-disposition') || '';
@@ -459,6 +465,17 @@ function BulkImport({ onDone }: { onDone: () => void }) {
   }
   return (
     <div className="mt-5 rounded-2xl border border-dashed bg-[#f8faf7] p-4">
+      <fieldset className="mb-4 rounded-xl border bg-white p-3">
+        <legend className="px-2 text-sm font-bold">Pilih produk untuk diekspor</legend>
+        <label className="mr-5 inline-flex items-center gap-2 text-sm"><input type="radio" name="export-scope" checked={exportScope === 'all'} onChange={() => setExportScope('all')} />Semua produk ({exportable.length})</label>
+        <label className="inline-flex items-center gap-2 text-sm"><input type="radio" name="export-scope" checked={exportScope === 'selected'} onChange={() => setExportScope('selected')} />Produk pilihan ({selectedIds.length})</label>
+        {exportScope === 'selected' && <div className="mt-3">
+          <input aria-label="Cari produk untuk ekspor" placeholder="Cari nama produk…" value={exportQuery} onChange={e => setExportQuery(e.target.value)} className="w-full rounded-lg border p-2 text-sm" />
+          <div className="my-2 flex gap-4 text-sm"><button type="button" onClick={() => setExportIds(exportable.map(p => p.id))}>Pilih semua</button><button type="button" onClick={() => setExportIds([])}>Kosongkan pilihan</button></div>
+          <div className="max-h-60 space-y-2 overflow-y-auto">{exportable.filter(p => p.name.toLowerCase().includes(exportQuery.toLowerCase())).map(p => <label key={p.id} className="flex items-center gap-2 rounded-lg border p-2 text-sm"><input type="checkbox" checked={selectedIds.includes(p.id)} onChange={e => setExportIds(ids => e.target.checked ? [...ids, p.id] : ids.filter(id => id !== p.id))} />{p.name}</label>)}</div>
+        </div>}
+      </fieldset>
+      <p className="mb-3 text-xs leading-5">Edit bahan (material), perawatan (care_instructions), estimasi produksi (production_estimate), panduan ukuran (size_guide), berat dalam gram (weight_grams), dan jumlah terjual (sold_count). Data tingkat produk harus sama pada semua baris variannya. Jangan mengubah product_id produk lama. Harga jual dihitung dari harga normal dan diskon.</p>
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div>
           <b className="text-sm">Edit & upload produk massal</b>
@@ -476,7 +493,7 @@ function BulkImport({ onDone }: { onDone: () => void }) {
             disabled={busy}
             className="rounded-full border border-[#276344] bg-white px-4 py-2 text-xs font-bold text-[#24593d] disabled:opacity-50"
           >
-            Export produk
+            {exportScope === 'all' ? 'Ekspor semua produk' : `Ekspor ${selectedIds.length} produk pilihan`}
           </button>
           <button
             onClick={template}
@@ -1020,7 +1037,7 @@ export function ProductManager() {
       )}
       {!dedicatedEdit && (
         <>
-          <details className="admin-tool"><summary>Impor produk dari CSV</summary><BulkImport onDone={load} /></details>
+          <details className="admin-tool"><summary>Impor & ekspor produk CSV</summary><BulkImport onDone={load} products={items} /></details>
           <details className="admin-tool"><summary>Kelola kategori & subkategori</summary><CategoryManager items={items} onDone={load} /></details>
         </>
       )}
