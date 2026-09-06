@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getD1 } from '@/db';
+import { productImageUrl } from '@/lib/product-editor';
 
 const schemaSql = `CREATE TABLE IF NOT EXISTS products (id TEXT PRIMARY KEY, name TEXT NOT NULL, category TEXT NOT NULL, tone TEXT NOT NULL, price INTEGER NOT NULL, stock INTEGER NOT NULL DEFAULT 0, image_url TEXT, image_key TEXT, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`;
 const defaults = [
@@ -101,7 +102,7 @@ export async function GET() {
         ...p,
         variants,
         images: keys.length
-          ? keys.map((key) => `/api/product-image/${key}`)
+          ? keys.map(productImageUrl)
           : [p.image || '/placeholder-product.svg'],
       };
     }),

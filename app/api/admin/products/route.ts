@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getChatGPTUser } from '@/app/chatgpt-auth';
 import { getD1, getFiles } from '@/db';
+import { validateVariants, resolveGallery, productImageUrl } from '@/lib/product-editor';
 import {
   normalizeCategory,
   normalizeSubcategory,
@@ -35,7 +36,7 @@ async function images(files: File[]) {
   }
   return keys;
 }
-const imageUrl = (key: string) => `/api/product-image/${key}`;
+const imageUrl = productImageUrl;
 const gallery = (p: any) => {
   const keys = JSON.parse(p.images_json || '[]') as string[];
   const urls = keys.map(imageUrl);
@@ -79,7 +80,7 @@ function variants(raw: string) {
       (v) =>
         !v.color ||
         !v.size ||
-        v.price <= 0 ||
+        !Number.isSafeInteger(v.price) || !Number.isSafeInteger(v.normalPrice) || !Number.isSafeInteger(v.stock) || v.price <= 0 ||
         v.normalPrice < v.price ||
         v.stock < 0,
     )
@@ -136,16 +137,16 @@ export async function POST(req: Request) {
       sizeGuide = String(f.get('size_guide') || '').trim(),
       soldCount = Number(f.get('sold_count') || 0),
       weightGrams = Number(f.get('weightGrams') || 500),
-      vs = variants(String(f.get('variants') || ''));
-    const keys = await images(
+      vs = f.has('variantsJson') ? validateVariants(JSON.parse(String(f.get('variantsJson')))) : variants(String(f.get('variants') || ''));
+    const uploadedKeys = await images(
       f.getAll('images').filter((v): v is File => v instanceof File),
     );
+    const keys = f.has('galleryOrder') ? resolveGallery(JSON.parse(String(f.get('galleryOrder'))), [], uploadedKeys) : uploadedKeys;
     if (
       !name ||
       !category ||
       !subcategory ||
       !description ||
-      !keys.length ||
       !Number.isInteger(soldCount) ||
       soldCount < 0 ||
       !Number.isInteger(weightGrams) ||
@@ -179,7 +180,7 @@ export async function POST(req: Request) {
         productionEstimate,
         sizeGuide,
         JSON.stringify(vs),
-        keys[0],
+        keys[0] ?? null,
         JSON.stringify(keys),
         1,
         now,
@@ -211,12 +212,12 @@ export async function PATCH(req: Request) {
       sizeGuide = String(f.get('size_guide') || '').trim(),
       soldCount = Number(f.get('sold_count') || 0),
       weightGrams = Number(f.get('weightGrams') || 500),
-      vs = variants(String(f.get('variants') || '')),
+      vs = f.has('variantsJson') ? validateVariants(JSON.parse(String(f.get('variantsJson')))) : variants(String(f.get('variants') || '')),
       active = String(f.get('active')) === 'true' ? 1 : 0,
       old = await d1
-        .prepare('SELECT image_key,images_json FROM products WHERE id=?')
+        .prepare('SELECT image_key,image_url,images_json FROM products WHERE id=?')
         .bind(id)
-        .first<{ image_key: string | null; images_json: string }>(),
+        .first<{ image_key: string | null; image_url: string | null; images_json: string }>(),
       newKeys = await images(
         f.getAll('images').filter((v): v is File => v instanceof File),
       ),
@@ -227,12 +228,13 @@ export async function PATCH(req: Request) {
         ? storedKeys
         : old?.image_key
           ? [old.image_key]
-          : [],
+          : old?.image_url ? [old.image_url] : [],
       combinedKeys =
         f.get('replaceImages') === 'true'
           ? newKeys
           : [...previousKeys, ...newKeys],
-      finalKeys = combinedKeys;
+      finalKeys = f.has('galleryOrder') ? resolveGallery(JSON.parse(String(f.get('galleryOrder'))), previousKeys, newKeys) : combinedKeys;
+    if (!old) throw new Error('Produk tidak ditemukan.');
     if (
       !name ||
       !category ||
@@ -247,10 +249,9 @@ export async function PATCH(req: Request) {
       throw new Error('Lengkapi nama, kategori, subkategori, dan deskripsi.');
     if (finalKeys.length > 9)
       throw new Error('Total foto maksimal 9 per produk.');
-    if (!finalKeys.length && old?.image_key) finalKeys.push(old.image_key);
     await d1
       .prepare(
-        'UPDATE products SET name=?,category=?,subcategory=?,tone=?,price=?,stock=?,sold_count=?,weight_grams=?,description=?,material=?,care_instructions=?,production_estimate=?,size_guide=?,variants_json=?,active=?,image_key=COALESCE(?,image_key),images_json=?,updated_at=? WHERE id=?',
+        'UPDATE products SET name=?,category=?,subcategory=?,tone=?,price=?,stock=?,sold_count=?,weight_grams=?,description=?,material=?,care_instructions=?,production_estimate=?,size_guide=?,variants_json=?,active=?,image_key=?,image_url=?,images_json=?,updated_at=? WHERE id=?',
       )
       .bind(
         name,
@@ -268,7 +269,8 @@ export async function PATCH(req: Request) {
         sizeGuide,
         JSON.stringify(vs),
         active,
-        finalKeys[0] ?? null,
+        finalKeys[0] && !/^https?:\/\//.test(finalKeys[0]) ? finalKeys[0] : null,
+        finalKeys[0] && /^https?:\/\//.test(finalKeys[0]) ? finalKeys[0] : null,
         JSON.stringify(finalKeys),
         new Date().toISOString(),
         id,

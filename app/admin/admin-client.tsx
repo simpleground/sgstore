@@ -2,6 +2,8 @@
 import { csvRecords } from '@/lib/catalog-csv';
 import { useEffect, useRef, useState } from 'react';
 import { Switch } from '@/components/ui/switch';
+import { VariantEditor } from './variant-editor';
+import { ProductGallery } from './product-gallery';
 import {
   Archive,
   CheckCircle2,
@@ -129,191 +131,6 @@ type Product = {
   variants: Variant[];
   deleted_at?: string | null;
 };
-function VariantEditor({ initial = [] }: { initial?: Variant[] }) {
-  const [rows, setRows] = useState<Variant[]>(
-    initial.length
-      ? initial.map((row) => ({
-          ...row,
-          discountPercent:
-            (row.normalPrice ?? row.price) > 0
-              ? Math.round(
-                  (1 - row.price / (row.normalPrice ?? row.price)) * 100,
-                )
-              : 0,
-        }))
-      : [
-          {
-            sku: '',
-            color: '',
-            size: '',
-            normalPrice: 0,
-            discountPercent: 0,
-            price: 0,
-            stock: 0,
-          },
-        ],
-  );
-  function change(index: number, field: keyof Variant, value: string) {
-    setRows((current) =>
-      current.map((row, i) => {
-        if (i !== index) return row;
-        const next = {
-          ...row,
-          [field]:
-            field === 'sku' || field === 'color' || field === 'size'
-              ? value
-              : Number(value),
-        };
-        if (field === 'normalPrice' || field === 'discountPercent') {
-          const normalPrice = Number(next.normalPrice) || 0;
-          const discount = Math.min(
-            100,
-            Math.max(0, Number(next.discountPercent) || 0),
-          );
-          next.discountPercent = discount;
-          next.price = Math.round(normalPrice * (1 - discount / 100));
-        }
-        return next;
-      }),
-    );
-  }
-  return (
-    <div className="rounded-2xl border bg-white p-4 sm:col-span-2">
-      <input
-        type="hidden"
-        name="variants"
-        value={rows
-          .map(
-            (v) =>
-              `${v.sku ?? ''} | ${v.color} | ${v.size} | ${v.normalPrice || v.price} | ${v.price} | ${v.stock}`,
-          )
-          .join('\n')}
-      />
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <b className="text-sm">Warna, ukuran, diskon & stok</b>
-          <p className="mt-1 text-xs text-[#68736b]">
-            Satu baris untuk setiap pilihan yang dijual.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() =>
-            setRows((r) => [
-              ...r,
-              {
-                sku: '',
-                color: '',
-                size: '',
-                normalPrice: 0,
-                discountPercent: 0,
-                price: 0,
-                stock: 0,
-              },
-            ])
-          }
-          className="shrink-0 rounded-full bg-[#e5efe8] px-3 py-2 text-xs font-bold text-[#24593d]"
-        >
-          + Tambah varian
-        </button>
-      </div>
-      <div className="mt-4 space-y-3">
-        {rows.map((row, index) => (
-          <div
-            key={index}
-            className="grid grid-cols-2 gap-2 rounded-xl bg-[#f7f4ec] p-3 sm:grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_1fr_auto]"
-          >
-            <label className="text-[11px] font-semibold text-[#68736b]">
-              SKU
-              <input
-                value={row.sku ?? ''}
-                onChange={(e) => change(index, 'sku', e.target.value)}
-                placeholder="TBL-HITAM-M"
-                className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm text-[#1f2b22]"
-              />
-            </label>
-            <label className="text-[11px] font-semibold text-[#68736b]">
-              Warna
-              <input
-                required
-                value={row.color}
-                onChange={(e) => change(index, 'color', e.target.value)}
-                placeholder="Hitam"
-                className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm text-[#1f2b22]"
-              />
-            </label>
-            <label className="text-[11px] font-semibold text-[#68736b]">
-              Ukuran
-              <input
-                required
-                value={row.size}
-                onChange={(e) => change(index, 'size', e.target.value)}
-                placeholder="M / All Size"
-                className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm text-[#1f2b22]"
-              />
-            </label>
-            <label className="text-[11px] font-semibold text-[#68736b]">
-              Harga normal
-              <input
-                required
-                min="1"
-                type="number"
-                value={row.normalPrice || ''}
-                onChange={(e) => change(index, 'normalPrice', e.target.value)}
-                placeholder="65000"
-                className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm text-[#1f2b22]"
-              />
-            </label>
-            <label className="text-[11px] font-semibold text-[#68736b]">
-              Diskon (%)
-              <input
-                required
-                min="0"
-                max="99"
-                type="number"
-                value={row.discountPercent ?? 0}
-                onChange={(e) =>
-                  change(index, 'discountPercent', e.target.value)
-                }
-                placeholder="16"
-                className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm text-[#1f2b22]"
-              />
-            </label>
-            <label className="text-[11px] font-semibold text-[#68736b]">
-              Harga jual otomatis
-              <input
-                readOnly
-                value={row.price || ''}
-                placeholder="54600"
-                className="mt-1 w-full rounded-lg border bg-[#edf1ec] px-3 py-2 text-sm font-bold text-[#24593d]"
-              />
-            </label>
-            <label className="text-[11px] font-semibold text-[#68736b]">
-              Stok
-              <input
-                required
-                min="0"
-                type="number"
-                value={row.stock}
-                onChange={(e) => change(index, 'stock', e.target.value)}
-                placeholder="10"
-                className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm text-[#1f2b22]"
-              />
-            </label>
-            <button
-              type="button"
-              disabled={rows.length === 1}
-              onClick={() => setRows((r) => r.filter((_, i) => i !== index))}
-              className="self-end rounded-lg px-3 py-2 text-xs font-semibold text-red-700 disabled:opacity-30"
-            >
-              Hapus
-            </button>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 function BulkImport({ onDone, products }: { onDone: () => void; products: Product[] }) {
   const [exportScope, setExportScope] = useState('all');
   const [exportIds, setExportIds] = useState<string[]>([]);
@@ -798,7 +615,11 @@ export function ProductManager() {
     [],
   );
   useEffect(() => {
-    if (handledEditLink || !items.length) return;
+    if (handledEditLink) return;
+    if (new URLSearchParams(window.location.search).has('new')) {
+      setDedicatedEdit(true); setOpen(true); setHandledEditLink(true); return;
+    }
+    if (!items.length) return;
     const editId = new URLSearchParams(window.location.search).get('edit');
     const product = editId ? items.find((item) => item.id === editId) : null;
     if (product) {
@@ -834,7 +655,7 @@ export function ProductManager() {
         const channel = new BroadcastChannel('simple-ground-products');
         channel.postMessage('updated');
         channel.close();
-        window.close();
+        window.location.assign('/admin?section=products');
         return;
       }
       setOpen(false);
@@ -1026,8 +847,7 @@ export function ProductManager() {
           </div>
           <button
             onClick={() => {
-              setEditing(null);
-              setOpen(true);
+              window.location.assign('/admin?new=1');
             }}
             className="flex items-center gap-2 rounded-full bg-[#243b2c] px-4 py-2.5 text-sm font-semibold text-white"
           >
@@ -1088,23 +908,23 @@ export function ProductManager() {
           </p>
         </div>
       )}
-      {dedicatedEdit && editing && (
+      {dedicatedEdit && (
         <div className="mb-5 flex flex-col justify-between gap-3 border-b pb-5 sm:flex-row sm:items-end">
           <div>
             <p className="text-xs font-bold uppercase tracking-[.18em] text-[#a34f2c]">
-              Edit produk
+              {editing ? 'Edit produk' : 'Tambah produk'}
             </p>
-            <h2 className="mt-1 font-serif text-3xl">{editing.name}</h2>
+            <h2 className="mt-1 font-serif text-3xl">{editing?.name || 'Produk baru'}</h2>
             <p className="mt-1 text-sm text-[#68736b]">
               Perbarui informasi, variasi, stok, harga, dan foto produk ini.
             </p>
           </div>
           <button
             type="button"
-            onClick={() => window.close()}
+            onClick={() => window.location.assign('/admin?section=products')}
             className="rounded-full border px-4 py-2 text-sm font-semibold"
           >
-            Tutup tab
+            Kembali ke katalog
           </button>
         </div>
       )}
@@ -1207,115 +1027,7 @@ export function ProductManager() {
               Dipakai untuk menghitung ongkir.
             </span>
           </label>
-          <label className="rounded-xl border bg-white px-4 py-3 text-sm sm:col-span-2">
-            <span className="mb-2 block font-semibold">
-              Foto produk (maksimal 9)
-            </span>
-            <span className="mb-3 block text-xs text-[#68736b]">
-              Pilih beberapa foto sekaligus. Foto pertama menjadi foto utama.
-            </span>
-            <input
-              ref={imageInputRef}
-              name="images"
-              type="file"
-              required={!editing}
-              multiple
-              accept="image/jpeg,image/png,image/webp"
-              onChange={(event) => {
-                const files = Array.from(event.currentTarget.files || []);
-                if (files.length > 9) {
-                  event.currentTarget.value = '';
-                  selectedImages.forEach((image) =>
-                    URL.revokeObjectURL(image.url),
-                  );
-                  setSelectedImages([]);
-                  setError('Maksimal 9 foto per produk.');
-                  return;
-                }
-                setError('');
-                selectedImages.forEach((image) =>
-                  URL.revokeObjectURL(image.url),
-                );
-                setSelectedImages(
-                  files.map((file) => ({
-                    file,
-                    url: URL.createObjectURL(file),
-                  })),
-                );
-              }}
-              className="max-w-full text-xs"
-            />
-            {editing && (
-              <label className="mt-3 flex items-center gap-2 text-xs">
-                <input type="checkbox" name="replaceImages" value="true" />{' '}
-                Ganti semua foto lama dengan pilihan baru
-              </label>
-            )}
-          </label>
-          {selectedImages.length > 0 && (
-            <div className="sm:col-span-2">
-              <p className="mb-2 text-xs font-semibold text-[#566158]">
-                Pratinjau foto baru ({selectedImages.length}/9)
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {selectedImages.map((image, index) => (
-                  <div key={image.url} className="relative">
-                    <img
-                      src={image.url}
-                      alt={`Pratinjau foto ${index + 1}`}
-                      className="h-24 w-20 rounded-lg border object-cover"
-                    />
-                    <span className="absolute right-1 top-1 rounded bg-black/70 px-1.5 py-0.5 text-[9px] text-white">
-                      {index + 1}
-                    </span>
-                    {index === 0 && (
-                      <span className="absolute bottom-1 left-1 rounded bg-[#243b2c] px-1.5 py-0.5 text-[9px] text-white">
-                        Utama
-                      </span>
-                    )}
-                    <button
-                      type="button"
-                      aria-label={`Hapus foto ${index + 1}`}
-                      onClick={() => {
-                        URL.revokeObjectURL(image.url);
-                        const remaining = selectedImages.filter(
-                          (_, imageIndex) => imageIndex !== index,
-                        );
-                        const transfer = new DataTransfer();
-                        remaining.forEach((item) =>
-                          transfer.items.add(item.file),
-                        );
-                        if (imageInputRef.current)
-                          imageInputRef.current.files = transfer.files;
-                        setSelectedImages(remaining);
-                      }}
-                      className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-red-700 text-sm font-bold text-white shadow"
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {editing?.images?.length ? (
-            <div className="flex flex-wrap gap-2 sm:col-span-2">
-              {editing.images.map((src, index) => (
-                <div key={src} className="relative">
-                  <img
-                    src={src}
-                    alt={`Foto ${index + 1}`}
-                    className="h-20 w-16 rounded-lg object-cover"
-                  />
-                  {index === 0 && (
-                    <span className="absolute bottom-1 left-1 rounded bg-black/70 px-1.5 py-0.5 text-[9px] text-white">
-                      Utama
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : null}
+          <ProductGallery initial={editing?.images} />
           <VariantEditor initial={editing?.variants} />
           {error && (
             <p className="text-sm text-red-700 sm:col-span-2">{error}</p>
@@ -1330,6 +1042,7 @@ export function ProductManager() {
             <button
               type="button"
               onClick={() => {
+                if (dedicatedEdit) { window.location.assign('/admin?section=products'); return; }
                 selectedImages.forEach((image) =>
                   URL.revokeObjectURL(image.url),
                 );

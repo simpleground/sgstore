@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getD1 } from '@/db';
+import { productImageUrl } from '@/lib/product-editor';
 import { productSlug } from '@/lib/product-slug';
 import ProductDetailClient, {
   type DetailProduct,
@@ -14,7 +15,7 @@ const readArray = (value: unknown) => {
     return [];
   }
 };
-const imageUrl = (key: string) => `/api/product-image/${key}`;
+const imageUrl = productImageUrl;
 const productFromRow = (row: any): DetailProduct => {
   const keys = readArray(row.images_json).filter(
     (key): key is string => typeof key === 'string' && Boolean(key),
