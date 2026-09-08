@@ -81,7 +81,7 @@ export async function POST(request: Request) {
     )
       status = 'dibatalkan';
     await d1
-      .prepare('UPDATE orders SET status=?, updated_at=? WHERE order_number=?')
+      .prepare("UPDATE orders SET status=?, updated_at=? WHERE order_number=? AND status NOT IN ('dibayar','diproses','dikirim','selesai')")
       .bind(status, new Date().toISOString(), body.order_id)
       .run();
     return NextResponse.json({ received: true });

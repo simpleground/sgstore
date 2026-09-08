@@ -1,3 +1,5 @@
+import { quantityLimit, isPreorder } from '@/lib/preorder';
+import { paymentTokenHash } from '@/lib/payment-access';
 import { NextResponse } from 'next/server';
 import { getD1 } from '@/db';
 import { retrieveShippingRates } from '@/lib/biteship';
@@ -71,11 +73,13 @@ export async function POST(request: Request) {
       price: number;
       quantity: number;
       weight: number;
+      preorder: boolean;
+      preorderDays: number;
     }> = [];
     for (const requested of requestedItems) {
       const product = await d1
         .prepare(
-          'SELECT id,name,variants_json,weight_grams FROM products WHERE id=? AND active=1 AND deleted_at IS NULL',
+          'SELECT id,name,variants_json,weight_grams,preorder_enabled,preorder_days FROM products WHERE id=? AND active=1 AND deleted_at IS NULL',
         )
         .bind(requested.id)
         .first<{
@@ -83,6 +87,8 @@ export async function POST(request: Request) {
           name: string;
           variants_json: string;
           weight_grams: number;
+          preorder_enabled: number;
+          preorder_days: number;
         }>();
       if (!product)
         return NextResponse.json(
@@ -99,7 +105,7 @@ export async function POST(request: Request) {
         !Number.isFinite(variant.price) ||
         variant.price <= 0 ||
         !Number.isInteger(variant.stock) ||
-        variant.stock < requested.quantity
+        quantityLimit(product, variant) < requested.quantity
       )
         return NextResponse.json(
           {
@@ -116,6 +122,8 @@ export async function POST(request: Request) {
         price: variant.price,
         quantity: requested.quantity,
         weight: product.weight_grams,
+        preorder: isPreorder(product, variant),
+        preorderDays: isPreorder(product, variant) ? product.preorder_days : 0,
       });
     }
 
@@ -155,21 +163,17 @@ export async function POST(request: Request) {
       );
     const shipping = selectedShipping.price;
     const total = subtotal + shipping;
+    const paymentAccessToken = crypto.randomUUID() + crypto.randomUUID();
+    const accessHash = await paymentTokenHash(paymentAccessToken);
     const now = new Date().toISOString();
     const orderNumber = `SG-${Date.now().toString(36).toUpperCase()}-${crypto.randomUUID().slice(0, 4).toUpperCase()}`;
     const paymentLabel =
       paymentMethod === 'midtrans'
         ? 'Midtrans QRIS / Virtual Account'
         : 'Bank Mandiri';
-    await d1.prepare(schemaSql).run();
     await d1
       .prepare(
-        'CREATE INDEX IF NOT EXISTS idx_orders_status_created ON orders (status, created_at)',
-      )
-      .run();
-    await d1
-      .prepare(
-        'INSERT INTO orders (order_number, customer_name, customer_phone, shipping_address, items_json, subtotal, shipping, total, payment_method, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO orders (order_number, customer_name, customer_phone, shipping_address, items_json, subtotal, shipping, total, payment_method, status, created_at, updated_at, payment_token_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       )
       .bind(
         orderNumber,
@@ -184,11 +188,12 @@ export async function POST(request: Request) {
         'menunggu_pembayaran',
         now,
         now,
+        accessHash,
       )
       .run();
 
     if (paymentMethod === 'manual')
-      return NextResponse.json({ orderNumber, total, paymentMethod });
+      return NextResponse.json({ orderNumber, total, paymentMethod, paymentAccessToken });
 
     const serverKey = process.env.MIDTRANS_SERVER_KEY;
     const clientKey = process.env.MIDTRANS_CLIENT_KEY;
@@ -214,6 +219,7 @@ export async function POST(request: Request) {
         },
         body: JSON.stringify({
           transaction_details: { order_id: orderNumber, gross_amount: total },
+          callbacks: { finish: `https://simpleground.online/checkout?order_id=${encodeURIComponent(orderNumber)}` },
           item_details: [
             ...items.map((item, index) => ({
               id: (item.sku || `${item.id}-${index}`).slice(0, 50),
@@ -268,6 +274,7 @@ export async function POST(request: Request) {
       orderNumber,
       total,
       paymentMethod,
+      paymentAccessToken,
       token: midtrans.token,
       redirectUrl: midtrans.redirect_url,
       clientKey,

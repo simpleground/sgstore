@@ -89,7 +89,7 @@ export async function GET() {
   }
   const result = await d1
     .prepare(
-      "SELECT id,name,category,subcategory,tone,price,stock,sold_count,created_at,description,material,care_instructions,production_estimate,size_guide,variants_json,images_json,COALESCE('/api/product-image/' || image_key,image_url) AS image FROM products WHERE active=1 AND deleted_at IS NULL ORDER BY created_at ASC",
+      "SELECT id,name,category,subcategory,tone,price,stock,sold_count,preorder_enabled,preorder_days,created_at,description,material,care_instructions,production_estimate,size_guide,variants_json,images_json,COALESCE('/api/product-image/' || image_key,image_url) AS image FROM products WHERE active=1 AND deleted_at IS NULL ORDER BY created_at ASC",
     )
     .all();
   const response = NextResponse.json({

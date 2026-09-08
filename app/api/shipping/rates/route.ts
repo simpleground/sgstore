@@ -1,3 +1,4 @@
+import { quantityLimit, isPreorder } from '@/lib/preorder';
 import { NextResponse } from 'next/server';
 import { getD1 } from '@/db';
 import { retrieveShippingRates } from '@/lib/biteship';
@@ -44,7 +45,7 @@ export async function POST(request: Request) {
         );
       const product = await d1
         .prepare(
-          'SELECT id,name,variants_json,weight_grams FROM products WHERE id=? AND active=1 AND deleted_at IS NULL',
+          'SELECT id,name,variants_json,weight_grams,preorder_enabled,preorder_days FROM products WHERE id=? AND active=1 AND deleted_at IS NULL',
         )
         .bind(requested.id)
         .first<{
@@ -52,6 +53,8 @@ export async function POST(request: Request) {
           name: string;
           variants_json: string;
           weight_grams: number;
+          preorder_enabled: number;
+          preorder_days: number;
         }>();
       if (!product)
         return NextResponse.json(
@@ -63,7 +66,7 @@ export async function POST(request: Request) {
         variants = JSON.parse(product.variants_json || '[]');
       } catch {}
       const variant = variants[requested.variantIndex];
-      if (!variant || variant.stock < requested.quantity)
+      if (!variant || quantityLimit(product, variant) < requested.quantity)
         return NextResponse.json(
           { error: `Stok ${product.name} sudah berubah.` },
           { status: 409 },

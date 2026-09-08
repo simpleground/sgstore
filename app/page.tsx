@@ -1,4 +1,5 @@
 'use client';
+import { quantityLimit, preorderLabel } from '@/lib/preorder';
 
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -34,6 +35,8 @@ type Variant = {
   created_at?: string;
 };
 type Product = {
+ preorder_enabled?: number;
+ preorder_days?: number;
   id: string;
   name: string;
   category: string;
@@ -512,31 +515,8 @@ export default function Home() {
     if (productsLoading || !products.length) return;
     const params = new URLSearchParams(window.location.search);
     if (params.get('checkout') !== '1') return;
-    try {
-      const line = JSON.parse(
-        sessionStorage.getItem('sg_buy_now') || 'null',
-      ) as CartLine | null;
-      if (
-        line &&
-        products.some(
-          (product) =>
-            product.id === line.productId &&
-            product.variants[line.variantIndex]?.stock > 0,
-        )
-      ) {
-        setDirectPurchase({ ...line, quantity: 1 });
-        setCheckout(true);
-        setCartOpen(true);
-      }
-    } catch {}
-    sessionStorage.removeItem('sg_buy_now');
-    params.delete('checkout');
-    const query = params.toString();
-    window.history.replaceState(
-      {},
-      '',
-      `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`,
-    );
+    window.location.replace('/checkout?buy=1');
+    return;
   }, [products, productsLoading]);
   async function submitReview(productId: string) {
     setReviewMessage('');
@@ -581,12 +561,8 @@ export default function Home() {
     });
   }
   function buyNow(productId: string, variantIndex: number) {
-    setDirectPurchase({ productId, variantIndex, quantity: 1 });
-    setOrdered(false);
-    setOrderError('');
-    setDetailId(null);
-    setCheckout(true);
-    setCartOpen(true);
+    sessionStorage.setItem('sg_buy_now', JSON.stringify({productId, variantIndex, quantity:1}));
+    window.location.assign('/checkout?buy=1');
   }
   async function checkShippingRates() {
     setShippingBusy(true);
@@ -1542,11 +1518,11 @@ export default function Home() {
                             <option
                               key={`${v.color}-${v.size}-${index}`}
                               value={index}
-                              disabled={v.stock < 1}
+                              disabled={quantityLimit(p,v) < 1}
                             >
                               {v.sku ? `${v.sku} · ` : ''}
                               {v.color} · {v.size} — {rupiah(v.price)}{' '}
-                              {v.stock < 1 ? '(habis)' : ''}
+                              {v.stock === 0 ? '(pre-order)' : ''}
                             </option>
                           ))}
                         </select>
@@ -1579,7 +1555,7 @@ export default function Home() {
                               >
                                 {item.stock > 0
                                   ? `${item.stock} tersedia`
-                                  : 'Habis'}
+                                  : 'Pre-order'}
                               </span>
                             </button>
                           ))}
@@ -1631,17 +1607,17 @@ export default function Home() {
                             setDetailId(null);
                             setCartOpen(true);
                           }}
-                          disabled={variant.stock < 1}
+                          disabled={quantityLimit(p,variant) < 1}
                           className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#173c2b] py-3.5 font-bold text-[#173c2b] disabled:border-gray-300 disabled:text-gray-400"
                         >
                           <ShoppingBag size={18} /> Tambah ke keranjang
                         </button>
                         <button
                           onClick={() => buyNow(p.id, variantIndex)}
-                          disabled={variant.stock < 1}
+                          disabled={quantityLimit(p,variant) < 1}
                           className="w-full rounded-xl bg-[#c0693c] py-3.5 font-bold text-white disabled:bg-gray-400"
                         >
-                          {variant.stock > 0 ? 'Beli langsung' : 'Stok habis'}
+                          Beli langsung
                         </button>
                       </div>
                       <a
@@ -1860,6 +1836,7 @@ export default function Home() {
                               <b className="text-sm">{cleanLabel(p.name)}</b>
                               <span className="mt-1 text-xs text-[#758078]">
                                 {variant.color} · {variant.size}
+                                <span className="block mt-1">{preorderLabel(p,variant)}</span>
                                 {variant.sku ? ` · SKU ${variant.sku}` : ''}
                               </span>
                               <div className="mt-auto flex items-center justify-between">
@@ -1908,10 +1885,10 @@ export default function Home() {
                       <b>{rupiah(subtotal)}</b>
                     </div>
                     <p className="mt-2 text-xs text-[#758078]">
-                      Ongkir tetap Rp18.000.
+                      Ongkir dihitung sesuai alamat dan kurir saat checkout.
                     </p>
                     <button
-                      onClick={() => setCheckout(true)}
+                      onClick={() => window.location.assign('/checkout')}
                       className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-[#243b2c] py-3.5 font-semibold text-white"
                     >
                       Lanjut checkout <ArrowRight size={17} />

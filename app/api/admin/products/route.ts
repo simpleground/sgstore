@@ -90,8 +90,14 @@ function variants(raw: string) {
     );
   return rows;
 }
+function preorderSettings(f: FormData) {
+  const enabled = f.get('preorder_enabled') === '1' ? 1 : 0;
+  const days = Number(f.get('preorder_days') ?? 2);
+  if (!Number.isInteger(days) || days < 1 || days > 365) throw new Error('Waktu pre-order harus 1–365 hari.');
+  return { enabled, days };
+}
 const select =
-  "SELECT id,name,category,subcategory,tone,price,stock,sold_count,weight_grams,active,created_at,description,material,care_instructions,production_estimate,size_guide,variants_json,images_json,deleted_at,COALESCE('/api/product-image/' || image_key,image_url) AS image FROM products";
+  "SELECT id,name,category,subcategory,tone,price,stock,sold_count,preorder_enabled,preorder_days,weight_grams,active,created_at,description,material,care_instructions,production_estimate,size_guide,variants_json,images_json,deleted_at,COALESCE('/api/product-image/' || image_key,image_url) AS image FROM products";
 export async function GET() {
   if (!(await auth()))
     return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
@@ -121,7 +127,7 @@ export async function POST(req: Request) {
         now = new Date().toISOString();
       await d1
         .prepare(
-          "INSERT INTO products (id,name,category,subcategory,tone,price,stock,sold_count,weight_grams,description,material,care_instructions,production_estimate,size_guide,variants_json,image_url,image_key,images_json,active,created_at,updated_at) SELECT ?,name||' (Salinan)',category,subcategory,tone,price,stock,sold_count,weight_grams,description,material,care_instructions,production_estimate,size_guide,variants_json,image_url,image_key,images_json,0,?,? FROM products WHERE id=?",
+          "INSERT INTO products (id,name,category,subcategory,tone,price,stock,sold_count,preorder_enabled,preorder_days,weight_grams,description,material,care_instructions,production_estimate,size_guide,variants_json,image_url,image_key,images_json,active,created_at,updated_at) SELECT ?,name||' (Salinan)',category,subcategory,tone,price,stock,sold_count,preorder_enabled,preorder_days,weight_grams,description,material,care_instructions,production_estimate,size_guide,variants_json,image_url,image_key,images_json,0,?,? FROM products WHERE id=?",
         )
         .bind(id, now, now, copyId)
         .run();
@@ -136,6 +142,7 @@ export async function POST(req: Request) {
       productionEstimate = String(f.get('production_estimate') || '').trim(),
       sizeGuide = String(f.get('size_guide') || '').trim(),
       soldCount = Number(f.get('sold_count') || 0),
+      preorder = preorderSettings(f),
       weightGrams = Number(f.get('weightGrams') || 500),
       vs = f.has('variantsJson') ? validateVariants(JSON.parse(String(f.get('variantsJson')))) : variants(String(f.get('variants') || ''));
     const uploadedKeys = await images(
@@ -162,7 +169,7 @@ export async function POST(req: Request) {
       now = new Date().toISOString();
     await d1
       .prepare(
-        'INSERT INTO products (id,name,category,subcategory,tone,price,stock,sold_count,weight_grams,description,material,care_instructions,production_estimate,size_guide,variants_json,image_key,images_json,active,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        'INSERT INTO products (id,name,category,subcategory,tone,price,stock,sold_count,preorder_enabled,preorder_days,weight_grams,description,material,care_instructions,production_estimate,size_guide,variants_json,image_key,images_json,active,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
       )
       .bind(
         id,
@@ -173,6 +180,8 @@ export async function POST(req: Request) {
         price,
         stock,
         soldCount,
+        preorder.enabled,
+        preorder.days,
         weightGrams,
         description,
         material,
@@ -211,6 +220,7 @@ export async function PATCH(req: Request) {
       productionEstimate = String(f.get('production_estimate') || '').trim(),
       sizeGuide = String(f.get('size_guide') || '').trim(),
       soldCount = Number(f.get('sold_count') || 0),
+      preorder = preorderSettings(f),
       weightGrams = Number(f.get('weightGrams') || 500),
       vs = f.has('variantsJson') ? validateVariants(JSON.parse(String(f.get('variantsJson')))) : variants(String(f.get('variants') || '')),
       active = String(f.get('active')) === 'true' ? 1 : 0,
@@ -251,7 +261,7 @@ export async function PATCH(req: Request) {
       throw new Error('Total foto maksimal 9 per produk.');
     await d1
       .prepare(
-        'UPDATE products SET name=?,category=?,subcategory=?,tone=?,price=?,stock=?,sold_count=?,weight_grams=?,description=?,material=?,care_instructions=?,production_estimate=?,size_guide=?,variants_json=?,active=?,image_key=?,image_url=?,images_json=?,updated_at=? WHERE id=?',
+        'UPDATE products SET name=?,category=?,subcategory=?,tone=?,price=?,stock=?,sold_count=?,preorder_enabled=?,preorder_days=?,weight_grams=?,description=?,material=?,care_instructions=?,production_estimate=?,size_guide=?,variants_json=?,active=?,image_key=?,image_url=?,images_json=?,updated_at=? WHERE id=?',
       )
       .bind(
         name,
@@ -261,6 +271,8 @@ export async function PATCH(req: Request) {
         price,
         stock,
         soldCount,
+        preorder.enabled,
+        preorder.days,
         weightGrams,
         description,
         material,

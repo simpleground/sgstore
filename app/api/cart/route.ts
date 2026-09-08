@@ -1,3 +1,4 @@
+import { quantityLimit, isPreorder } from '@/lib/preorder';
 import { NextResponse } from 'next/server';
 import { getCustomer } from '@/app/customer-auth';
 import { getD1 } from '@/db';
@@ -31,10 +32,10 @@ export async function PUT(req: Request) {
   if (quantity > 0) {
     const product = await d
       .prepare(
-        'SELECT variants_json FROM products WHERE id=? AND active=1 AND deleted_at IS NULL',
+        'SELECT variants_json,preorder_enabled,preorder_days FROM products WHERE id=? AND active=1 AND deleted_at IS NULL',
       )
       .bind(productId)
-      .first<{ variants_json: string }>();
+      .first<{ variants_json: string; preorder_enabled: number; preorder_days: number }>();
     let variants: Array<{ stock?: number }> = [];
     try {
       variants = JSON.parse(product?.variants_json || '[]');
@@ -44,7 +45,7 @@ export async function PUT(req: Request) {
       !product ||
       !variant ||
       !Number.isInteger(variant.stock) ||
-      quantity > variant.stock!
+      quantity > quantityLimit(product, variant)
     )
       return NextResponse.json(
         { error: 'Produk, varian, atau jumlah stok tidak tersedia.' },

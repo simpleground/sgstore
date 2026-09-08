@@ -110,6 +110,8 @@ type Variant = {
   stock: number;
 };
 type Product = {
+  preorder_enabled?: number;
+  preorder_days?: number;
   id: string;
   name: string;
   category: string;
@@ -1028,7 +1030,7 @@ export function ProductManager() {
             </span>
           </label>
           <ProductGallery initial={editing?.images} />
-          <VariantEditor initial={editing?.variants} />
+          <VariantEditor initial={editing?.variants} preorderEnabled={Boolean(editing?.preorder_enabled)} preorderDays={editing?.preorder_days ?? 2} />
           {error && (
             <p className="text-sm text-red-700 sm:col-span-2">{error}</p>
           )}

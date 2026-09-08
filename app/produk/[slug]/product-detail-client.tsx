@@ -1,4 +1,5 @@
 'use client';
+import { quantityLimit, preorderLabel } from '@/lib/preorder';
 
 import { useState } from 'react';
 import { ChevronLeft, ChevronRight, ShoppingBag } from 'lucide-react';
@@ -13,6 +14,8 @@ type Variant = {
   stock: number;
 };
 export type DetailProduct = {
+  preorder_enabled?: number;
+  preorder_days?: number;
   id: string;
   name: string;
   category: string;
@@ -52,15 +55,15 @@ export default function ProductDetailClient({
   related: DetailProduct[];
   reviews: Review[];
 }) {
-  const [variantIndex, setVariantIndex] = useState(() => Math.max(0, product.variants.findIndex(item => item.stock > 0)));
+  const [variantIndex, setVariantIndex] = useState(() => Math.max(0, product.variants.findIndex(item => quantityLimit(product, item) > 0)));
   const [imageIndex, setImageIndex] = useState(0);
   const [message, setMessage] = useState('');
   const variant = product.variants[variantIndex] || product.variants[0];
   const colors = Array.from(new Set(product.variants.map(item => item.color)));
   const sizes = Array.from(new Set(product.variants.map(item => item.size)));
   function chooseColor(color: string) {
-    let index = product.variants.findIndex(item => item.color === color && item.size === variant?.size && item.stock > 0);
-    if (index < 0) index = product.variants.findIndex(item => item.color === color && item.stock > 0);
+    let index = product.variants.findIndex(item => item.color === color && item.size === variant?.size && quantityLimit(product, item) > 0);
+    if (index < 0) index = product.variants.findIndex(item => item.color === color && quantityLimit(product, item) > 0);
     if (index >= 0) { setVariantIndex(index); setMessage(''); }
   }
   const images = product.images?.length ? product.images : [product.image];
@@ -69,7 +72,7 @@ export default function ProductDetailClient({
     : 0;
 
   async function addToCart() {
-    if (!variant || variant.stock < 1) return;
+    if (!variant || quantityLimit(product, variant) < 1) return;
     const key = `${product.id}:${variantIndex}`;
     let cart: Record<
       string,
@@ -78,11 +81,11 @@ export default function ProductDetailClient({
     try {
       cart = JSON.parse(localStorage.getItem('sg_cart') || '{}');
     } catch {}
-    const quantity = Math.min(variant.stock, (cart[key]?.quantity || 0) + 1);
+    const quantity = Math.min(quantityLimit(product, variant), (cart[key]?.quantity || 0) + 1);
     cart[key] = { productId: product.id, variantIndex, quantity };
     localStorage.setItem('sg_cart', JSON.stringify(cart));
     await fetch('/api/cart', {
-      method: 'POST',
+      method: 'PUT',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ productId: product.id, variantIndex, quantity }),
     }).catch(() => {});
@@ -92,7 +95,7 @@ export default function ProductDetailClient({
   }
 
   function buyNow() {
-    if (!variant || variant.stock < 1) return;
+    if (!variant || quantityLimit(product, variant) < 1) return;
     sessionStorage.setItem(
       'sg_buy_now',
       JSON.stringify({
@@ -101,7 +104,7 @@ export default function ProductDetailClient({
         quantity: 1,
       }),
     );
-    window.location.assign('/?checkout=1');
+    window.location.assign('/checkout?buy=1');
   }
 
   return (
@@ -197,7 +200,7 @@ export default function ProductDetailClient({
                   <legend className="mb-2 text-sm font-semibold">Warna</legend>
                   <div className="flex flex-wrap gap-2">
                     {colors.map(color => {
-                      const available = product.variants.some(item => item.color === color && item.stock > 0);
+                      const available = product.variants.some(item => item.color === color && quantityLimit(product, item) > 0);
                       return <button type="button" key={color} disabled={!available} aria-pressed={variant?.color === color} onClick={() => chooseColor(color)}
                         className={`min-h-10 rounded-lg border px-3 py-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-35 ${variant?.color === color ? 'border-[#276344] bg-[#edf6ef] font-semibold text-[#173c2b]' : 'border-gray-200 hover:border-[#276344]'}`}>{color}</button>;
                     })}
@@ -207,13 +210,13 @@ export default function ProductDetailClient({
                   <legend className="mb-2 text-sm font-semibold">Ukuran</legend>
                   <div className="flex flex-wrap gap-2">
                     {sizes.map(size => {
-                      const index = product.variants.findIndex(item => item.color === variant?.color && item.size === size && item.stock > 0);
+                      const index = product.variants.findIndex(item => item.color === variant?.color && item.size === size && quantityLimit(product, item) > 0);
                       return <button type="button" key={size} disabled={index < 0} aria-pressed={variant?.size === size} onClick={() => { setVariantIndex(index); setMessage(''); }}
                         className={`min-h-10 min-w-11 rounded-lg border px-3 py-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-35 ${variant?.size === size ? 'border-[#276344] bg-[#edf6ef] font-semibold text-[#173c2b]' : 'border-gray-200 hover:border-[#276344]'}`}>{size}</button>;
                     })}
                   </div>
                 </fieldset>
-                <p className="text-xs text-[#637168]" aria-live="polite">{variant?.stock ? `Stok: ${variant.stock}` : 'Stok habis'}</p>
+                <p className="text-xs text-[#637168]" aria-live="polite">{variant ? preorderLabel(product, variant) : 'Varian tidak tersedia'}</p>
               </div>
 
               {(product.material ||
@@ -259,17 +262,17 @@ export default function ProductDetailClient({
               <div className="mt-5 grid gap-2 sm:grid-cols-2">
                 <button
                   onClick={addToCart}
-                  disabled={!variant || variant.stock < 1}
+                  disabled={!variant || quantityLimit(product, variant) < 1}
                   className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#173c2b] py-3.5 font-bold text-[#173c2b] disabled:border-gray-300 disabled:text-gray-400"
                 >
                   <ShoppingBag size={18} /> Tambah ke keranjang
                 </button>
                 <button
                   onClick={buyNow}
-                  disabled={!variant || variant.stock < 1}
+                  disabled={!variant || quantityLimit(product, variant) < 1}
                   className="w-full rounded-xl bg-[#c0693c] py-3.5 font-bold text-white disabled:bg-gray-400"
                 >
-                  {variant?.stock ? 'Beli langsung' : 'Stok habis'}
+                  {variant ? 'Beli langsung' : 'Varian tidak tersedia'}
                 </button>
               </div>
               <a
