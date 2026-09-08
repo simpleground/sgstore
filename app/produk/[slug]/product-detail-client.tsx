@@ -52,10 +52,17 @@ export default function ProductDetailClient({
   related: DetailProduct[];
   reviews: Review[];
 }) {
-  const [variantIndex, setVariantIndex] = useState(0);
+  const [variantIndex, setVariantIndex] = useState(() => Math.max(0, product.variants.findIndex(item => item.stock > 0)));
   const [imageIndex, setImageIndex] = useState(0);
   const [message, setMessage] = useState('');
   const variant = product.variants[variantIndex] || product.variants[0];
+  const colors = Array.from(new Set(product.variants.map(item => item.color)));
+  const sizes = Array.from(new Set(product.variants.map(item => item.size)));
+  function chooseColor(color: string) {
+    let index = product.variants.findIndex(item => item.color === color && item.size === variant?.size && item.stock > 0);
+    if (index < 0) index = product.variants.findIndex(item => item.color === color && item.stock > 0);
+    if (index >= 0) { setVariantIndex(index); setMessage(''); }
+  }
   const images = product.images?.length ? product.images : [product.image];
   const average = reviews.length
     ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
@@ -185,51 +192,29 @@ export default function ProductDetailClient({
                 {product.description}
               </p>
 
-              <label className="mt-6 block text-sm font-bold">
-                Pilih warna dan ukuran
-                <select
-                  value={variantIndex}
-                  onChange={(event) =>
-                    setVariantIndex(Number(event.target.value))
-                  }
-                  className="mt-2 w-full rounded-xl border bg-white px-4 py-3 text-sm"
-                >
-                  {product.variants.map((item, index) => (
-                    <option
-                      key={`${item.color}-${item.size}-${index}`}
-                      value={index}
-                      disabled={item.stock < 1}
-                    >
-                      {item.sku ? `${item.sku} · ` : ''}
-                      {item.color} · {item.size} — {rupiah(item.price)}{' '}
-                      {item.stock < 1 ? '(habis)' : ''}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <details className="mt-4 rounded-xl border p-3">
-                <summary className="cursor-pointer text-sm font-semibold">Lihat semua pilihan warna & ukuran ({product.variants.length})</summary>
-              <div className="mt-3 grid max-h-72 grid-cols-2 gap-2 overflow-y-auto text-xs">
-                {product.variants.map((item, index) => (
-                  <button
-                    key={`${item.color}-${item.size}-${index}`}
-                    onClick={() => setVariantIndex(index)}
-                    disabled={item.stock < 1}
-                    aria-pressed={index === variantIndex}
-                    className={`rounded-xl border p-3 text-left disabled:opacity-50 ${index === variantIndex ? 'border-[#276344] bg-[#edf6ef]' : ''}`}
-                  >
-                    <b>
-                      {item.color} · {item.size}
-                    </b>
-                    <span
-                      className={`mt-1 block ${item.stock ? 'text-[#276344]' : 'text-red-700'}`}
-                    >
-                      {item.stock ? `${item.stock} tersedia` : 'Habis'}
-                    </span>
-                  </button>
-                ))}
+              <div className="mt-6 space-y-4">
+                <fieldset>
+                  <legend className="mb-2 text-sm font-semibold">Warna</legend>
+                  <div className="flex flex-wrap gap-2">
+                    {colors.map(color => {
+                      const available = product.variants.some(item => item.color === color && item.stock > 0);
+                      return <button type="button" key={color} disabled={!available} aria-pressed={variant?.color === color} onClick={() => chooseColor(color)}
+                        className={`min-h-10 rounded-lg border px-3 py-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-35 ${variant?.color === color ? 'border-[#276344] bg-[#edf6ef] font-semibold text-[#173c2b]' : 'border-gray-200 hover:border-[#276344]'}`}>{color}</button>;
+                    })}
+                  </div>
+                </fieldset>
+                <fieldset>
+                  <legend className="mb-2 text-sm font-semibold">Ukuran</legend>
+                  <div className="flex flex-wrap gap-2">
+                    {sizes.map(size => {
+                      const index = product.variants.findIndex(item => item.color === variant?.color && item.size === size && item.stock > 0);
+                      return <button type="button" key={size} disabled={index < 0} aria-pressed={variant?.size === size} onClick={() => { setVariantIndex(index); setMessage(''); }}
+                        className={`min-h-10 min-w-11 rounded-lg border px-3 py-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-35 ${variant?.size === size ? 'border-[#276344] bg-[#edf6ef] font-semibold text-[#173c2b]' : 'border-gray-200 hover:border-[#276344]'}`}>{size}</button>;
+                    })}
+                  </div>
+                </fieldset>
+                <p className="text-xs text-[#637168]" aria-live="polite">{variant?.stock ? `Stok: ${variant.stock}` : 'Stok habis'}</p>
               </div>
-              </details>
 
               {(product.material ||
                 product.care_instructions ||
