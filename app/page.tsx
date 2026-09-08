@@ -21,6 +21,7 @@ import {
   X,
 } from 'lucide-react';
 import { productPath } from '@/lib/product-slug';
+import { availableSizes } from '@/lib/product-sizes';
 
 type Variant = {
   sku?: string;
@@ -1068,7 +1069,7 @@ export default function Home() {
                         )}
                       </div>
                       <p className="mt-1 text-[11px] text-[#6d786f]">
-                        {variant.color} · Ukuran {variant.size}
+                        {availableSizes(p.variants.length ? p.variants : [variant])}
                         {p.sold_count ? ` · ${p.sold_count} terjual` : ''}
                       </p>
                       <p className="mt-1 text-[11px] font-semibold text-[#8a5a22]">
@@ -1077,23 +1078,6 @@ export default function Home() {
                           ? `(${productReviews.length} ulasan)`
                           : ''}
                       </p>
-                      <div className="mt-3 grid gap-2">
-                        <button
-                          onClick={() => buyNow(p.id, variantIndex)}
-                          disabled={variant.stock < 1}
-                          className="w-full rounded-xl bg-[#c0693c] py-2.5 text-xs font-bold text-white disabled:bg-gray-400 sm:text-sm"
-                        >
-                          {variant.stock > 0 ? `Beli ${variant.size}` : 'Stok habis'}
-                        </button>
-                        <button
-                          onClick={() =>
-                            window.location.assign(productPath(p.name))
-                          }
-                          className="w-full rounded-xl border border-[#276344] py-2.5 text-xs font-bold text-[#24593d] sm:text-sm"
-                        >
-                          Lihat & pilih varian
-                        </button>
-                      </div>
                     </div>
                   </article>
                 );
