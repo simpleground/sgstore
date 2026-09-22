@@ -12,7 +12,7 @@ export default function Checkout(){
  const [pending,setPending]=useState<Pending|null>(null),[status,setStatus]=useState('Menunggu konfirmasi pembayaran.'),[cancelled,setCancelled]=useState(false);
  const [customerName,setCustomerName]=useState(''),[customerPhone,setCustomerPhone]=useState(''),[shippingAddress,setShippingAddress]=useState(''),[destinationPostalCode,setDestinationPostalCode]=useState('');
  const [shippingBusy,setShippingBusy]=useState(false),[shippingError,setShippingError]=useState(''),[shippingOptions,setShippingOptions]=useState<ShippingOption[]>([]),[selectedShipping,setSelectedShipping]=useState<ShippingOption|null>(null);
- const [paymentMethod,setPaymentMethod]=useState<'midtrans'|'manual'>('midtrans'),[orderBusy,setOrderBusy]=useState(false),[orderError,setOrderError]=useState('');
+ const [paymentMethod,setPaymentMethod]=useState<'midtrans'|'manual'>('manual'),[orderBusy,setOrderBusy]=useState(false),[orderError,setOrderError]=useState('');
  const cartRows=lines.flatMap(line=>{const product=products.find(p=>p.id===line.productId);const variant=product?.variants[line.variantIndex];return product&&variant?[{key:line.productId+':'+line.variantIndex,product,variant,quantity:line.quantity}]:[];});
  const subtotal=cartRows.reduce((sum,row)=>sum+row.variant.price*row.quantity,0),shipping=selectedShipping?.price||0;
  useEffect(()=>{let active=true;(async()=>{
@@ -152,7 +152,12 @@ export default function Checkout(){
   }
 
  return <main className="min-h-screen bg-[#f5f6f4] text-[#17251c]"><header className="border-b bg-white"><div className="mx-auto max-w-5xl px-5 py-5 font-serif text-2xl font-bold">simple ground. <span className="ml-3 font-sans text-base font-medium">Pembayaran</span></div></header>
- <div className="mx-auto max-w-5xl px-4 py-6 sm:py-10">{loading?<p role="status">Memuat pembayaran…</p>:pending?<section className="mx-auto max-w-xl rounded-2xl border bg-white p-6 sm:p-8"><h1 className="text-2xl font-semibold">Pesanan {pending.orderNumber}</h1><p role="status" className="mt-4 leading-7">{status}</p><p className="mt-5 text-2xl font-bold">{rupiah(pending.total)}</p>{pending.method==='manual'?<div className="mt-5 rounded-xl bg-slate-50 p-5"><p>Transfer Bank Mandiri</p><b className="my-2 block text-xl">9000027694984</b><p>a.n. Muhammad Arifin</p><p className="mt-3 text-sm">Pembayaran manual menunggu konfirmasi admin.</p></div>:!cancelled&&pending.redirectUrl&&<a className="mt-5 block rounded-xl bg-[#173c2b] p-4 text-center font-semibold text-white" href={pending.redirectUrl}>Lanjutkan pembayaran</a>}<a className="mt-5 block text-sm underline" href={'https://wa.me/6285172381996?text='+encodeURIComponent('Halo, mohon bantu cek pembayaran pesanan '+pending.orderNumber)}>Konfirmasi / bantuan WhatsApp</a>{cancelled&&<button className="mt-5 rounded-xl border p-3" onClick={()=>{sessionStorage.removeItem('sg_pending_payment');location.replace('/checkout');}}>Ulangi checkout</button>}</section>:!cartRows.length?<section className="rounded-2xl border bg-white p-6"><p>{orderError||'Belum ada produk untuk dibayar.'}</p><a href="/#koleksi" className="mt-4 inline-block underline">Kembali ke katalog</a></section>:<><a href="/#koleksi" className="mb-5 inline-block text-sm underline">← Kembali belanja</a><div className="grid items-start gap-6 md:grid-cols-[1fr_1.35fr]"><section className="rounded-2xl border bg-white p-5"><h1 className="mb-5 text-xl font-semibold">Ringkasan pesanan</h1><div className="space-y-5">{cartRows.map(row=><div key={row.key} className="flex gap-3"><img src={row.product.images?.[0]||row.product.image||'/placeholder-product.svg'} alt="" className="h-20 w-16 rounded-lg object-cover"/><div><b>{row.product.name}</b><p className="mt-1 text-sm">{row.variant.color} · {row.variant.size} × {row.quantity}</p><p className="mt-1 text-sm text-[#276344]">{preorderLabel(row.product,row.variant)}</p><p className="mt-2 font-semibold">{rupiah(row.variant.price*row.quantity)}</p></div></div>)}</div><p className="mt-5 text-sm text-slate-500">Pesanan campuran dikirim bersama setelah seluruh produk siap. Waktu pre-order belum termasuk pengiriman kurir.</p></section><section className="rounded-2xl border bg-white">              <div className="flex-1 overflow-auto p-5">
+ <div className="mx-auto max-w-5xl px-4 py-6 sm:py-10">
+ <section role="status" aria-labelledby="payment-maintenance-title" className="mb-6 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950 sm:p-5">
+  <h2 id="payment-maintenance-title" className="text-base font-semibold">Pemeliharaan pembayaran QRIS &amp; Virtual Account</h2>
+  <p className="mt-2 text-sm leading-6 sm:text-base">Pembayaran QRIS dan Virtual Account sedang dalam pemeliharaan. Untuk sementara, kami menyarankan Anda memilih transfer manual Bank Mandiri. Pembayaran manual akan dikonfirmasi oleh admin.</p>
+ </section>
+ {loading?<p role="status">Memuat pembayaran…</p>:pending?<section className="mx-auto max-w-xl rounded-2xl border bg-white p-6 sm:p-8"><h1 className="text-2xl font-semibold">Pesanan {pending.orderNumber}</h1><p role="status" className="mt-4 leading-7">{status}</p><p className="mt-5 text-2xl font-bold">{rupiah(pending.total)}</p>{pending.method==='manual'?<div className="mt-5 rounded-xl bg-slate-50 p-5"><p>Transfer Bank Mandiri</p><b className="my-2 block text-xl">9000027694984</b><p>a.n. Muhammad Arifin</p><p className="mt-3 text-sm">Pembayaran manual menunggu konfirmasi admin.</p></div>:!cancelled&&pending.redirectUrl&&<a className="mt-5 block rounded-xl bg-[#173c2b] p-4 text-center font-semibold text-white" href={pending.redirectUrl}>Lanjutkan pembayaran</a>}<a className="mt-5 block text-sm underline" href={'https://wa.me/6285172381996?text='+encodeURIComponent('Halo, mohon bantu cek pembayaran pesanan '+pending.orderNumber)}>Konfirmasi / bantuan WhatsApp</a>{cancelled&&<button className="mt-5 rounded-xl border p-3" onClick={()=>{sessionStorage.removeItem('sg_pending_payment');location.replace('/checkout');}}>Ulangi checkout</button>}</section>:!cartRows.length?<section className="rounded-2xl border bg-white p-6"><p>{orderError||'Belum ada produk untuk dibayar.'}</p><a href="/#koleksi" className="mt-4 inline-block underline">Kembali ke katalog</a></section>:<><a href="/#koleksi" className="mb-5 inline-block text-sm underline">← Kembali belanja</a><div className="grid items-start gap-6 md:grid-cols-[1fr_1.35fr]"><section className="rounded-2xl border bg-white p-5"><h1 className="mb-5 text-xl font-semibold">Ringkasan pesanan</h1><div className="space-y-5">{cartRows.map(row=><div key={row.key} className="flex gap-3"><img src={row.product.images?.[0]||row.product.image||'/placeholder-product.svg'} alt="" className="h-20 w-16 rounded-lg object-cover"/><div><b>{row.product.name}</b><p className="mt-1 text-sm">{row.variant.color} · {row.variant.size} × {row.quantity}</p><p className="mt-1 text-sm text-[#276344]">{preorderLabel(row.product,row.variant)}</p><p className="mt-2 font-semibold">{rupiah(row.variant.price*row.quantity)}</p></div></div>)}</div><p className="mt-5 text-sm text-slate-500">Pesanan campuran dikirim bersama setelah seluruh produk siap. Waktu pre-order belum termasuk pengiriman kurir.</p></section><section className="rounded-2xl border bg-white">              <div className="flex-1 overflow-auto p-5">
                 <div>
                   <label className="text-xs font-bold uppercase tracking-wider">
                     Nama lengkap
@@ -283,11 +288,11 @@ export default function Checkout(){
                         <span>
                           <b>QRIS & Virtual Account</b>
                           <span className="mt-1 block text-sm text-[#637067]">
-                            Bayar otomatis lewat QRIS atau VA bank. Status
-                            pesanan diperbarui otomatis.
+                            Sedang dalam pemeliharaan. Silakan pilih transfer
+                            manual Bank Mandiri untuk sementara.
                           </span>
                           <span className="mt-2 inline-block rounded-full bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[#24593d]">
-                            Direkomendasikan
+                            Sedang dalam pemeliharaan
                           </span>
                         </span>
                       </span>
@@ -304,9 +309,9 @@ export default function Checkout(){
                           className="mt-1 accent-[#243b2c]"
                         />
                         <span>
-                          <b>Transfer manual — opsi cadangan</b>
+                          <b>Transfer manual Bank Mandiri — direkomendasikan</b>
                           <span className="mt-1 block text-sm text-[#637067]">
-                            Perlu bantuan? Konsultasikan melalui WhatsApp sebelum transfer manual ke Bank Mandiri.
+                            Pilih opsi ini selama pemeliharaan QRIS dan Virtual Account. Informasi rekening muncul setelah pesanan dibuat. Konfirmasikan pembayaran melalui WhatsApp.
                           </span>
                         </span>
                       </span>
