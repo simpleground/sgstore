@@ -57,7 +57,6 @@ Buka **http://localhost:3000**. Panel admin: **http://localhost:3000/admin**
 | `npm run db:migrate` | Menerapkan file baru di `db/migrations/` |
 | `npm run db:seed-demo` | Menambah produk demo bila toko belum punya produk (`-- --store=slug` untuk toko lain) |
 | `npm run admin:create -- email "password" "Nama"` | Membuat admin / reset password admin (tambahkan `--store=slug` untuk toko lain, `--super` untuk admin platform) |
-| `npm run store:create -- slug "Nama Toko" email "password" ["Nama"] [--domain=tokoanda.com]` | Membuat toko baru beserta akun pemilik yang langsung bisa login dengan email & password (tanpa panel /platform) |
 | `npm run typecheck` · `npm run lint` · `npm test` | Pemeriksaan kode |
 | `npm run test:integration` | Tes integrasi dengan PostgreSQL sungguhan (lihat bawah) |
 
