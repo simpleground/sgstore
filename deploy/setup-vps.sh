@@ -66,6 +66,11 @@ if [[ -f "$ENV_FILE" ]]; then
   # Keep existing settings, only refresh the database password we just set.
   sed -i "s#^DATABASE_URL=.*#DATABASE_URL=postgres://$DB_USER:$DB_PASS@127.0.0.1:5432/$DB_NAME#" "$ENV_FILE"
   ADMIN_PASS="$(grep -E '^ADMIN_PASSWORD=' "$ENV_FILE" | cut -d= -f2-)"
+  # Older .env files have no encryption key yet: add one (never replace an existing one).
+  if ! grep -qE '^APP_ENCRYPTION_KEY=.{32,}' "$ENV_FILE"; then
+    sed -i '/^APP_ENCRYPTION_KEY=/d' "$ENV_FILE"
+    echo "APP_ENCRYPTION_KEY=$(openssl rand -hex 32)" >> "$ENV_FILE"
+  fi
 else
   cp "$APP_DIR/.env.example" "$ENV_FILE"
   sed -i \
@@ -73,6 +78,7 @@ else
     -e "s#^DATABASE_URL=.*#DATABASE_URL=postgres://$DB_USER:$DB_PASS@127.0.0.1:5432/$DB_NAME#" \
     -e "s#^ADMIN_EMAIL=.*#ADMIN_EMAIL=admin@$DOMAIN#" \
     -e "s#^ADMIN_PASSWORD=.*#ADMIN_PASSWORD=$ADMIN_PASS#" \
+    -e "s#^APP_ENCRYPTION_KEY=.*#APP_ENCRYPTION_KEY=$(openssl rand -hex 32)#" \
     -e "s#^STORAGE_LOCAL_DIR=.*#STORAGE_LOCAL_DIR=$APP_DIR/storage#" \
     -e "s#^MIDTRANS_IS_PRODUCTION=.*#MIDTRANS_IS_PRODUCTION=true#" \
     -e "s#^BITESHIP_MODE=.*#BITESHIP_MODE=#" \

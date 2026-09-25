@@ -25,5 +25,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   shipping_settings, newsletter_subscribers wajib `store_id` di setiap SELECT/UPDATE/DELETE (WHERE) dan INSERT
   (kolom ini tidak punya DEFAULT). Foto baru: `storeFileKey()`; data lama milik toko `default` (slug `simple-ground`).
   Tambah tes isolasi di `tests/integration/isolation.test.mjs` untuk setiap endpoint baru.
+- Pengaturan toko: `lib/store-settings.ts` (kontak, rekening, Midtrans/Biteship efektif per toko; kunci rahasia
+  terenkripsi via `lib/secrets.ts`). Komponen client membaca pengaturan publik lewat `useStoreConfig()`
+  (`app/store-config.tsx`). Jangan menulis nomor rekening/WA/kunci toko di kode.
 - Tes integrasi: `TEST_DATABASE_URL=... npm run test:integration` (schema sementara, aman untuk DB berisi data).
 - Konfigurasi hanya lewat variabel lingkungan (`.env`, lihat `.env.example`). Jangan menulis URL/kunci langsung di kode.

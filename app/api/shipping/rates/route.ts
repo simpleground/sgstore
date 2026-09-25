@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { getD1 } from '@/db';
 import { retrieveShippingRates } from '@/lib/biteship';
 import { getEnabledCourierCodes } from '@/lib/shipping-settings';
+import { biteshipConfig, getStoreSettings } from '@/lib/store-settings';
 import { getCurrentStore, storeNotFound } from '@/lib/tenant';
 
 type RequestedItem = { id: string; variantIndex: number; quantity: number };
@@ -88,7 +89,12 @@ export async function POST(request: Request) {
         { error: 'Pengiriman sedang dinonaktifkan.' },
         { status: 409 },
       );
-    const options = await retrieveShippingRates(postalCode, items, couriers);
+    const options = await retrieveShippingRates(
+      postalCode,
+      items,
+      couriers,
+      await biteshipConfig(store.id, await getStoreSettings(store.id)),
+    );
     return NextResponse.json({
       options: options.slice(0, 20),
       mode: 'sandbox',

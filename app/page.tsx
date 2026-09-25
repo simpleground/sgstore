@@ -1,4 +1,5 @@
 'use client';
+import { formatWhatsapp, useStoreConfig, whatsappLink } from './store-config';
 import { quantityLimit, preorderLabel } from '@/lib/preorder';
 
 import { useEffect, useMemo, useState } from 'react';
@@ -186,6 +187,8 @@ const cleanLabel = (value: string) => {
 };
 
 export default function Home() {
+  const store = useStoreConfig();
+  const manualPayment = store.payments.manual;
   const [category, setCategory] = useState('Semua');
   const [subcategory, setSubcategory] = useState('Semua');
   const [products, setProducts] = useState<Product[]>([]);
@@ -221,7 +224,7 @@ export default function Home() {
   const [shippingBusy, setShippingBusy] = useState(false);
   const [shippingError, setShippingError] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'midtrans' | 'manual'>(
-    'midtrans',
+    () => store.payments.recommended ?? 'manual',
   );
   const [orderNumber, setOrderNumber] = useState('');
   const [orderBusy, setOrderBusy] = useState(false);
@@ -1242,11 +1245,15 @@ export default function Home() {
               Bantuan
             </p>
             <div className="mt-4 space-y-3 text-sm text-[#c6d0c6]">
-              <a className="block hover:underline" href="https://wa.me/6285172381996?text=Halo%20Simple%20Ground%2C%20saya%20ingin%20bertanya%20tentang%20pengiriman%20dan%20retur.">Tanya pengiriman & retur</a>
-              <p>Bayar online dengan VA / QRIS</p>
-              <a href="https://wa.me/6285172381996" className="block">
-                Konsultasi WhatsApp: 0851-7238-1996
-              </a>
+              {store.whatsapp && (
+                <a className="block hover:underline" href={whatsappLink(store, `Halo ${store.name}, saya ingin bertanya tentang pengiriman dan retur.`)}>Tanya pengiriman & retur</a>
+              )}
+              {store.payments.midtrans && <p>Bayar online dengan VA / QRIS</p>}
+              {store.whatsapp && (
+                <a href={whatsappLink(store)} className="block">
+                  Konsultasi WhatsApp: {formatWhatsapp(store.whatsapp)}
+                </a>
+              )}
             </div>
           </div>
           <div>
@@ -1254,27 +1261,14 @@ export default function Home() {
               Temukan Kami
             </p>
             <div className="mt-4 grid grid-cols-2 gap-x-5 gap-y-3 text-sm text-[#c6d0c6]">
-              {[
-                [
-                  'Facebook',
-                  'https://www.facebook.com/profile.php?id=61586255756281',
-                ],
-                ['Instagram', 'https://www.instagram.com/simple_ground'],
-                ['TikTok', 'https://www.tiktok.com/@simple.ground'],
-                ['X / Twitter', 'https://x.com/Simple_Ground'],
-                [
-                  'Shopee',
-                  'https://shopee.co.id/simpleground?entryPoint=ShopBySearch&searchKeyword=simple%20ground',
-                ],
-                ['YouTube', 'https://youtube.com/@simple_ground'],
-              ].map(([label, href]) => (
+              {store.socialLinks.map(({ label, url: href }) => (
                 <a
                   key={label}
                   href={href}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="group inline-flex items-center gap-1.5 transition-colors hover:text-white"
-                  aria-label={`Kunjungi ${label} Simple Ground`}
+                  aria-label={`Kunjungi ${label} ${store.name}`}
                 >
                   <span>{label}</span>
                   <ExternalLink
@@ -1621,17 +1615,21 @@ export default function Home() {
                           Beli langsung
                         </button>
                       </div>
-                      <a
-                        href={`https://wa.me/6285172381996?text=${encodeURIComponent(`Halo Simple Ground, saya ingin bertanya tentang ${cleanLabel(p.name)}${variant.sku ? ` (SKU ${variant.sku})` : ''}, warna ${variant.color}, ukuran ${variant.size}.`)}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-2 flex w-full items-center justify-center rounded-xl border border-[#276344] py-3 text-sm font-bold text-[#24593d]"
-                      >
-                        Tanya produk via WhatsApp
-                      </a>
+                      {store.whatsapp && (
+                        <a
+                          href={whatsappLink(store, `Halo ${store.name}, saya ingin bertanya tentang ${cleanLabel(p.name)}${variant.sku ? ` (SKU ${variant.sku})` : ''}, warna ${variant.color}, ukuran ${variant.size}.`)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-2 flex w-full items-center justify-center rounded-xl border border-[#276344] py-3 text-sm font-bold text-[#24593d]"
+                        >
+                          Tanya produk via WhatsApp
+                        </a>
+                      )}
                       <div className="mt-5 grid grid-cols-2 gap-2 text-xs">
                         <span className="rounded-xl bg-[#f3f6f3] p-3">
-                          ✓ Pembayaran transfer Mandiri
+                          ✓ {manualPayment
+                            ? `Pembayaran transfer ${manualPayment.bankName}`
+                            : 'Pembayaran QRIS & Virtual Account'}
                         </span>
                         <span className="rounded-xl bg-[#f3f6f3] p-3">
                           ✓ Bantuan via WhatsApp
@@ -1908,23 +1906,31 @@ export default function Home() {
                   pesanan ini.
                 </p>
                 <div className="mt-6 rounded-2xl bg-[#f1ecdf] p-5 text-left text-sm">
-                  <p className="text-xs text-[#758078]">
-                    Transfer Bank Mandiri
-                  </p>
-                  <p className="mt-1 text-lg font-bold">9000027694984</p>
-                  <p className="text-xs">a.n. Muhammad Arifin</p>
-                  <div className="my-4 border-t border-[#263e2e]/10" />
+                  {manualPayment && (
+                    <>
+                      <p className="text-xs text-[#758078]">
+                        Transfer {manualPayment.bankName}
+                      </p>
+                      <p className="mt-1 text-lg font-bold">
+                        {manualPayment.accountNumber}
+                      </p>
+                      <p className="text-xs">a.n. {manualPayment.accountHolder}</p>
+                      <div className="my-4 border-t border-[#263e2e]/10" />
+                    </>
+                  )}
                   <p className="text-xs text-[#758078]">Total transfer</p>
                   <p className="mt-1 text-lg font-bold text-[#a34f2c]">
                     {rupiah(subtotal + shipping)}
                   </p>
                 </div>
-                <a
-                  href={`https://wa.me/6285172381996?text=${encodeURIComponent(`Halo Simple Ground, saya ingin konfirmasi pembayaran pesanan ${orderNumber} sebesar ${rupiah(subtotal + shipping)}.`)}`}
-                  className="mt-4 rounded-full bg-[#243b2c] px-5 py-3 text-sm font-semibold text-white"
-                >
-                  Konfirmasi via WhatsApp
-                </a>
+                {store.whatsapp && (
+                  <a
+                    href={whatsappLink(store, `Halo ${store.name}, saya ingin konfirmasi pembayaran pesanan ${orderNumber} sebesar ${rupiah(subtotal + shipping)}.`)}
+                    className="mt-4 rounded-full bg-[#243b2c] px-5 py-3 text-sm font-semibold text-white"
+                  >
+                    Konfirmasi via WhatsApp
+                  </a>
+                )}
                 <p className="mt-3 text-xs leading-5 text-[#758078]">
                   Bayar dalam 24 jam agar pesanan tetap tersimpan.
                 </p>
@@ -2047,48 +2053,66 @@ export default function Home() {
                     Pembayaran
                   </p>
                   <div className="mt-2 space-y-2">
-                    <label
-                      className={`block cursor-pointer rounded-2xl border p-4 transition ${paymentMethod === 'midtrans' ? 'border-[#243b2c] bg-[#edf1e9]' : 'bg-white'}`}
-                    >
-                      <span className="flex items-start gap-3">
-                        <input
-                          type="radio"
-                          name="payment"
-                          checked={paymentMethod === 'midtrans'}
-                          onChange={() => setPaymentMethod('midtrans')}
-                          className="mt-1 accent-[#243b2c]"
-                        />
-                        <span>
-                          <b>QRIS & Virtual Account</b>
-                          <span className="mt-1 block text-sm text-[#637067]">
-                            Bayar otomatis lewat QRIS atau VA bank. Status
-                            pesanan diperbarui otomatis.
-                          </span>
-                          <span className="mt-2 inline-block rounded-full bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[#24593d]">
-                            Direkomendasikan
-                          </span>
-                        </span>
-                      </span>
-                    </label>
-                    <label
-                      className={`block cursor-pointer rounded-2xl border p-4 transition ${paymentMethod === 'manual' ? 'border-[#243b2c] bg-[#edf1e9]' : 'bg-white'}`}
-                    >
-                      <span className="flex items-start gap-3">
-                        <input
-                          type="radio"
-                          name="payment"
-                          checked={paymentMethod === 'manual'}
-                          onChange={() => setPaymentMethod('manual')}
-                          className="mt-1 accent-[#243b2c]"
-                        />
-                        <span>
-                          <b>Transfer manual — opsi cadangan</b>
-                          <span className="mt-1 block text-sm text-[#637067]">
-                            Perlu bantuan? Konsultasikan melalui WhatsApp sebelum transfer manual ke Bank Mandiri.
+                    {store.payments.midtrans && (
+                      <label
+                        className={`block cursor-pointer rounded-2xl border p-4 transition ${paymentMethod === 'midtrans' ? 'border-[#243b2c] bg-[#edf1e9]' : 'bg-white'}`}
+                      >
+                        <span className="flex items-start gap-3">
+                          <input
+                            type="radio"
+                            name="payment"
+                            checked={paymentMethod === 'midtrans'}
+                            onChange={() => setPaymentMethod('midtrans')}
+                            className="mt-1 accent-[#243b2c]"
+                          />
+                          <span>
+                            <b>QRIS & Virtual Account</b>
+                            <span className="mt-1 block text-sm text-[#637067]">
+                              Bayar otomatis lewat QRIS atau VA bank. Status
+                              pesanan diperbarui otomatis.
+                            </span>
+                            {store.payments.recommended === 'midtrans' && (
+                              <span className="mt-2 inline-block rounded-full bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[#24593d]">
+                                Direkomendasikan
+                              </span>
+                            )}
                           </span>
                         </span>
-                      </span>
-                    </label>
+                      </label>
+                    )}
+                    {manualPayment && (
+                      <label
+                        className={`block cursor-pointer rounded-2xl border p-4 transition ${paymentMethod === 'manual' ? 'border-[#243b2c] bg-[#edf1e9]' : 'bg-white'}`}
+                      >
+                        <span className="flex items-start gap-3">
+                          <input
+                            type="radio"
+                            name="payment"
+                            checked={paymentMethod === 'manual'}
+                            onChange={() => setPaymentMethod('manual')}
+                            className="mt-1 accent-[#243b2c]"
+                          />
+                          <span>
+                            <b>Transfer manual {manualPayment.bankName}</b>
+                            <span className="mt-1 block text-sm text-[#637067]">
+                              {store.whatsapp
+                                ? `Perlu bantuan? Konsultasikan melalui WhatsApp sebelum transfer manual ke ${manualPayment.bankName}.`
+                                : 'Informasi rekening muncul setelah pesanan dibuat.'}
+                            </span>
+                            {store.payments.recommended === 'manual' && (
+                              <span className="mt-2 inline-block rounded-full bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[#24593d]">
+                                Direkomendasikan
+                              </span>
+                            )}
+                          </span>
+                        </span>
+                      </label>
+                    )}
+                    {!store.payments.midtrans && !manualPayment && (
+                      <p className="rounded-2xl border bg-white p-4 text-sm text-[#637067]">
+                        Toko ini belum membuka pembayaran online.
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="mt-6 rounded-2xl bg-[#f1ecdf] p-4 text-sm">

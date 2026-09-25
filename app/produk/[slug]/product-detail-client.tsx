@@ -4,6 +4,7 @@ import { quantityLimit, preorderLabel } from '@/lib/preorder';
 import { useState } from 'react';
 import { ChevronLeft, ChevronRight, ShoppingBag } from 'lucide-react';
 import { productPath } from '@/lib/product-slug';
+import { useStoreConfig, whatsappLink } from '../../store-config';
 
 type Variant = {
   sku?: string;
@@ -55,6 +56,7 @@ export default function ProductDetailClient({
   related: DetailProduct[];
   reviews: Review[];
 }) {
+  const store = useStoreConfig();
   const [variantIndex, setVariantIndex] = useState(() => Math.max(0, product.variants.findIndex(item => quantityLimit(product, item) > 0)));
   const [imageIndex, setImageIndex] = useState(0);
   const [message, setMessage] = useState('');
@@ -275,14 +277,16 @@ export default function ProductDetailClient({
                   {variant ? 'Beli langsung' : 'Varian tidak tersedia'}
                 </button>
               </div>
-              <a
-                href={`https://wa.me/6285172381996?text=${encodeURIComponent(`Halo Simple Ground, saya ingin bertanya tentang ${product.name}${variant?.sku ? ` (SKU ${variant.sku})` : ''}, warna ${variant?.color}, ukuran ${variant?.size}.`)}`}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-2 flex w-full justify-center rounded-xl border border-[#276344] py-3 text-sm font-bold text-[#24593d]"
-              >
-                Tanya produk via WhatsApp
-              </a>
+              {store.whatsapp && (
+                <a
+                  href={whatsappLink(store, `Halo ${store.name}, saya ingin bertanya tentang ${product.name}${variant?.sku ? ` (SKU ${variant.sku})` : ''}, warna ${variant?.color}, ukuran ${variant?.size}.`)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-2 flex w-full justify-center rounded-xl border border-[#276344] py-3 text-sm font-bold text-[#24593d]"
+                >
+                  Tanya produk via WhatsApp
+                </a>
+              )}
               {message && (
                 <p className="mt-3 rounded-xl bg-[#edf6ef] p-3 text-xs font-semibold text-[#24593d]">
                   {message}

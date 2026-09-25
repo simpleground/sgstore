@@ -4,6 +4,7 @@ declare namespace NodeJS {
     DATABASE_URL?: string;
     DATABASE_SSL?: string;
     DB_POOL_MAX?: string;
+    APP_ENCRYPTION_KEY?: string;
     SITE_URL?: string;
     DEFAULT_STORE_SLUG?: string;
     PLATFORM_ROOT_DOMAIN?: string;

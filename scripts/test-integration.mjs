@@ -63,14 +63,20 @@ function run(command, args, env, options = {}) {
   });
 }
 
-/** Mock of POST /v1/rates/couriers: one "reg" service per requested courier. */
+/**
+ * Mock of POST /v1/rates/couriers: one "reg" service per requested courier.
+ * The service name echoes the origin postal code and API key it received, so
+ * tests can check which store configuration was used.
+ */
 function startBiteshipMock() {
   return new Promise((resolve) => {
     const server = createServer((request, response) => {
       let body = '';
       request.on('data', (chunk) => (body += chunk));
       request.on('end', () => {
-        const couriers = String(JSON.parse(body || '{}').couriers || '')
+        const parsed = JSON.parse(body || '{}');
+        const apiKey = String(request.headers.authorization || '').replace(/^Bearer /, '');
+        const couriers = String(parsed.couriers || '')
           .split(',')
           .filter(Boolean);
         response.setHeader('content-type', 'application/json');
@@ -80,7 +86,7 @@ function startBiteshipMock() {
               courier_code: code,
               courier_name: code.toUpperCase(),
               courier_service_code: 'reg',
-              courier_service_name: 'Reguler',
+              courier_service_name: `Reguler origin=${parsed.origin_postal_code} key=${apiKey}`,
               price: 10000 + index * 1000,
               shipment_duration_range: '2 - 3',
               shipment_duration_unit: 'days',
@@ -155,6 +161,7 @@ try {
     BITESHIP_API_KEY: 'integration-test',
     BITESHIP_API_URL: `http://127.0.0.1:${biteship.address().port}`,
     BITESHIP_MODE: '',
+    APP_ENCRYPTION_KEY: 'integration-test-encryption-key-0123456789abcdef',
     MIDTRANS_SERVER_KEY: 'integration-server-key',
     MIDTRANS_CLIENT_KEY: 'integration-client-key',
     MIDTRANS_IS_PRODUCTION: 'false',

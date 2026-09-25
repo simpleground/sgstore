@@ -183,6 +183,7 @@ Cara paling praktis:
 | `PLATFORM_ROOT_DOMAIN` | | Domain platform untuk subdomain toko, mis. `platform.id` → `tokoa.platform.id` |
 | `DATABASE_URL` | ✔ | Koneksi PostgreSQL `postgres://user:pass@host:5432/db` |
 | `DATABASE_SSL` | | `require` untuk database cloud yang mewajibkan SSL |
+| `APP_ENCRYPTION_KEY` | ✔ | Minimal 32 karakter acak (`openssl rand -hex 32`) untuk mengenkripsi kunci Midtrans/Biteship tiap toko. Dibuat otomatis oleh `setup-vps.sh`/`update.sh`. **Jangan diganti** setelah dipakai. |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | ✔ | Akun admin utama; dibuat otomatis saat login pertama, password ikut diperbarui bila diubah |
 | `ADMIN_NAME` | | Nama tampilan admin utama (bawaan `Admin`) |
 | `ADMIN_EMAILS` | | Email Google yang otomatis boleh masuk admin (pisahkan koma) |
@@ -190,11 +191,11 @@ Cara paling praktis:
 | `STORAGE_DRIVER` | | `local` (bawaan) atau `s3` |
 | `STORAGE_LOCAL_DIR` | | Folder foto, bawaan `./storage` |
 | `S3_ENDPOINT`, `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | | Untuk R2/S3 |
-| `MIDTRANS_SERVER_KEY`, `MIDTRANS_CLIENT_KEY` | | Kunci Midtrans |
+| `MIDTRANS_SERVER_KEY`, `MIDTRANS_CLIENT_KEY` | | Kunci Midtrans **toko bawaan** (bila belum diisi di Admin → Pengaturan). Toko lain wajib memakai akun Midtrans sendiri. |
 | `MIDTRANS_IS_PRODUCTION` | | `false` = Sandbox |
-| `BITESHIP_API_KEY` | ✔ untuk ongkir | Kunci Biteship |
+| `BITESHIP_API_KEY` | ✔ untuk ongkir | Kunci Biteship platform (dipakai toko yang belum mengisi kuncinya sendiri) |
 | `BITESHIP_MODE` | | `sandbox` = tarif simulasi bila API gagal |
-| `BITESHIP_ORIGIN_POSTAL_CODE` | | Kode pos gudang, bawaan `44163` |
+| `BITESHIP_ORIGIN_POSTAL_CODE` | | Kode pos gudang toko bawaan, bawaan `44163` (toko lain mengatur di Admin → Pengaturan) |
 
 ---
 
@@ -234,6 +235,13 @@ Anggota baru yang ditambahkan dari panel masuk dengan **tombol Google** memakai 
 (akun baru sengaja dibuat tanpa password). Password bisa diberikan oleh pengelola server:
 `npm run admin:create -- email "Password" "Nama" --store=slug`. Toko selalu punya minimal satu Pemilik.
 Semua tindakan penting admin (masuk, produk, pesanan, anggota, dll.) tercatat di Admin → Aktivitas.
+
+**Pengaturan per toko** (Admin → Pengaturan): nama & kontak, WhatsApp, media sosial, catatan checkout,
+metode pembayaran yang direkomendasikan, awalan nomor pesanan, kode pos gudang (Pemilik & Admin), serta
+rekening transfer manual dan kunci Midtrans/Biteship (**hanya Pemilik**). Kunci API disimpan terenkripsi
+(`APP_ENCRYPTION_KEY`) dan tidak pernah ditampilkan lagi. Setiap toko memakai akun Midtrans sendiri:
+di dashboard Midtrans toko tersebut, set *Payment Notification URL* ke
+`https://<domain-toko>/api/payments/midtrans/notification`.
 
 Belum ada panel untuk membuat toko. Untuk mencoba toko kedua (mis. di lokal):
 

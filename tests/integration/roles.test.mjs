@@ -6,6 +6,7 @@ import {
   adminLogin,
   call,
   createStoreAdmin,
+  enableManualPayment,
   db,
   orderBody,
   productForm,
@@ -41,6 +42,7 @@ before(async () => {
        ($1,'toko-peran','Toko Peran',$3,$3), ($2,'toko-lain','Toko Lain',$3,$3)`,
     [STORE, OTHER, now],
   );
+  await enableManualPayment(STORE);
   for (const role of ['store_owner', 'store_admin', 'store_staff']) {
     const account = await createStoreAdmin(STORE, role);
     s[role] = { ...account, cookie: await login(account) };

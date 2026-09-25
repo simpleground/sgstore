@@ -2,6 +2,9 @@ import type { Metadata } from 'next';
 import localFont from 'next/font/local';
 import './globals.css';
 import { siteUrl } from '@/lib/site';
+import { getPublicStoreConfig } from '@/lib/store-settings';
+import { getCurrentStore } from '@/lib/tenant';
+import { StoreConfigProvider } from './store-config';
 
 // Fonts are self-hosted (from npm) so builds never depend on Google Fonts.
 const sans = localFont({
@@ -42,13 +45,16 @@ export const metadata: Metadata = {
     images: ['/og.png'],
   },
 };
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  // Each request can be a different store (chosen from the host).
+  const store = await getCurrentStore();
+  const config = store ? await getPublicStoreConfig(store) : null;
   return (
     <html lang="id">
       <body className={`${sans.variable} ${serif.variable} antialiased`}>
-        {children}
+        <StoreConfigProvider config={config}>{children}</StoreConfigProvider>
       </body>
     </html>
   );

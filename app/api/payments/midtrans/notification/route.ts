@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getD1 } from '@/db';
+import { midtransServerKey } from '@/lib/store-settings';
 
 async function sha512(value: string) {
   const digest = await crypto.subtle.digest(
@@ -21,12 +22,6 @@ function safeEqual(left: string, right: string) {
 
 export async function POST(request: Request) {
   try {
-    const serverKey = process.env.MIDTRANS_SERVER_KEY;
-    if (!serverKey)
-      return NextResponse.json(
-        { error: 'Server belum dikonfigurasi.' },
-        { status: 503 },
-      );
     const body = (await request.json()) as {
       order_id?: string;
       status_code?: string;
@@ -45,14 +40,6 @@ export async function POST(request: Request) {
         { error: 'Notifikasi tidak lengkap.' },
         { status: 400 },
       );
-    const expected = await sha512(
-      `${body.order_id}${body.status_code}${body.gross_amount}${serverKey}`,
-    );
-    if (!safeEqual(expected, body.signature_key.toLowerCase()))
-      return NextResponse.json(
-        { error: 'Signature tidak valid.' },
-        { status: 401 },
-      );
 
     const d1 = getD1();
     // Order numbers are unique across all stores, so the order identifies its
@@ -65,6 +52,22 @@ export async function POST(request: Request) {
     // Acknowledge unknown orders without updating anything so the endpoint test
     // succeeds and production retries are not triggered for irrelevant records.
     if (!order) return NextResponse.json({ received: true, ignored: true });
+
+    // Each store has its own Midtrans account: verify with that store's key.
+    const serverKey = await midtransServerKey(order.store_id);
+    if (!serverKey)
+      return NextResponse.json(
+        { error: 'Server belum dikonfigurasi.' },
+        { status: 503 },
+      );
+    const expected = await sha512(
+      `${body.order_id}${body.status_code}${body.gross_amount}${serverKey}`,
+    );
+    if (!safeEqual(expected, body.signature_key.toLowerCase()))
+      return NextResponse.json(
+        { error: 'Signature tidak valid.' },
+        { status: 401 },
+      );
     if (Math.round(Number(body.gross_amount)) !== order.total)
       return NextResponse.json(
         { error: 'Nominal pembayaran tidak cocok.' },

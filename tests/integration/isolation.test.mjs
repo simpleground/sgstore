@@ -12,6 +12,7 @@ import {
   adminLogin,
   call,
   createStoreAdmin,
+  enableManualPayment,
   customerCookie,
   db,
   orderBody,
@@ -40,6 +41,7 @@ before(async () => {
     [B_DOMAIN, STORE_B, now],
   );
 
+  await enableManualPayment(STORE_B);
   s.adminA = await createStoreAdmin('default');
   s.adminB = await createStoreAdmin(STORE_B);
   s.cookieA = (await adminLogin(s.adminA)).cookie;
@@ -528,12 +530,25 @@ describe('pembayaran & konsistensi data', () => {
       gross_amount: `${s.orderB.total}.00`,
       transaction_status: 'settlement',
     };
-    body.signature_key = sha512(
-      `${body.order_id}${body.status_code}${body.gross_amount}${process.env.MIDTRANS_SERVER_KEY}`,
-    );
+    // Store B has its own Midtrans account; the platform key must not work for it.
+    const keyB = 'SB-Mid-server-toko-b-0001';
+    const saved = await call('/api/admin/settings/payments', {
+      method: 'PATCH',
+      host: B,
+      cookie: s.cookieB,
+      json: { secrets: { midtrans_server_key: keyB } },
+    });
+    assert.equal(saved.status, 200, JSON.stringify(saved.body));
+    const sign = (key) =>
+      sha512(`${body.order_id}${body.status_code}${body.gross_amount}${key}`);
+    const withPlatformKey = await call('/api/payments/midtrans/notification', {
+      method: 'POST',
+      json: { ...body, signature_key: sign(process.env.MIDTRANS_SERVER_KEY) },
+    });
+    assert.equal(withPlatformKey.status, 401);
     const response = await call('/api/payments/midtrans/notification', {
       method: 'POST',
-      json: body,
+      json: { ...body, signature_key: sign(keyB) },
     });
     assert.equal(response.status, 200);
     const { rows } = await db.query(

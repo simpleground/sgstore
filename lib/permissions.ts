@@ -2,7 +2,8 @@
  * Peran & izin admin toko. Dipakai di server (API) dan di UI admin (untuk
  * menyembunyikan menu); yang menentukan tetap server.
  *
- *   store_owner  semua izin, termasuk mengelola owner/admin lain
+ *   store_owner  semua izin, termasuk mengelola owner/admin lain dan
+ *                pengaturan pembayaran (rekening, kunci Midtrans/Biteship)
  *   store_admin  semua pengelolaan toko; anggota: hanya menambah/mengubah/
  *                menghapus staff
  *   store_staff  pesanan dan produk (tanpa hapus permanen, impor CSV,
@@ -42,6 +43,10 @@ const RULES = {
   'members.view': MANAGERS,
   'members.manage': MANAGERS,
   'audit.view': MANAGERS,
+  /** Profil toko, kontak, catatan checkout, awalan pesanan, kode pos gudang. */
+  'settings.manage': MANAGERS,
+  /** Rekening transfer manual dan kunci Midtrans/Biteship: hanya pemilik. */
+  'payments.manage': ['store_owner'],
 } satisfies Record<string, StoreRole[]>;
 
 export type Permission = keyof typeof RULES;

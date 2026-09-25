@@ -195,3 +195,21 @@ export const tinyPng = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
   'base64',
 );
+
+/** Let a test store accept manual bank transfers (new stores have no payment set up). */
+export async function enableManualPayment(storeId) {
+  const settings = {
+    manualPayment: {
+      enabled: true,
+      bankName: 'Bank Uji',
+      accountNumber: '1234500000',
+      accountHolder: 'Toko Uji',
+    },
+    shippingOriginPostalCode: '40111',
+  };
+  await db.query(
+    `INSERT INTO store_settings (store_id,settings_json,updated_at) VALUES ($1,$2,$3)
+     ON CONFLICT (store_id) DO UPDATE SET settings_json=excluded.settings_json`,
+    [storeId, JSON.stringify(settings), new Date().toISOString()],
+  );
+}

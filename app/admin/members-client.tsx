@@ -286,6 +286,8 @@ const ACTION_LABELS: Record<string, string> = {
   'review.create': 'Menambah ulasan',
   'review.update': 'Mengubah ulasan',
   'shipping.courier': 'Mengatur ekspedisi',
+  'settings.update': 'Mengubah pengaturan toko',
+  'payments.update': 'Mengubah pembayaran & integrasi',
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -333,6 +335,8 @@ function describe(entry: Entry) {
       parts.push(
         `${key === 'mergedVariants' ? 'variasi' : key === 'created' ? 'baru' : key === 'updated' ? 'diperbarui' : 'berubah'}: ${meta[key]}`,
       );
+  if (typeof meta.fields === 'string') parts.push(`diubah: ${meta.fields}`);
+  if (typeof meta.rekening === 'string') parts.push(`rekening baru ${meta.rekening}`);
   if (entry.ip) parts.push(`IP ${entry.ip}`);
   return parts.join(' · ');
 }

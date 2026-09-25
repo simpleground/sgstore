@@ -16,6 +16,7 @@ import { headers } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { getD1 } from '@/db';
 import type { StoreRow } from '@/db/schema';
+import { siteUrl } from '@/lib/site';
 
 /** Id toko bawaan; sama dengan seed di db/migrations/0002_stores.sql. */
 export const DEFAULT_STORE_ID = 'default';
@@ -150,4 +151,20 @@ export function storeFileKey(
 export function storeOwnsFileKey(storeId: string, key: string) {
   if (key.startsWith(`stores/${storeId}/`)) return true;
   return storeId === DEFAULT_STORE_ID && key.startsWith('products/');
+}
+
+/**
+ * Public base URL of a store (no trailing slash), used for links sent to
+ * third parties such as the Midtrans "finish" page. Taken from the store's
+ * primary domain, never from the request's Host header.
+ */
+export async function storeBaseUrl(store: Pick<Store, 'id' | 'slug'>) {
+  const primary = await getD1()
+    .prepare('SELECT host FROM store_domains WHERE store_id=? AND is_primary=1')
+    .bind(store.id)
+    .first<string>('host');
+  if (primary) return `https://${primary}`;
+  if (store.id === DEFAULT_STORE_ID) return siteUrl();
+  const root = platformRootDomain();
+  return root ? `https://${store.slug}.${root}` : siteUrl();
 }
