@@ -11,7 +11,11 @@ export const metadata: Metadata = {
 };
 
 /** Platform console: create and manage stores (platform super_admin only). */
-export default async function PlatformPage() {
+export default async function PlatformPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const admin = await getAdmin();
   if (!admin) redirect('/admin/login?next=/platform');
   if (admin.platformRole !== 'super_admin')
@@ -33,7 +37,10 @@ export default async function PlatformPage() {
     );
   return (
     <main className="admin-workspace min-h-screen">
-      <PlatformConsole adminName={admin.displayName} />
+      <PlatformConsole
+        adminName={admin.displayName}
+        initialTab={(await searchParams).tab === 'pesanan' ? 'pesanan' : 'toko'}
+      />
     </main>
   );
 }

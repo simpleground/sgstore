@@ -264,6 +264,12 @@ email tersebut. Di panel yang sama: tambah/lepas domain, pilih domain utama, tam
 
 Data toko tidak pernah dihapus dari panel.
 
+**Pusat pesanan** — tab *Pesanan* di `/platform` (`/platform?tab=pesanan`): pesanan semua toko dalam satu
+daftar, bisa difilter per website (atau semua), status, tanggal (WIB), dan dicari lewat nomor pesanan/nama/telepon.
+Super admin bisa membuka detail, mengubah status, menghubungi pembeli via WA, dan mencetak label (pengirim =
+toko pemilik pesanan). Setiap perubahan tercatat di Aktivitas toko terkait. Admin toko tetap memproses pesanan
+tokonya sendiri di `/admin`.
+
 **Mencoba di komputer lokal:** isi `PLATFORM_ROOT_DOMAIN=localhost` di `.env`, masuk ke
 `http://localhost:3000/admin` dengan `ADMIN_EMAIL`, buka `http://localhost:3000/platform`, buat toko
 dengan slug mis. `toko-b`, lalu buka `http://toko-b.localhost:3000` (Chrome/Edge/Firefox otomatis
