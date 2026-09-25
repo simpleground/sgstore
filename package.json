@@ -16,6 +16,7 @@
     "db:migrate": "node --env-file-if-exists=.env scripts/migrate.mjs",
     "db:seed-demo": "node --env-file-if-exists=.env scripts/seed-demo.mjs",
     "admin:create": "node --env-file-if-exists=.env scripts/create-admin.mjs",
+    "store:create": "node --env-file-if-exists=.env scripts/create-store.mjs",
     "test": "node check-bulk.cjs && node check-product-editor.cjs && node check-preorder-checkout.cjs",
     "test:integration": "node --env-file-if-exists=.env scripts/test-integration.mjs"
   },
