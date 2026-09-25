@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
+import { SalesReport } from '../admin/reports-client';
 import { PlatformOrders } from './orders-client';
 
 type Status = 'active' | 'suspended' | 'closed';
@@ -60,7 +61,7 @@ function storeUrl(store: StoreItem) {
   return host ? `https://${host}` : '';
 }
 
-type Tab = 'toko' | 'pesanan';
+type Tab = 'toko' | 'pesanan' | 'laporan';
 
 export function PlatformConsole({
   adminName,
@@ -136,7 +137,11 @@ export function PlatformConsole({
             Platform
           </p>
           <h1 className="mt-1 text-3xl">
-            {tab === 'toko' ? 'Semua toko' : 'Semua pesanan'}
+            {tab === 'toko'
+              ? 'Semua toko'
+              : tab === 'pesanan'
+                ? 'Semua pesanan'
+                : 'Laporan penjualan'}
           </h1>
           <p className="mt-1 text-sm text-slate-500">
             {stores.length} toko · masuk sebagai {adminName}
@@ -158,6 +163,7 @@ export function PlatformConsole({
           [
             ['toko', 'Toko'],
             ['pesanan', 'Pesanan'],
+            ['laporan', 'Laporan'],
           ] as const
         ).map(([key, label]) => (
           <button
@@ -187,6 +193,15 @@ export function PlatformConsole({
             url: storeUrl(store),
           }))}
         />
+      )}
+
+      {tab === 'laporan' && (
+        <div className="mt-6">
+          <SalesReport
+            endpoint="/api/platform/reports"
+            stores={stores.map((store) => ({ id: store.id, name: store.name }))}
+          />
+        </div>
       )}
 
       {tab === 'toko' && (

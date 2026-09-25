@@ -5,6 +5,9 @@ import { getAdmin } from '@/lib/admin-auth';
 import { PlatformConsole } from './platform-client';
 
 export const dynamic = 'force-dynamic';
+
+const tabOf = (value?: string) =>
+  value === 'pesanan' || value === 'laporan' ? value : 'toko';
 export const metadata: Metadata = {
   title: 'Platform',
   robots: { index: false, follow: false },
@@ -39,7 +42,7 @@ export default async function PlatformPage({
     <main className="admin-workspace min-h-screen">
       <PlatformConsole
         adminName={admin.displayName}
-        initialTab={(await searchParams).tab === 'pesanan' ? 'pesanan' : 'toko'}
+        initialTab={tabOf((await searchParams).tab)}
       />
     </main>
   );

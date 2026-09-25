@@ -32,7 +32,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   lewat token CSS (`bg-[var(--brand)]`, `text-[var(--brand-accent)]`, lihat `app/globals.css`), bukan hex
   hijau/terakota langsung, dan teks/nama toko dari `useStoreConfig()` — jangan tulis "Simple Ground" di kode.
 - Platform (super admin): panel `/platform`, API `/api/platform/*` dengan `requireSuperAdmin()`, logika di
-  `lib/platform.ts` (pusat pesanan semua toko: `lib/platform-orders.ts`, `/api/platform/orders`). Halaman etalase ada di `app/(storefront)/` (layout-nya menolak host tanpa toko dan menutup
+  `lib/platform.ts` (pusat pesanan semua toko: `lib/platform-orders.ts`, `/api/platform/orders`; laporan: `lib/reports.ts`). Halaman etalase ada di `app/(storefront)/` (layout-nya menolak host tanpa toko dan menutup
   toko yang ditangguhkan/ditutup); API publik memakai `getOpenStore()`, panel admin `getCurrentStore()`.
 - Tes integrasi: `TEST_DATABASE_URL=... npm run test:integration` (schema sementara, aman untuk DB berisi data).
 - Konfigurasi hanya lewat variabel lingkungan (`.env`, lihat `.env.example`). Jangan menulis URL/kunci langsung di kode.

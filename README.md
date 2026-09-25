@@ -270,6 +270,12 @@ Super admin bisa membuka detail, mengubah status, menghubungi pembeli via WA, da
 toko pemilik pesanan). Setiap perubahan tercatat di Aktivitas toko terkait. Admin toko tetap memproses pesanan
 tokonya sendiri di `/admin`.
 
+**Laporan** — tab *Laporan* di `/platform` (semua website atau satu website) dan menu *Laporan* di admin toko
+(Pemilik & Admin, hanya tokonya sendiri): omzet terkonfirmasi (pesanan dibayar, termasuk ongkir), jumlah pesanan,
+rata-rata per pesanan, barang terjual, grafik per hari (per bulan untuk periode > 3 bulan, WIB), perbandingan
+website, produk terlaris, dan status pesanan. *Unduh CSV* berisi pesanan periode tersebut (pemisah `;`, bisa
+langsung dibuka di Excel).
+
 **Mencoba di komputer lokal:** isi `PLATFORM_ROOT_DOMAIN=localhost` di `.env`, masuk ke
 `http://localhost:3000/admin` dengan `ADMIN_EMAIL`, buka `http://localhost:3000/platform`, buat toko
 dengan slug mis. `toko-b`, lalu buka `http://toko-b.localhost:3000` (Chrome/Edge/Firefox otomatis
