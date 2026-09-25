@@ -5,13 +5,20 @@ import { getAdmin } from '@/lib/admin-auth';
 import { PlatformConsole } from './platform-client';
 
 export const dynamic = 'force-dynamic';
+
+const tabOf = (value?: string) =>
+  value === 'pesanan' || value === 'laporan' ? value : 'toko';
 export const metadata: Metadata = {
   title: 'Platform',
   robots: { index: false, follow: false },
 };
 
 /** Platform console: create and manage stores (platform super_admin only). */
-export default async function PlatformPage() {
+export default async function PlatformPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const admin = await getAdmin();
   if (!admin) redirect('/admin/login?next=/platform');
   if (admin.platformRole !== 'super_admin')
@@ -33,7 +40,10 @@ export default async function PlatformPage() {
     );
   return (
     <main className="admin-workspace min-h-screen">
-      <PlatformConsole adminName={admin.displayName} />
+      <PlatformConsole
+        adminName={admin.displayName}
+        initialTab={tabOf((await searchParams).tab)}
+      />
     </main>
   );
 }

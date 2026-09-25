@@ -8,6 +8,7 @@ import {
   IMAGE_FIELDS,
   saveStoreAppearance,
   type ImageField,
+  type StoreAppearance,
 } from '@/lib/store-appearance';
 import { storeFileKey } from '@/lib/tenant';
 
@@ -39,6 +40,35 @@ const isField = (value: unknown): value is ImageField =>
   typeof value === 'string' &&
   (IMAGE_FIELDS as readonly string[]).includes(value);
 
+const SLIDE_MAX_BYTES = 3_000_000;
+
+/** Index of an existing slide for field "slide", or null. */
+function slideIndex(value: unknown, appearance: StoreAppearance) {
+  const index = Number(value);
+  return Number.isInteger(index) &&
+    index >= 0 &&
+    index < appearance.content.heroSlides.length
+    ? index
+    : null;
+}
+
+/** Appearance with the banner image of one slide replaced. */
+function withSlideImage(
+  appearance: StoreAppearance,
+  index: number,
+  key: string,
+): StoreAppearance {
+  return {
+    ...appearance,
+    content: {
+      ...appearance.content,
+      heroSlides: appearance.content.heroSlides.map((slide, i) =>
+        i === index ? { ...slide, image: key } : slide,
+      ),
+    },
+  };
+}
+
 /** Delete a replaced upload (only this store's own branding files, never shared assets). */
 async function removeOld(admin: StoreAdmin, key: string) {
   if (key.startsWith(`stores/${admin.store.id}/branding/`))
@@ -54,16 +84,21 @@ export async function POST(request: Request) {
   const form = await request.formData().catch(() => null);
   const field = form?.get('field');
   const file = form?.get('file');
-  if (!isField(field) || !(file instanceof File))
+  const appearance = await getStoreAppearance(admin.store);
+  const slide =
+    field === 'slide' ? slideIndex(form?.get('index'), appearance) : null;
+  if ((!isField(field) && slide === null) || !(file instanceof File))
     return NextResponse.json(
       { error: 'Pilih jenis gambar dan berkasnya.' },
       { status: 400 },
     );
-  if (file.size > MAX_BYTES[field])
+  const label = isField(field)
+    ? LABELS[field]
+    : `Gambar banner slide ${slide! + 1}`;
+  const maxBytes = isField(field) ? MAX_BYTES[field] : SLIDE_MAX_BYTES;
+  if (file.size > maxBytes)
     return NextResponse.json(
-      {
-        error: `${LABELS[field]} maksimal ${Math.round(MAX_BYTES[field] / 1000)} KB.`,
-      },
+      { error: `${label} maksimal ${Math.round(maxBytes / 1000)} KB.` },
       { status: 400 },
     );
   const bytes = new Uint8Array(await file.arrayBuffer());
@@ -77,17 +112,20 @@ export async function POST(request: Request) {
   await getFiles().put(key, bytes, {
     contentType: type === 'jpg' ? 'image/jpeg' : `image/${type}`,
   });
-  const appearance = await getStoreAppearance(admin.store);
-  const previous = appearance.images[field];
-  await saveStoreAppearance(admin.store.id, {
-    ...appearance,
-    images: { ...appearance.images, [field]: key },
-  });
+  const previous = isField(field)
+    ? appearance.images[field]
+    : appearance.content.heroSlides[slide!].image;
+  await saveStoreAppearance(
+    admin.store.id,
+    isField(field)
+      ? { ...appearance, images: { ...appearance.images, [field]: key } }
+      : withSlideImage(appearance, slide!, key),
+  );
   await removeOld(admin, previous);
   await audit(admin, {
     storeId: admin.store.id,
     action: 'appearance.image',
-    meta: { fields: LABELS[field] },
+    meta: { fields: label },
   });
   return NextResponse.json({ ok: true, url: imageUrl(key) });
 }
@@ -96,25 +134,33 @@ export async function DELETE(request: Request) {
   const auth = await authorizeStore('settings.manage');
   if (!auth.ok) return auth.response;
   const { admin } = auth;
-  const { field } = (await request.json().catch(() => ({}))) as {
+  const { field, index } = (await request.json().catch(() => ({}))) as {
     field?: unknown;
+    index?: unknown;
   };
-  if (!isField(field))
+  const appearance = await getStoreAppearance(admin.store);
+  const slide = field === 'slide' ? slideIndex(index, appearance) : null;
+  if (!isField(field) && slide === null)
     return NextResponse.json(
       { error: 'Jenis gambar tidak valid.' },
       { status: 400 },
     );
-  const appearance = await getStoreAppearance(admin.store);
-  const previous = appearance.images[field];
-  await saveStoreAppearance(admin.store.id, {
-    ...appearance,
-    images: { ...appearance.images, [field]: '' },
-  });
+  const previous = isField(field)
+    ? appearance.images[field]
+    : appearance.content.heroSlides[slide!].image;
+  await saveStoreAppearance(
+    admin.store.id,
+    isField(field)
+      ? { ...appearance, images: { ...appearance.images, [field]: '' } }
+      : withSlideImage(appearance, slide!, ''),
+  );
   await removeOld(admin, previous);
   await audit(admin, {
     storeId: admin.store.id,
     action: 'appearance.image',
-    meta: { fields: `${LABELS[field]} dihapus` },
+    meta: {
+      fields: `${isField(field) ? LABELS[field] : `Gambar banner slide ${slide! + 1}`} dihapus`,
+    },
   });
   return NextResponse.json({ ok: true });
 }

@@ -206,6 +206,35 @@ body {
 body[data-font='modern'] {
   --font-serif-custom: var(--font-sans-custom);
 }
+/* Other font presets (storefront only, set by app/(storefront)/layout.tsx). */
+[data-sf-font='elegant'] { --font-serif-custom: var(--font-playfair); }
+[data-sf-font='editorial'] { --font-serif-custom: var(--font-fraunces); }
+[data-sf-font='friendly'] {
+  --font-sans-custom: var(--font-nunito);
+  --font-serif-custom: var(--font-nunito);
+  font-family: var(--font-nunito), Arial, sans-serif;
+}
+[data-sf-font='bold'] {
+  --font-sans-custom: var(--font-space-grotesk);
+  --font-serif-custom: var(--font-space-grotesk);
+  font-family: var(--font-space-grotesk), Arial, sans-serif;
+}
+/* Corner style: "soft" = small radius, "sharp" = square. Round dots/avatars stay round. */
+[data-corners='soft'] [class*='rounded']:not([class*='rounded-full']):not([class*='rounded-t']) {
+  border-radius: .5rem;
+}
+[data-corners='sharp'] [class*='rounded']:not([class*='rounded-full']) {
+  border-radius: 0;
+}
+/* Light footer variant: the footer's pale text colours are made readable on white. */
+footer[data-variant='light'] [class*='text-[#c6d0c6]'] { color: #56625a; }
+footer[data-variant='light'] [class*='text-[#9eae9f]'] { color: #7a857d; }
+footer[data-variant='light'] [class*='border-white/15'] { border-color: color-mix(in oklab, var(--brand) 15%, transparent); }
+footer[data-variant='light'] a:hover { color: var(--brand); }
+/* Page background behind the storefront (main uses bg-[#f5f6f4] by default). */
+[data-background='white'] main { background-color: #fff; }
+[data-background='warm'] main { background-color: #f7f2e9; }
+[data-background='tint'] main { background-color: color-mix(in oklab, var(--brand) 6%, white); }
 
 @layer base {
   [id] { scroll-margin-top: 11rem; }

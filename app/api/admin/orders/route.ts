@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { authorizeStore } from '@/lib/admin-auth';
 import { audit } from '@/lib/audit';
 import { getD1 } from '@/db';
+import { isOrderStatus } from '@/lib/order-status';
 
 export async function PATCH(request: Request) {
   const auth = await authorizeStore('orders.update');
@@ -11,18 +12,12 @@ export async function PATCH(request: Request) {
     orderNumber?: string;
     status?: string;
   };
-  const allowed = [
-    'menunggu_pembayaran',
-    'dibayar',
-    'diproses',
-    'dikirim',
-    'selesai',
-    'dibatalkan',
-  ];
-  if (!orderNumber || !status || !allowed.includes(status))
+  if (!orderNumber || !isOrderStatus(status))
     return NextResponse.json({ error: 'Data tidak valid.' }, { status: 400 });
   const previous = await getD1()
-    .prepare('SELECT status FROM orders WHERE order_number = ? AND store_id = ?')
+    .prepare(
+      'SELECT status FROM orders WHERE order_number = ? AND store_id = ?',
+    )
     .bind(orderNumber, admin.store.id)
     .first<string>('status');
   const result = await getD1()

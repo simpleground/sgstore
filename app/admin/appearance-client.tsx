@@ -2,14 +2,90 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import type {
+  FontPreset,
   HeroSlide,
+  HomeSection,
   ImageField,
   StoreAppearance,
+  StoreLayout,
 } from '@/lib/store-appearance';
 
 const DEFAULT_PRIMARY = '#173c2b';
 const DEFAULT_ACCENT = '#c0693c';
 const input = 'mt-1 w-full rounded-xl border bg-white px-3 py-2 font-normal';
+
+const FONTS: Record<FontPreset, string> = {
+  classic: 'Klasik — judul serif (Lora)',
+  modern: 'Modern — semua sans-serif (DM Sans)',
+  elegant: 'Elegan — judul Playfair Display',
+  editorial: 'Editorial — judul Fraunces',
+  friendly: 'Ramah — semua Nunito (membulat)',
+  bold: 'Tegas — semua Space Grotesk',
+};
+
+/** Choices per layout option; the first is the original layout. */
+const LAYOUT_CHOICES = {
+  header: {
+    label: 'Header',
+    options: {
+      classic: 'Klasik — logo di kiri, latar putih',
+      centered: 'Logo di tengah',
+      brand: 'Berwarna — latar warna utama',
+    },
+  },
+  hero: {
+    label: 'Banner beranda',
+    options: {
+      split: 'Terbelah — teks & foto berdampingan',
+      banner: 'Foto penuh — teks di atas foto',
+      simple: 'Sederhana — teks di tengah, tanpa foto',
+    },
+  },
+  productCard: {
+    label: 'Kartu produk',
+    options: {
+      classic: 'Klasik — kartu putih berbayang',
+      framed: 'Berbingkai — garis tepi, teks di tengah',
+      minimal: 'Minimal — tanpa kartu',
+    },
+  },
+  corners: {
+    label: 'Sudut tombol & kartu',
+    options: {
+      rounded: 'Membulat',
+      soft: 'Sedikit membulat',
+      sharp: 'Tajam (kotak)',
+    },
+  },
+  background: {
+    label: 'Latar halaman',
+    options: {
+      neutral: 'Abu lembut',
+      white: 'Putih',
+      warm: 'Krem hangat',
+      tint: 'Sentuhan warna utama',
+    },
+  },
+  footer: {
+    label: 'Footer',
+    options: { dark: 'Gelap (warna utama)', light: 'Terang (putih)' },
+  },
+} satisfies {
+  [K in Exclude<
+    keyof StoreLayout,
+    'productColumns' | 'sections' | 'showTrustBar'
+  >]: { label: string; options: Record<StoreLayout[K], string> };
+};
+
+const SECTION_LABELS: Record<HomeSection, string> = {
+  catalog: 'Katalog produk',
+  about: 'Tentang toko',
+  reviews: 'Ulasan pelanggan',
+  newsletter: 'Newsletter',
+};
+
+const slideImageUrl = (key: string) =>
+  !key ? '' : key.startsWith('/') ? key : `/api/product-image/${key}`;
 
 const IMAGES: { field: ImageField; label: string; hint: string }[] = [
   {
@@ -98,12 +174,15 @@ export function AppearanceManager() {
   const [catalogText, setCatalogText] = useState('');
   const [hiddenText, setHiddenText] = useState('');
   const [message, setMessage] = useState('');
+  // Last saved version: uploads reload the page data, so they wait until edits are saved.
+  const [saved, setSaved] = useState('');
 
   const load = useCallback(
     () =>
       fetchAppearance()
         .then((data) => {
           setLook(data.appearance);
+          setSaved(JSON.stringify(data.appearance));
           setImageUrls(data.imageUrls);
           setCatalogText(
             data.appearance.content.catalogOrder
@@ -127,8 +206,17 @@ export function AppearanceManager() {
       <p className="text-sm text-[#68736b]">{message || 'Memuat tampilan…'}</p>
     );
 
+  const dirty = JSON.stringify(look) !== saved;
   const theme = (patch: Partial<StoreAppearance['theme']>) =>
     setLook({ ...look, theme: { ...look.theme, ...patch } });
+  const layout = (patch: Partial<StoreLayout>) =>
+    setLook({ ...look, layout: { ...look.layout, ...patch } });
+  const moveSection = (index: number, offset: number) => {
+    const next = [...look.layout.sections];
+    const [item] = next.splice(index, 1);
+    next.splice(index + offset, 0, item);
+    layout({ sections: next });
+  };
   const content = (patch: Partial<StoreAppearance['content']>) =>
     setLook({ ...look, content: { ...look.content, ...patch } });
   const about = (patch: Partial<StoreAppearance['content']['about']>) =>
@@ -172,9 +260,10 @@ export function AppearanceManager() {
     }
   }
 
-  const upload = (field: ImageField, file: File) => {
+  const upload = (field: ImageField | 'slide', file: File, index?: number) => {
     const form = new FormData();
     form.set('field', field);
+    if (index !== undefined) form.set('index', String(index));
     form.set('file', file);
     void run(
       () =>
@@ -182,13 +271,13 @@ export function AppearanceManager() {
       'Gambar tersimpan.',
     );
   };
-  const removeImage = (field: ImageField) =>
+  const removeImage = (field: ImageField | 'slide', index?: number) =>
     void run(
       () =>
         send('/api/admin/appearance/images', {
           method: 'DELETE',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ field }),
+          body: JSON.stringify({ field, index }),
         }),
       'Gambar dihapus.',
     );
@@ -214,8 +303,8 @@ export function AppearanceManager() {
         </p>
         <h2 className="mt-1 font-serif text-3xl">Tampilan toko</h2>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-[#68736b]">
-          Logo, warna, dan isi beranda. Semua toko memakai tata letak yang sama;
-          yang berbeda hanya pengaturan di sini.
+          Logo, warna, huruf, tata letak, dan isi beranda. Kombinasikan pilihan
+          di sini agar toko punya tampilan sendiri.
         </p>
       </div>
 
@@ -314,18 +403,17 @@ export function AppearanceManager() {
               </div>
             </Field>
           ))}
-          <Field label="Gaya huruf judul">
+          <Field label="Gaya huruf">
             <select
               className={input}
               value={look.theme.font}
-              onChange={(e) =>
-                theme({
-                  font: e.target.value === 'modern' ? 'modern' : 'classic',
-                })
-              }
+              onChange={(e) => theme({ font: e.target.value as FontPreset })}
             >
-              <option value="classic">Klasik (serif)</option>
-              <option value="modern">Modern (sans-serif)</option>
+              {(Object.keys(FONTS) as FontPreset[]).map((key) => (
+                <option key={key} value={key}>
+                  {FONTS[key]}
+                </option>
+              ))}
             </select>
           </Field>
           <div className="rounded-xl border p-3" aria-label="Pratinjau warna">
@@ -349,6 +437,92 @@ export function AppearanceManager() {
                 Daftar
               </span>
             </div>
+          </div>
+        </Card>
+
+        <Card
+          title="Tata letak"
+          note="Susunan halaman toko. Pilihan pertama di tiap daftar adalah tata letak awal."
+        >
+          {(
+            Object.entries(LAYOUT_CHOICES) as [
+              keyof typeof LAYOUT_CHOICES,
+              { label: string; options: Record<string, string> },
+            ][]
+          ).map(([key, { label, options }]) => (
+            <Field key={key} label={label}>
+              <select
+                className={input}
+                value={look.layout[key]}
+                onChange={(e) => layout({ [key]: e.target.value })}
+              >
+                {Object.entries(options).map(([value, text]) => (
+                  <option key={value} value={value}>
+                    {text}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          ))}
+          <Field label="Kolom produk (layar lebar)">
+            <select
+              className={input}
+              value={look.layout.productColumns}
+              onChange={(e) =>
+                layout({ productColumns: e.target.value === '3' ? 3 : 4 })
+              }
+            >
+              <option value="4">4 kolom</option>
+              <option value="3">3 kolom (foto lebih besar)</option>
+            </select>
+          </Field>
+          <label className="flex items-center gap-2 self-end text-sm font-semibold">
+            <input
+              type="checkbox"
+              checked={look.layout.showTrustBar}
+              onChange={(e) => layout({ showTrustBar: e.target.checked })}
+            />
+            Tampilkan 3 kotak info di bawah banner (pembayaran, pengiriman,
+            produk)
+          </label>
+          <div className="sm:col-span-2">
+            <p className="text-sm font-semibold">Urutan bagian beranda</p>
+            <p className="mt-1 text-xs text-[#7b847c]">
+              Di bawah banner. Bagian Tentang, Ulasan, dan Newsletter bisa
+              dimatikan di pengaturan masing-masing.
+            </p>
+            <ol className="mt-2 space-y-2">
+              {look.layout.sections.map((section, index) => (
+                <li
+                  key={section}
+                  className="flex items-center justify-between gap-3 rounded-xl border px-3 py-2 text-sm"
+                >
+                  <span>
+                    {index + 1}. {SECTION_LABELS[section]}
+                  </span>
+                  <span className="flex gap-3 font-semibold">
+                    <button
+                      type="button"
+                      disabled={index === 0}
+                      aria-label={`Naikkan ${SECTION_LABELS[section]}`}
+                      onClick={() => moveSection(index, -1)}
+                      className="disabled:opacity-40"
+                    >
+                      ↑ Naik
+                    </button>
+                    <button
+                      type="button"
+                      disabled={index === look.layout.sections.length - 1}
+                      aria-label={`Turunkan ${SECTION_LABELS[section]}`}
+                      onClick={() => moveSection(index, 1)}
+                      className="disabled:opacity-40"
+                    >
+                      ↓ Turun
+                    </button>
+                  </span>
+                </li>
+              ))}
+            </ol>
           </div>
         </Card>
 
@@ -432,6 +606,58 @@ export function AppearanceManager() {
                     onChange={(e) => setSlide(index, { label: e.target.value })}
                   />
                 </Field>
+                <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
+                  <div className="grid h-16 w-28 place-items-center overflow-hidden rounded-lg bg-[#f3f4f2]">
+                    {slide.image ? (
+                      // oxlint-disable-next-line nextjs/no-img-element -- preview of an uploaded banner
+                      <img
+                        src={slideImageUrl(slide.image)}
+                        alt={`Banner slide ${index + 1}`}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <span className="px-2 text-center text-[11px] text-[#7b847c]">
+                        Foto produk
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-sm">
+                    <p className="font-semibold">Gambar banner</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-3">
+                      <label
+                        className={`rounded-xl border px-3 py-1.5 font-semibold ${busy || dirty ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+                      >
+                        Unggah
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          className="sr-only"
+                          disabled={busy || dirty}
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            if (file) upload('slide', file, index);
+                            event.target.value = '';
+                          }}
+                        />
+                      </label>
+                      {slide.image && (
+                        <button
+                          type="button"
+                          disabled={busy || dirty}
+                          className="font-semibold text-red-700 disabled:opacity-50"
+                          onClick={() => removeImage('slide', index)}
+                        >
+                          Hapus
+                        </button>
+                      )}
+                    </div>
+                    <p className="mt-1 text-xs text-[#7b847c]">
+                      {dirty
+                        ? 'Simpan perubahan dulu sebelum mengunggah.'
+                        : 'Opsional, ideal 1600×900 px, maks. 3 MB. Tanpa gambar, foto produk yang dipakai.'}
+                    </p>
+                  </div>
+                </div>
                 <div className="flex gap-3 text-sm font-semibold sm:col-span-2">
                   <button
                     type="button"
@@ -479,6 +705,7 @@ export function AppearanceManager() {
                         body: '',
                         category: 'Semua',
                         label: 'Lihat koleksi',
+                        image: '',
                       },
                     ],
                   })

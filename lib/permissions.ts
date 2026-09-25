@@ -43,6 +43,8 @@ const RULES = {
   'members.view': MANAGERS,
   'members.manage': MANAGERS,
   'audit.view': MANAGERS,
+  /** Laporan penjualan (omzet, produk terlaris, ekspor CSV). */
+  'reports.view': MANAGERS,
   /** Profil toko, kontak, catatan checkout, awalan pesanan, kode pos gudang. */
   'settings.manage': MANAGERS,
   /** Rekening transfer manual dan kunci Midtrans/Biteship: hanya pemilik. */

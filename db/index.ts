@@ -57,6 +57,61 @@ function normalize(value: Value) {
   return value;
 }
 
+/** PostgreSQL cannot be reached (not running, wrong host/port in DATABASE_URL). */
+export class DatabaseUnavailableError extends Error {
+  constructor(readonly code: string) {
+    super(
+      `Tidak dapat terhubung ke PostgreSQL di ${databaseTarget()} (${code}). ` +
+        'Pastikan database berjalan (mis. "docker compose up -d", atau layanan PostgreSQL di Windows sudah Start) ' +
+        'dan DATABASE_URL di .env benar, lalu muat ulang halaman.',
+    );
+    this.name = 'DatabaseUnavailableError';
+  }
+}
+
+const CONNECTION_ERRORS = new Set([
+  'ECONNREFUSED',
+  'ECONNRESET',
+  'ETIMEDOUT',
+  'EHOSTUNREACH',
+  'ENOTFOUND',
+  'EAI_AGAIN',
+]);
+
+/** Connection error code, also inside an AggregateError (IPv6 + IPv4 attempts). */
+function connectionErrorCode(error: unknown): string | null {
+  const code = (error as { code?: unknown } | null)?.code;
+  if (typeof code === 'string' && CONNECTION_ERRORS.has(code)) return code;
+  const inner = (error as { errors?: unknown } | null)?.errors;
+  if (Array.isArray(inner))
+    for (const item of inner) {
+      const found = connectionErrorCode(item);
+      if (found) return found;
+    }
+  return null;
+}
+
+/**
+ * Replace driver connection errors by one readable error. The original
+ * AggregateError is not attached: Next.js fails while rendering it
+ * ("object null is not iterable"), which hides the real cause.
+ */
+function rethrow(error: unknown): never {
+  const code = connectionErrorCode(error);
+  if (code) throw new DatabaseUnavailableError(code);
+  throw error;
+}
+
+/** host:port/database from DATABASE_URL, without the user name or password. */
+function databaseTarget() {
+  try {
+    const url = new URL(process.env.DATABASE_URL || '');
+    return `${url.hostname}:${url.port || '5432'}${url.pathname}`;
+  } catch {
+    return 'DATABASE_URL';
+  }
+}
+
 export class Statement {
   constructor(
     private readonly db: Database,
@@ -69,10 +124,14 @@ export class Statement {
   }
 
   async execute(client?: Queryable) {
-    return (client ?? this.db.pool()).query(
-      toPgPlaceholders(this.sql),
-      this.values.map(normalize),
-    );
+    try {
+      return await (client ?? this.db.pool()).query(
+        toPgPlaceholders(this.sql),
+        this.values.map(normalize),
+      );
+    } catch (error) {
+      return rethrow(error);
+    }
   }
 
   async first<T = Record<string, unknown>>(column?: string): Promise<T | null> {
@@ -117,7 +176,7 @@ export class Database {
 
   /** Run several statements in one transaction (all succeed or none). */
   async batch(statements: Statement[]) {
-    const client = await this.pool().connect();
+    const client = await this.pool().connect().catch(rethrow);
     try {
       await client.query('BEGIN');
       const results = [];
@@ -141,7 +200,7 @@ export class Database {
 
   /** Raw SQL without parameters (used by scripts / maintenance). */
   async exec(sql: string) {
-    await this.pool().query(sql);
+    await this.pool().query(sql).catch(rethrow);
   }
 }
 

@@ -17,15 +17,73 @@ export type HeroSlide = {
   /** Kategori yang dibuka tombol slide ("Semua" = seluruh katalog). */
   category: string;
   label: string;
+  /**
+   * Uploaded banner image (storage key, '' = a product photo). Set only
+   * through the image upload endpoint; it moves with the slide.
+   */
+  image: string;
 };
 export type Highlight = { title: string; caption: string };
 /** Kategori yang selalu tampil di menu, dengan subkategori yang disarankan. */
 export type CatalogEntry = { category: string; subcategories: string[] };
 /** Tautan kolom "Belanja" di footer. */
 export type ShopLink = { label: string; category: string; subcategory: string };
-export type FontPreset = 'classic' | 'modern';
+export const FONT_PRESETS = [
+  'classic',
+  'modern',
+  'elegant',
+  'editorial',
+  'friendly',
+  'bold',
+] as const;
+export type FontPreset = (typeof FONT_PRESETS)[number];
+export const MAX_SLIDES = 6;
 export const IMAGE_FIELDS = ['logo', 'favicon', 'about', 'share'] as const;
 export type ImageField = (typeof IMAGE_FIELDS)[number];
+
+/**
+ * Layout choices for the storefront. The first option of each list is the
+ * original Simple Ground layout (the default).
+ */
+export const LAYOUT_OPTIONS = {
+  header: ['classic', 'centered', 'brand'],
+  hero: ['split', 'banner', 'simple'],
+  productCard: ['classic', 'framed', 'minimal'],
+  corners: ['rounded', 'soft', 'sharp'],
+  background: ['neutral', 'white', 'warm', 'tint'],
+  footer: ['dark', 'light'],
+} as const;
+type LayoutChoice = {
+  [K in keyof typeof LAYOUT_OPTIONS]: (typeof LAYOUT_OPTIONS)[K][number];
+};
+export const HOME_SECTIONS = [
+  'catalog',
+  'about',
+  'reviews',
+  'newsletter',
+] as const;
+export type HomeSection = (typeof HOME_SECTIONS)[number];
+export type StoreLayout = LayoutChoice & {
+  productColumns: 3 | 4;
+  /** Order of the homepage sections below the banner. */
+  sections: HomeSection[];
+  /** The three small boxes (payment, shipping, products) under the banner. */
+  showTrustBar: boolean;
+};
+
+export function defaultLayout(): StoreLayout {
+  return {
+    header: 'classic',
+    hero: 'split',
+    productCard: 'classic',
+    corners: 'rounded',
+    background: 'neutral',
+    footer: 'dark',
+    productColumns: 4,
+    sections: [...HOME_SECTIONS],
+    showTrustBar: true,
+  };
+}
 
 export type StoreAppearance = {
   theme: {
@@ -34,6 +92,7 @@ export type StoreAppearance = {
     accentColor: string;
     font: FontPreset;
   };
+  layout: StoreLayout;
   content: {
     announcement: string;
     searchPlaceholder: string;
@@ -68,6 +127,7 @@ export class AppearanceError extends Error {}
 export function defaultAppearance(storeName: string): StoreAppearance {
   return {
     theme: { primaryColor: '', accentColor: '', font: 'classic' },
+    layout: defaultLayout(),
     content: {
       announcement: '',
       searchPlaceholder: 'Cari produk...',
@@ -79,6 +139,7 @@ export function defaultAppearance(storeName: string): StoreAppearance {
           body: 'Jelajahi koleksi kami dan temukan produk yang paling sesuai untukmu.',
           category: 'Semua',
           label: 'Semua koleksi',
+          image: '',
         },
       ],
       about: {
@@ -155,10 +216,48 @@ function color(value: unknown, label: string) {
   return hex;
 }
 
-/** Validate appearance from the admin panel. Images always come from `current`. */
+function choice<T extends string>(value: unknown, options: readonly T[]): T {
+  return options.includes(value as T) ? (value as T) : options[0];
+}
+
+function validateLayout(input: unknown): StoreLayout {
+  const source = obj(input);
+  const picked = Object.fromEntries(
+    Object.entries(LAYOUT_OPTIONS).map(([key, options]) => [
+      key,
+      choice(source[key], options),
+    ]),
+  ) as LayoutChoice;
+  const sections = [
+    ...new Set(
+      list(source.sections).filter((item): item is HomeSection =>
+        (HOME_SECTIONS as readonly string[]).includes(item as string),
+      ),
+    ),
+  ];
+  return {
+    ...picked,
+    productColumns: source.productColumns === 3 ? 3 : 4,
+    // Sections left out keep their default position at the end.
+    sections: [
+      ...sections,
+      ...HOME_SECTIONS.filter((item) => !sections.includes(item)),
+    ],
+    showTrustBar: source.showTrustBar !== false,
+  };
+}
+
+/**
+ * Validate appearance from the admin panel. Images always come from `current`;
+ * a slide may only keep a banner image that one of the current slides has
+ * (slides can be reordered, but images cannot be pointed at other files).
+ */
 export function validateAppearance(
   input: unknown,
   current: StoreAppearance,
+  slideImages = new Set(
+    current.content.heroSlides.map((slide) => slide.image).filter(Boolean),
+  ),
 ): StoreAppearance {
   const source = obj(input);
   const theme = obj(source.theme);
@@ -168,8 +267,10 @@ export function validateAppearance(
   const seo = obj(source.seo);
 
   const slides = list(content.heroSlides);
-  if (!slides.length || slides.length > 6)
-    throw new AppearanceError('Isi 1–6 slide di bagian atas beranda.');
+  if (!slides.length || slides.length > MAX_SLIDES)
+    throw new AppearanceError(
+      `Isi 1–${MAX_SLIDES} slide di bagian atas beranda.`,
+    );
   const heroSlides = slides.map((raw, index) => {
     const slide = obj(raw);
     const result = {
@@ -179,6 +280,7 @@ export function validateAppearance(
       category:
         text(slide.category, 60, `Kategori slide ${index + 1}`) || 'Semua',
       label: text(slide.label, 40, `Tombol slide ${index + 1}`),
+      image: slideImages.has(str(slide.image)) ? str(slide.image) : '',
     };
     if (!result.title)
       throw new AppearanceError(`Judul slide ${index + 1} wajib diisi.`);
@@ -189,13 +291,14 @@ export function validateAppearance(
   if (highlights.length > 3)
     throw new AppearanceError('Maksimal 3 keunggulan.');
 
-  const font = str(theme.font) === 'modern' ? 'modern' : 'classic';
+  const font = choice(str(theme.font), FONT_PRESETS);
   const result: StoreAppearance = {
     theme: {
       primaryColor: color(theme.primaryColor, 'Warna utama'),
       accentColor: color(theme.accentColor, 'Warna aksen'),
       font,
     },
+    layout: validateLayout(source.layout),
     content: {
       announcement: text(content.announcement, 140, 'Pengumuman'),
       searchPlaceholder:
@@ -298,6 +401,7 @@ export function readAppearance(
   const images = safeImages(storeId, parsed.images);
   const merged = {
     theme: { ...defaults.theme, ...obj(parsed.theme) },
+    layout: { ...defaults.layout, ...obj(parsed.layout) },
     content: {
       ...defaults.content,
       ...obj(parsed.content),
@@ -309,8 +413,14 @@ export function readAppearance(
     },
     seo: { ...defaults.seo, ...obj(parsed.seo) },
   };
+  // Stored banner images: only this store's own uploads.
+  const slideImages = new Set(
+    list(obj(parsed.content).heroSlides)
+      .map((slide) => str(obj(slide).image))
+      .filter((key) => key.startsWith(`stores/${storeId}/branding/`)),
+  );
   try {
-    return validateAppearance(merged, { ...defaults, images });
+    return validateAppearance(merged, { ...defaults, images }, slideImages);
   } catch {
     return { ...defaults, images };
   }
@@ -349,8 +459,13 @@ export function imageUrl(key: string) {
 export function publicAppearance(appearance: StoreAppearance) {
   return {
     theme: appearance.theme,
+    layout: appearance.layout,
     content: appearance.content,
     logoUrl: imageUrl(appearance.images.logo),
+    /** Uploaded banner image per slide ('' = use a product photo). */
+    slideImageUrls: appearance.content.heroSlides.map((slide) =>
+      imageUrl(slide.image),
+    ),
     aboutImageUrl: imageUrl(appearance.images.about),
   };
 }

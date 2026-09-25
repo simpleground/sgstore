@@ -27,7 +27,16 @@ export async function findStore(pool, slug) {
     ? await pool.query('SELECT id, slug, name FROM stores WHERE slug = $1', [wanted])
     : await pool.query("SELECT id, slug, name FROM stores WHERE id = 'default'");
   if (!rows[0]) {
-    console.error(`✖ Toko "${wanted || 'default'}" tidak ditemukan. Sudah menjalankan "npm run db:migrate"?`);
+    let available = [];
+    try {
+      available = (await pool.query('SELECT slug FROM stores ORDER BY slug')).rows.map((row) => row.slug);
+    } catch {
+      console.error('✖ Tabel toko belum ada. Jalankan dulu: npm run db:migrate');
+      process.exit(1);
+    }
+    console.error(`✖ Toko dengan slug "${wanted || 'default'}" tidak ditemukan.`);
+    console.error(`  Slug yang tersedia: ${available.join(', ') || '(belum ada toko)'}`);
+    console.error('  Tanpa --store, perintah memakai toko utama. Toko baru dibuat di halaman /platform.');
     process.exit(1);
   }
   return rows[0];
