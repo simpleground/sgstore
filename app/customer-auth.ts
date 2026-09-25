@@ -1,8 +1,16 @@
 import { cookies } from 'next/headers';
 import { getD1 } from '@/db';
 import { secureCookies } from '@/lib/site';
+import { getOpenStore } from '@/lib/tenant';
 const COOKIE = 'sg_customer';
-export type Customer = { userId: string; name: string; email: string };
+// Customer accounts and sessions belong to one store: a session created on
+// store A is never valid on store B, even for the same Google account.
+export type Customer = {
+  userId: string;
+  name: string;
+  email: string;
+  storeId: string;
+};
 async function hash(value: string) {
   const bytes = await crypto.subtle.digest(
     'SHA-256',
@@ -15,23 +23,31 @@ async function hash(value: string) {
 export async function getCustomer(): Promise<Customer | null> {
   const token = (await cookies()).get(COOKIE)?.value;
   if (!token) return null;
+  const store = await getOpenStore();
+  if (!store) return null;
   const row = await getD1()
     .prepare(
-      'SELECT c.user_id AS "userId",c.name,c.email FROM customer_sessions s JOIN customers c ON c.user_id=s.user_id WHERE s.token_hash=? AND s.expires_at>?',
+      'SELECT c.user_id AS "userId",c.name,c.email,c.store_id AS "storeId" FROM customer_sessions s JOIN customers c ON c.store_id=s.store_id AND c.user_id=s.user_id WHERE s.token_hash=? AND s.store_id=? AND s.expires_at>?',
     )
-    .bind(await hash(token), new Date().toISOString())
+    .bind(await hash(token), store.id, new Date().toISOString())
     .first<Customer>();
   return row ?? null;
 }
-export async function createCustomerSession(userId: string) {
+export async function createCustomerSession(storeId: string, userId: string) {
   const token = crypto.randomUUID() + crypto.randomUUID(),
     now = new Date(),
     expires = new Date(now.getTime() + 30 * 86400000);
   await getD1()
     .prepare(
-      'INSERT INTO customer_sessions (token_hash,user_id,expires_at,created_at) VALUES (?,?,?,?)',
+      'INSERT INTO customer_sessions (token_hash,store_id,user_id,expires_at,created_at) VALUES (?,?,?,?,?)',
     )
-    .bind(await hash(token), userId, expires.toISOString(), now.toISOString())
+    .bind(
+      await hash(token),
+      storeId,
+      userId,
+      expires.toISOString(),
+      now.toISOString(),
+    )
     .run();
   (await cookies()).set(COOKIE, token, {
     httpOnly: true,

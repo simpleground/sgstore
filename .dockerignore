@@ -1,0 +1,12 @@
+.git
+node_modules
+.next
+.open-next
+.wrangler
+storage
+coverage
+.env
+.env.*
+!.env.example
+*.log
+_vscode

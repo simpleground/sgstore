@@ -4,7 +4,10 @@ declare namespace NodeJS {
     DATABASE_URL?: string;
     DATABASE_SSL?: string;
     DB_POOL_MAX?: string;
+    APP_ENCRYPTION_KEY?: string;
     SITE_URL?: string;
+    DEFAULT_STORE_SLUG?: string;
+    PLATFORM_ROOT_DOMAIN?: string;
     ADMIN_EMAIL?: string;
     ADMIN_PASSWORD?: string;
     ADMIN_NAME?: string;
@@ -21,6 +24,7 @@ declare namespace NodeJS {
     MIDTRANS_CLIENT_KEY?: string;
     MIDTRANS_IS_PRODUCTION?: string;
     BITESHIP_API_KEY?: string;
+    BITESHIP_API_URL?: string;
     BITESHIP_MODE?: string;
     BITESHIP_ORIGIN_POSTAL_CODE?: string;
   }

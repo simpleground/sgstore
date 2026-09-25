@@ -4,7 +4,14 @@ import { NextResponse } from 'next/server';
 import { getD1 } from '@/db';
 import { retrieveShippingRates } from '@/lib/biteship';
 import { getEnabledCourierCodes } from '@/lib/shipping-settings';
-import { siteUrl } from '@/lib/site';
+import {
+  biteshipConfig,
+  getStoreSettings,
+  manualPaymentConfig,
+  midtransConfig,
+  orderPrefix,
+} from '@/lib/store-settings';
+import { getOpenStore, storeBaseUrl, storeNotFound } from '@/lib/tenant';
 
 type RequestedItem = { id: string; variantIndex: number; quantity: number };
 type StoredVariant = {
@@ -18,6 +25,8 @@ type StoredVariant = {
 
 export async function POST(request: Request) {
   try {
+    const store = await getOpenStore();
+    if (!store) return storeNotFound();
     const body = (await request.json()) as {
       customerName?: string;
       customerPhone?: string;
@@ -63,6 +72,26 @@ export async function POST(request: Request) {
         { status: 400 },
       );
 
+    // The payment method must be available for this store before anything is saved.
+    const settings = await getStoreSettings(store.id);
+    const manual = manualPaymentConfig(settings);
+    const midtransKeys =
+      paymentMethod === 'midtrans' ? await midtransConfig(store.id, settings) : null;
+    if (paymentMethod === 'manual' && !manual)
+      return NextResponse.json(
+        { error: 'Transfer manual belum tersedia di toko ini.' },
+        { status: 409 },
+      );
+    if (paymentMethod === 'midtrans' && !midtransKeys)
+      return NextResponse.json(
+        {
+          error: manual
+            ? 'Pembayaran otomatis belum tersedia. Silakan pilih transfer manual.'
+            : 'Pembayaran otomatis belum tersedia di toko ini.',
+        },
+        { status: 503 },
+      );
+
     const d1 = getD1();
     const items: Array<{
       id: string;
@@ -79,9 +108,9 @@ export async function POST(request: Request) {
     for (const requested of requestedItems) {
       const product = await d1
         .prepare(
-          'SELECT id,name,variants_json,weight_grams,preorder_enabled,preorder_days FROM products WHERE id=? AND active=1 AND deleted_at IS NULL',
+          'SELECT id,name,variants_json,weight_grams,preorder_enabled,preorder_days FROM products WHERE id=? AND store_id=? AND active=1 AND deleted_at IS NULL',
         )
-        .bind(requested.id)
+        .bind(requested.id, store.id)
         .first<{
           id: string;
           name: string;
@@ -131,7 +160,7 @@ export async function POST(request: Request) {
       (sum, item) => sum + item.price * item.quantity,
       0,
     );
-    const enabledCouriers = await getEnabledCourierCodes();
+    const enabledCouriers = await getEnabledCourierCodes(store.id);
     if (!enabledCouriers.length)
       return NextResponse.json(
         { error: 'Pengiriman sedang dinonaktifkan.' },
@@ -147,6 +176,7 @@ export async function POST(request: Request) {
         weight: item.weight,
       })),
       enabledCouriers,
+      await biteshipConfig(store.id, settings),
     );
     const selectedShipping = shippingOptions.find(
       (option) =>
@@ -166,16 +196,16 @@ export async function POST(request: Request) {
     const paymentAccessToken = crypto.randomUUID() + crypto.randomUUID();
     const accessHash = await paymentTokenHash(paymentAccessToken);
     const now = new Date().toISOString();
-    const orderNumber = `SG-${Date.now().toString(36).toUpperCase()}-${crypto.randomUUID().slice(0, 4).toUpperCase()}`;
-    const paymentLabel =
-      paymentMethod === 'midtrans'
-        ? 'Midtrans QRIS / Virtual Account'
-        : 'Bank Mandiri';
+    const orderNumber = `${orderPrefix(store, settings)}-${Date.now().toString(36).toUpperCase()}-${crypto.randomUUID().slice(0, 4).toUpperCase()}`;
+    const paymentLabel = midtransKeys
+      ? 'Midtrans QRIS / Virtual Account'
+      : (manual?.bankName ?? 'Transfer manual');
     await d1
       .prepare(
-        'INSERT INTO orders (order_number, customer_name, customer_phone, shipping_address, items_json, subtotal, shipping, total, payment_method, status, created_at, updated_at, payment_token_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO orders (store_id, order_number, customer_name, customer_phone, shipping_address, items_json, subtotal, shipping, total, payment_method, status, created_at, updated_at, payment_token_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       )
       .bind(
+        store.id,
         orderNumber,
         name,
         phone,
@@ -192,26 +222,21 @@ export async function POST(request: Request) {
       )
       .run();
 
-    if (paymentMethod === 'manual')
-      return NextResponse.json({ orderNumber, total, paymentMethod, paymentAccessToken });
+    if (!midtransKeys)
+      return NextResponse.json({
+        orderNumber,
+        total,
+        paymentMethod,
+        paymentAccessToken,
+        manualPayment: manual,
+      });
 
-    const serverKey = process.env.MIDTRANS_SERVER_KEY;
-    const clientKey = process.env.MIDTRANS_CLIENT_KEY;
-    if (!serverKey || !clientKey) {
-      await d1
-        .prepare('DELETE FROM orders WHERE order_number=?')
-        .bind(orderNumber)
-        .run();
-      return NextResponse.json(
-        { error: 'Pembayaran otomatis belum siap. Pilih transfer Mandiri.' },
-        { status: 503 },
-      );
-    }
+    const { serverKey, clientKey } = midtransKeys;
 
     const midtransResponse = await fetch(
-      process.env.MIDTRANS_IS_PRODUCTION === 'false'
-        ? 'https://app.sandbox.midtrans.com/snap/v1/transactions'
-        : 'https://app.midtrans.com/snap/v1/transactions',
+      midtransKeys.production
+        ? 'https://app.midtrans.com/snap/v1/transactions'
+        : 'https://app.sandbox.midtrans.com/snap/v1/transactions',
       {
         method: 'POST',
         headers: {
@@ -221,7 +246,9 @@ export async function POST(request: Request) {
         },
         body: JSON.stringify({
           transaction_details: { order_id: orderNumber, gross_amount: total },
-          callbacks: { finish: `${siteUrl()}/checkout?order_id=${encodeURIComponent(orderNumber)}` },
+          callbacks: {
+            finish: `${await storeBaseUrl(store)}/checkout?order_id=${encodeURIComponent(orderNumber)}`,
+          },
           item_details: [
             ...items.map((item, index) => ({
               id: (item.sku || `${item.id}-${index}`).slice(0, 50),
@@ -261,8 +288,8 @@ export async function POST(request: Request) {
     };
     if (!midtransResponse.ok || !midtrans.token) {
       await d1
-        .prepare('DELETE FROM orders WHERE order_number=?')
-        .bind(orderNumber)
+        .prepare('DELETE FROM orders WHERE order_number=? AND store_id=?')
+        .bind(orderNumber, store.id)
         .run();
       return NextResponse.json(
         {

@@ -1,16 +1,16 @@
 import { NextResponse } from 'next/server';
-import { isAdmin } from '@/lib/admin-auth';
+import { authorizeStore } from '@/lib/admin-auth';
+import { audit } from '@/lib/audit';
 import { getD1 } from '@/db';
 import {
   normalizeCategory,
   normalizeSubcategory,
 } from '@/lib/catalog-normalize';
 
-const authorized = isAdmin;
-
 export async function PATCH(request: Request) {
-  if (!(await authorized()))
-    return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
+  const auth = await authorizeStore('categories.manage');
+  if (!auth.ok) return auth.response;
+  const { admin } = auth;
   const body = (await request.json()) as {
     type?: 'category' | 'subcategory';
     from?: string;
@@ -31,16 +31,16 @@ export async function PATCH(request: Request) {
     body.type === 'category'
       ? await database
           .prepare(
-            'UPDATE products SET category=?,updated_at=? WHERE category=?',
+            'UPDATE products SET category=?,updated_at=? WHERE store_id=? AND category=?',
           )
-          .bind(to, now, from)
+          .bind(to, now, admin.store.id, from)
           .run()
       : category
         ? await database
             .prepare(
-              'UPDATE products SET subcategory=?,updated_at=? WHERE category=? AND subcategory=?',
+              'UPDATE products SET subcategory=?,updated_at=? WHERE store_id=? AND category=? AND subcategory=?',
             )
-            .bind(to, now, category, from)
+            .bind(to, now, admin.store.id, category, from)
             .run()
         : null;
   if (!result)
@@ -48,15 +48,22 @@ export async function PATCH(request: Request) {
       { error: 'Kategori utama untuk subkategori belum dipilih.' },
       { status: 400 },
     );
+  await audit(admin, {
+    storeId: admin.store.id,
+    action: body.type === 'category' ? 'category.rename' : 'subcategory.rename',
+    meta: { from, to, category, changed: result.meta.changes ?? 0 },
+  });
   return NextResponse.json({ ok: true, changed: result.meta.changes ?? 0 });
 }
 
 export async function POST() {
-  if (!(await authorized()))
-    return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
+  const auth = await authorizeStore('categories.manage');
+  if (!auth.ok) return auth.response;
+  const { admin } = auth;
   const database = getD1();
   const rows = await database
-    .prepare('SELECT id,category,subcategory FROM products')
+    .prepare('SELECT id,category,subcategory FROM products WHERE store_id=?')
+    .bind(admin.store.id)
     .all<any>();
   const now = new Date().toISOString();
   const statements = [];
@@ -68,13 +75,18 @@ export async function POST() {
     statements.push(
       database
         .prepare(
-          'UPDATE products SET category=?,subcategory=?,updated_at=? WHERE id=?',
+          'UPDATE products SET category=?,subcategory=?,updated_at=? WHERE id=? AND store_id=?',
         )
-        .bind(category, subcategory, now, row.id),
+        .bind(category, subcategory, now, row.id, admin.store.id),
     );
     changed++;
   }
   for (let index = 0; index < statements.length; index += 75)
     await database.batch(statements.slice(index, index + 75));
+  await audit(admin, {
+    storeId: admin.store.id,
+    action: 'category.normalize',
+    meta: { changed },
+  });
   return NextResponse.json({ ok: true, changed });
 }

@@ -10,7 +10,15 @@ type GoogleApi = {
   };
 };
 
-export function AdminLogin({ next, googleClientId }: { next: string; googleClientId: string }) {
+export function AdminLogin({
+  next,
+  googleClientId,
+  storeName,
+}: {
+  next: string;
+  googleClientId: string;
+  storeName: string;
+}) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -65,7 +73,7 @@ export function AdminLogin({ next, googleClientId }: { next: string; googleClien
   return (
     <div className="mx-auto mt-16 max-w-md rounded-3xl border bg-white p-8 shadow-sm">
       <p className="text-xs font-bold uppercase tracking-[.2em] text-[#a34f2c]">Panel admin</p>
-      <h1 className="mt-3 font-serif text-3xl">Masuk ke Simple Ground</h1>
+      <h1 className="mt-3 font-serif text-3xl">{`Masuk ke ${storeName}`}</h1>
       <div className="mt-6 flex justify-center" id="admin-google-button" />
       <div className="my-6 flex items-center gap-3 text-xs text-[#68736b]">
         <span className="h-px flex-1 bg-[#e4e0d6]" /> atau dengan email <span className="h-px flex-1 bg-[#e4e0d6]" />

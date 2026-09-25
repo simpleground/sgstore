@@ -55,9 +55,34 @@ Buka **http://localhost:3000**. Panel admin: **http://localhost:3000/admin**
 | `npm run dev` | Mode pengembangan (auto-reload) |
 | `npm run build` lalu `npm start` | Mode produksi |
 | `npm run db:migrate` | Menerapkan file baru di `db/migrations/` |
-| `npm run db:seed-demo` | Menambah produk demo bila tabel produk kosong |
-| `npm run admin:create -- email "password" "Nama"` | Membuat admin / reset password admin |
+| `npm run db:seed-demo` | Menambah produk demo bila toko belum punya produk (`-- --store=slug` untuk toko lain) |
+| `npm run admin:create -- email "password" "Nama"` | Membuat admin / reset password admin (tambahkan `--store=slug` untuk toko lain, `--super` untuk admin platform) |
 | `npm run typecheck` · `npm run lint` · `npm test` | Pemeriksaan kode |
+| `npm run test:integration` | Tes integrasi dengan PostgreSQL sungguhan (lihat bawah) |
+
+### Tes integrasi
+
+Menjalankan aplikasi sungguhan (`next dev`) terhadap PostgreSQL dan menguji alur utama
+(admin, katalog, keranjang, ongkir, pesanan, pembayaran Midtrans, ulasan) serta fondasi multi-toko.
+
+```bash
+TEST_DATABASE_URL=postgres://sgstore:sgstore@localhost:5432/sgstore npm run test:integration
+```
+
+Aman untuk database yang sudah berisi data: setiap run membuat **schema sementara** sendiri
+(`sg_it_…`), menjalankan migrasi di sana, lalu menghapus schema itu lagi. Tabel yang ada tidak disentuh.
+Biteship diganti server tiruan lokal; tidak ada panggilan ke Midtrans/Biteship sungguhan.
+
+### Menjalankan dengan Docker
+
+```bash
+docker compose --profile app up -d --build   # PostgreSQL + aplikasi di http://localhost:3000
+```
+
+Aplikasi membaca `.env` bila ada; `DATABASE_URL` otomatis diarahkan ke container PostgreSQL dan
+migrasi dijalankan setiap kali container menyala. Foto produk disimpan di volume `sgstore-storage`.
+Image juga bisa dibangun sendiri: `docker build -t sgstore --build-arg SITE_URL=https://domain-anda .`
+(`SITE_URL` dan `NEXT_PUBLIC_GOOGLE_CLIENT_ID` dibaca saat build; variabel lain saat container dijalankan).
 
 ---
 
@@ -154,8 +179,11 @@ Cara paling praktis:
 | Nama | Wajib | Keterangan |
 |---|---|---|
 | `SITE_URL` | ✔ | URL website, mis. `https://simpleground.online` (dipakai untuk SEO & callback Midtrans). Ubah **sebelum** `npm run build`. |
+| `DEFAULT_STORE_SLUG` | | Toko untuk domain yang tidak terdaftar (bawaan: toko awal `simple-ground`) |
+| `PLATFORM_ROOT_DOMAIN` | | Domain platform untuk subdomain toko, mis. `platform.id` → `tokoa.platform.id` |
 | `DATABASE_URL` | ✔ | Koneksi PostgreSQL `postgres://user:pass@host:5432/db` |
 | `DATABASE_SSL` | | `require` untuk database cloud yang mewajibkan SSL |
+| `APP_ENCRYPTION_KEY` | ✔ | Minimal 32 karakter acak (`openssl rand -hex 32`) untuk mengenkripsi kunci Midtrans/Biteship tiap toko. Dibuat otomatis oleh `setup-vps.sh`/`update.sh`. **Jangan diganti** setelah dipakai. |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | ✔ | Akun admin utama; dibuat otomatis saat login pertama, password ikut diperbarui bila diubah |
 | `ADMIN_NAME` | | Nama tampilan admin utama (bawaan `Admin`) |
 | `ADMIN_EMAILS` | | Email Google yang otomatis boleh masuk admin (pisahkan koma) |
@@ -163,11 +191,11 @@ Cara paling praktis:
 | `STORAGE_DRIVER` | | `local` (bawaan) atau `s3` |
 | `STORAGE_LOCAL_DIR` | | Folder foto, bawaan `./storage` |
 | `S3_ENDPOINT`, `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | | Untuk R2/S3 |
-| `MIDTRANS_SERVER_KEY`, `MIDTRANS_CLIENT_KEY` | | Kunci Midtrans |
+| `MIDTRANS_SERVER_KEY`, `MIDTRANS_CLIENT_KEY` | | Kunci Midtrans **toko bawaan** (bila belum diisi di Admin → Pengaturan). Toko lain wajib memakai akun Midtrans sendiri. |
 | `MIDTRANS_IS_PRODUCTION` | | `false` = Sandbox |
-| `BITESHIP_API_KEY` | ✔ untuk ongkir | Kunci Biteship |
+| `BITESHIP_API_KEY` | ✔ untuk ongkir | Kunci Biteship platform (dipakai toko yang belum mengisi kuncinya sendiri) |
 | `BITESHIP_MODE` | | `sandbox` = tarif simulasi bila API gagal |
-| `BITESHIP_ORIGIN_POSTAL_CODE` | | Kode pos gudang, bawaan `44163` |
+| `BITESHIP_ORIGIN_POSTAL_CODE` | | Kode pos gudang toko bawaan, bawaan `44163` (toko lain mengatur di Admin → Pengaturan) |
 
 ---
 
@@ -175,14 +203,101 @@ Cara paling praktis:
 
 ```
 app/                 Halaman & API (Next.js App Router)
+  (storefront)/      Etalase: beranda, produk, checkout (layout menolak toko nonaktif)
   admin/             Panel admin (+ admin/login)
+  platform/          Panel platform untuk admin platform (membuat & mengelola toko)
   api/               Endpoint API (produk, pesanan, pembayaran, ongkir, admin)
 db/index.ts          Koneksi PostgreSQL (API bergaya D1: prepare/bind/first/all/run/batch)
 db/migrations/       File SQL skema database — tambah file baru untuk perubahan skema
-lib/                 Logika bersama (auth admin, storage, Biteship, dll.)
-scripts/             migrate, create-admin, seed-demo
-deploy/              Skrip VPS (setup, update, backup), Nginx, konfigurasi Cloudflare
+lib/                 Logika bersama (auth admin, storage, Biteship, toko aktif, dll.)
+scripts/             migrate, create-admin, seed-demo, test-integration
+tests/integration/   Tes integrasi (PostgreSQL + server Next.js)
+deploy/              Skrip VPS (setup, update, backup, add-domain), Nginx, konfigurasi Cloudflare
 ```
+
+### Multi-toko
+
+Satu aplikasi melayani beberapa toko. Toko dipilih dari **domain** yang dibuka:
+domain yang terdaftar di tabel `store_domains`, atau subdomain `<slug>.PLATFORM_ROOT_DOMAIN`.
+Domain lain (localhost, domain lama) memakai toko bawaan **Simple Ground** — perilaku lama tetap sama.
+
+Data setiap toko (produk, pesanan, pelanggan, ulasan, keranjang, kurir, newsletter, foto) terpisah:
+admin hanya bisa mengelola toko tempat ia menjadi anggota; akun `ADMIN_EMAIL` adalah admin platform
+yang bisa mengelola semua toko. Pelanggan punya akun terpisah di setiap toko.
+
+**Peran anggota toko** (atur di Admin → Anggota):
+
+| Peran | Boleh |
+|---|---|
+| Pemilik | Semua, termasuk mengatur pemilik & admin lain |
+| Admin | Semua pengelolaan toko; di menu Anggota hanya boleh menambah/mengubah/mengeluarkan Staf |
+| Staf | Pesanan dan produk (tanpa hapus permanen, impor CSV, gabung produk, kategori); tanpa ulasan, pengiriman, anggota, aktivitas |
+
+Anggota baru yang ditambahkan dari panel masuk dengan **tombol Google** memakai email tersebut
+(akun baru sengaja dibuat tanpa password). Password bisa diberikan oleh pengelola server:
+`npm run admin:create -- email "Password" "Nama" --store=slug`. Toko selalu punya minimal satu Pemilik.
+Semua tindakan penting admin (masuk, produk, pesanan, anggota, dll.) tercatat di Admin → Aktivitas.
+
+**Pengaturan per toko** (Admin → Pengaturan): nama & kontak, WhatsApp, media sosial, catatan checkout,
+metode pembayaran yang direkomendasikan, awalan nomor pesanan, kode pos gudang (Pemilik & Admin), serta
+rekening transfer manual dan kunci Midtrans/Biteship (**hanya Pemilik**). Kunci API disimpan terenkripsi
+(`APP_ENCRYPTION_KEY`) dan tidak pernah ditampilkan lagi. Setiap toko memakai akun Midtrans sendiri:
+di dashboard Midtrans toko tersebut, set *Payment Notification URL* ke
+`https://<domain-toko>/api/payments/midtrans/notification`.
+
+**Tampilan per toko** (Admin → Tampilan, Pemilik & Admin): logo, ikon tab, warna utama & aksen, gaya huruf,
+pengumuman, slide beranda, bagian "Tentang", ulasan & newsletter (tampil/sembunyi), slogan, serta judul &
+deskripsi SEO dan gambar saat dibagikan. Semua toko memakai kode dan tata letak yang sama; yang berbeda hanya
+pengaturannya. Toko tanpa warna sendiri memakai warna Simple Ground. Gambar diunggah sebagai PNG/JPG/WebP
+(SVG ditolak) dan disimpan di folder toko itu sendiri.
+
+**Membuat toko baru** — panel platform di `/platform` (hanya akun `ADMIN_EMAIL`/super admin):
+isi nama, slug (subdomain), email pemilik, dan (opsional) domain sendiri. Toko langsung aktif di
+`<slug>.PLATFORM_ROOT_DOMAIN`. Pemilik masuk ke `/admin` di domain tokonya dengan tombol Google memakai
+email tersebut. Di panel yang sama: tambah/lepas domain, pilih domain utama, tambah pemilik, dan ubah status:
+
+| Status | Etalase & checkout | Admin toko |
+|---|---|---|
+| Aktif | buka | bisa masuk |
+| Ditangguhkan | ditutup (pesan "tidak aktif"); pesanan lama tetap bisa dicek & dibayar | bisa masuk |
+| Ditutup | ditutup | hanya admin platform |
+
+Data toko tidak pernah dihapus dari panel.
+
+**Mencoba di komputer lokal:** isi `PLATFORM_ROOT_DOMAIN=localhost` di `.env`, masuk ke
+`http://localhost:3000/admin` dengan `ADMIN_EMAIL`, buka `http://localhost:3000/platform`, buat toko
+dengan slug mis. `toko-b`, lalu buka `http://toko-b.localhost:3000` (Chrome/Edge/Firefox otomatis
+mengarahkan `*.localhost` ke komputer sendiri).
+
+**Checklist membuka toko baru:** Tampilan (logo, warna, isi beranda) · Pengaturan (kontak, rekening,
+kode pos gudang, kunci Midtrans sendiri) · produk · domain & SSL (lihat di bawah) · origin Google.
+
+#### Subdomain & domain sendiri di VPS
+
+Aplikasi memilih toko dari nama domain, jadi semua domain cukup diarahkan ke aplikasi yang sama.
+
+*Subdomain platform* (`<slug>.platform.id`), sekali saja:
+
+1. `.env`: `PLATFORM_ROOT_DOMAIN=platform.id`, lalu `pm2 reload sgstore --update-env`.
+2. DNS: A record `*.platform.id` (dan `platform.id`) ke IP VPS.
+3. Sertifikat wildcard (Let's Encrypt mewajibkan verifikasi DNS; Certbot meminta Anda membuat TXT record):
+   `sudo certbot certonly --manual --preferred-challenges dns -d platform.id -d '*.platform.id'`
+   Sertifikat manual tidak diperpanjang otomatis — untuk perpanjangan otomatis pakai plugin DNS penyedia
+   domain Anda (mis. `python3-certbot-dns-cloudflare`).
+4. Nginx: salin `deploy/nginx-sgstore.conf` sebagai `/etc/nginx/sites-available/sgstore-platform`, ganti
+   `server_name` menjadi `platform.id *.platform.id;`, aktifkan, lalu
+   `sudo certbot install --nginx --cert-name platform.id` dan `sudo systemctl reload nginx`.
+
+*Domain sendiri* (`tokoanda.com`), per toko: tambahkan domain di `/platform`, arahkan A record `@` dan
+`www` ke IP VPS, lalu jalankan `sudo bash /var/www/sgstore/deploy/add-domain.sh tokoanda.com`
+(membuat server block Nginx + sertifikat SSL).
+
+Untuk setiap domain baru, tambahkan juga `https://<domain>` di Google Cloud Console → *Authorized
+JavaScript origins* (login Google), dan bila toko memakai Midtrans, set *Payment Notification URL* akun
+Midtrans toko itu ke `https://<domain>/api/payments/midtrans/notification`.
+
+> **Sebelum `npm run db:migrate` di server, buat backup** (`deploy/backup.sh`). Migrasi multi-toko
+> (0004) tidak bisa dipakai oleh kode versi lama; kembali ke versi lama = pulihkan backup.
 
 **Menambah kolom/tabel:** buat file baru mis. `db/migrations/0002_tambah_kolom.sql`, isi SQL-nya,
 lalu jalankan `npm run db:migrate` (di lokal dan di VPS — `update.sh` menjalankannya otomatis).

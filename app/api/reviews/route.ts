@@ -1,12 +1,16 @@
 import { NextResponse } from 'next/server';
 import { getCustomer } from '@/app/customer-auth';
 import { getD1 } from '@/db';
+import { getOpenStore, storeNotFound } from '@/lib/tenant';
 
 export async function GET() {
+  const store = await getOpenStore();
+  if (!store) return storeNotFound();
   const r = await getD1()
     .prepare(
-      'SELECT id,product_id,display_name,city,rating,body,created_at FROM reviews WHERE active=1 ORDER BY created_at DESC',
+      'SELECT id,product_id,display_name,city,rating,body,created_at FROM reviews WHERE store_id=? AND active=1 ORDER BY created_at DESC',
     )
+    .bind(store.id)
     .all();
   return NextResponse.json({ reviews: r.results });
 }
@@ -39,24 +43,46 @@ export async function POST(req: Request) {
     );
   const d1 = getD1(),
     now = new Date().toISOString();
+  const product = await d1
+    .prepare(
+      'SELECT id FROM products WHERE id=? AND store_id=? AND deleted_at IS NULL',
+    )
+    .bind(productId, user.storeId)
+    .first();
+  if (!product)
+    return NextResponse.json(
+      { error: 'Produk tidak ditemukan.' },
+      { status: 404 },
+    );
   const old = await d1
-    .prepare('SELECT id FROM reviews WHERE user_id=? AND product_id=?')
-    .bind(user.userId, productId)
+    .prepare(
+      'SELECT id FROM reviews WHERE store_id=? AND user_id=? AND product_id=?',
+    )
+    .bind(user.storeId, user.userId, productId)
     .first<{ id: string }>();
   if (old)
     await d1
       .prepare(
-        'UPDATE reviews SET display_name=?,city=?,rating=?,body=?,active=1,updated_at=? WHERE id=?',
+        'UPDATE reviews SET display_name=?,city=?,rating=?,body=?,active=1,updated_at=? WHERE id=? AND store_id=?',
       )
-      .bind(user.name, city.trim(), rating, body.trim(), now, old.id)
+      .bind(
+        user.name,
+        city.trim(),
+        rating,
+        body.trim(),
+        now,
+        old.id,
+        user.storeId,
+      )
       .run();
   else
     await d1
       .prepare(
-        'INSERT INTO reviews (id,product_id,user_id,display_name,city,rating,body,active,admin_created,created_at,updated_at) VALUES (?,?,?,?,?,?,?,1,0,?,?)',
+        'INSERT INTO reviews (id,store_id,product_id,user_id,display_name,city,rating,body,active,admin_created,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,1,0,?,?)',
       )
       .bind(
         crypto.randomUUID(),
+        user.storeId,
         productId,
         user.userId,
         user.name,

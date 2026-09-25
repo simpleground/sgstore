@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import {
+  canManageStore,
   clearLoginFailures,
   createAdminSession,
   findAdminByEmail,
@@ -7,9 +8,13 @@ import {
   recordLoginFailure,
   syncEnvAdmin,
 } from '@/lib/admin-auth';
+import { audit } from '@/lib/audit';
 import { verifyPassword } from '@/lib/password';
+import { getCurrentStore, storeNotFound } from '@/lib/tenant';
 
 export async function POST(request: Request) {
+  const store = await getCurrentStore();
+  if (!store) return storeNotFound();
   const body = (await request.json().catch(() => ({}))) as { email?: string; password?: string };
   const email = body.email?.trim().toLowerCase() ?? '';
   const password = body.password ?? '';
@@ -28,6 +33,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Email atau password salah.' }, { status: 401 });
   }
   clearLoginFailures(key);
+  const actor = { userId: admin.user_id, email: admin.email };
+  if (store.status === 'closed' && admin.platform_role !== 'super_admin')
+    return NextResponse.json({ error: 'Toko ini sudah ditutup.' }, { status: 403 });
+  if (!(await canManageStore(admin.user_id, admin.platform_role, store.id))) {
+    await audit(actor, { storeId: store.id, action: 'auth.login_denied', meta: { method: 'password' } });
+    return NextResponse.json(
+      { error: `Akun ini bukan administrator ${store.name}.` },
+      { status: 403 },
+    );
+  }
   await createAdminSession(admin.user_id);
+  await audit(actor, {
+    storeId: store.id,
+    action: 'auth.login',
+    meta: { method: 'password', platformAdmin: admin.platform_role === 'super_admin' },
+  });
   return NextResponse.json({ ok: true });
 }

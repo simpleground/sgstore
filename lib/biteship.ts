@@ -25,15 +25,21 @@ export type ShippingOption = {
   duration: string;
 };
 
-const ORIGIN_POSTAL_CODE = Number(process.env.BITESHIP_ORIGIN_POSTAL_CODE || 44163);
+/** Per-store Biteship settings (see biteshipConfig in lib/store-settings.ts). */
+export type BiteshipConfig = { apiKey: string | null; originPostalCode: string };
+
 export async function retrieveShippingRates(
   destinationPostalCode: string,
   items: ShippingItem[],
-  courierCodes = SUPPORTED_COURIERS.map((courier) => courier.code),
+  courierCodes: string[],
+  config: BiteshipConfig,
 ): Promise<ShippingOption[]> {
-  const apiKey = process.env.BITESHIP_API_KEY;
+  const { apiKey, originPostalCode } = config;
   if (!apiKey) throw new Error('Biteship belum dikonfigurasi.');
-  const response = await fetch('https://api.biteship.com/v1/rates/couriers', {
+  if (!originPostalCode)
+    throw new Error('Toko belum mengatur kode pos asal pengiriman.');
+  const baseUrl = (process.env.BITESHIP_API_URL || 'https://api.biteship.com').replace(/\/+$/, '');
+  const response = await fetch(`${baseUrl}/v1/rates/couriers`, {
     method: 'POST',
     headers: {
       authorization: `Bearer ${apiKey}`,
@@ -41,7 +47,7 @@ export async function retrieveShippingRates(
       accept: 'application/json',
     },
     body: JSON.stringify({
-      origin_postal_code: ORIGIN_POSTAL_CODE,
+      origin_postal_code: Number(originPostalCode),
       destination_postal_code: Number(destinationPostalCode),
       couriers: courierCodes.join(','),
       items: items.map((item) => ({

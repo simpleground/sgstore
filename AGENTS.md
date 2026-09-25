@@ -18,4 +18,21 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Perubahan skema: tambah file baru di `db/migrations/NNNN_nama.sql` lalu `npm run db:migrate`. Jangan ubah file migrasi lama.
 - Foto produk: `getFiles()` / `lib/storage.ts` (driver `local` atau `s3`). URL publik: `/api/product-image/<key>`.
 - Auth admin: `lib/admin-auth.ts` (`isAdmin()` untuk API, `requireAdmin()` untuk halaman). Auth pelanggan: `app/customer-auth.ts`.
+- Multi-toko: toko aktif ditentukan dari header Host — `getCurrentStore()` (`lib/tenant.ts`) untuk halaman/API publik,
+  `authorizeStore('<izin>')` (`lib/admin-auth.ts`, izin per peran di `lib/permissions.ts`) untuk API admin; catat
+  tindakan admin dengan `audit()` (`lib/audit.ts`). JANGAN pernah memakai
+  store id dari body/query browser. Tabel products, orders, reviews, cart_items, customers, customer_sessions,
+  shipping_settings, newsletter_subscribers wajib `store_id` di setiap SELECT/UPDATE/DELETE (WHERE) dan INSERT
+  (kolom ini tidak punya DEFAULT). Foto baru: `storeFileKey()`; data lama milik toko `default` (slug `simple-ground`).
+  Tambah tes isolasi di `tests/integration/isolation.test.mjs` untuk setiap endpoint baru.
+- Pengaturan toko: `lib/store-settings.ts` (kontak, rekening, Midtrans/Biteship efektif per toko; kunci rahasia
+  terenkripsi via `lib/secrets.ts`). Komponen client membaca pengaturan publik lewat `useStoreConfig()`
+  (`app/store-config.tsx`). Jangan menulis nomor rekening/WA/kunci toko di kode.
+- Tampilan toko: `lib/store-appearance.ts` (tema, konten beranda, SEO, gambar). Di storefront pakai warna brand
+  lewat token CSS (`bg-[var(--brand)]`, `text-[var(--brand-accent)]`, lihat `app/globals.css`), bukan hex
+  hijau/terakota langsung, dan teks/nama toko dari `useStoreConfig()` — jangan tulis "Simple Ground" di kode.
+- Platform (super admin): panel `/platform`, API `/api/platform/*` dengan `requireSuperAdmin()`, logika di
+  `lib/platform.ts`. Halaman etalase ada di `app/(storefront)/` (layout-nya menolak host tanpa toko dan menutup
+  toko yang ditangguhkan/ditutup); API publik memakai `getOpenStore()`, panel admin `getCurrentStore()`.
+- Tes integrasi: `TEST_DATABASE_URL=... npm run test:integration` (schema sementara, aman untuk DB berisi data).
 - Konfigurasi hanya lewat variabel lingkungan (`.env`, lihat `.env.example`). Jangan menulis URL/kunci langsung di kode.

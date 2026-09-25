@@ -7,9 +7,9 @@ export async function GET() {
   if (!u) return NextResponse.json({ items: [] }, { status: 401 });
   const r = await getD1()
     .prepare(
-      'SELECT product_id,variant_index,quantity FROM cart_items WHERE user_id=?',
+      'SELECT product_id,variant_index,quantity FROM cart_items WHERE store_id=? AND user_id=?',
     )
-    .bind(u.userId)
+    .bind(u.storeId, u.userId)
     .all();
   return NextResponse.json({ items: r.results });
 }
@@ -32,9 +32,9 @@ export async function PUT(req: Request) {
   if (quantity > 0) {
     const product = await d
       .prepare(
-        'SELECT variants_json,preorder_enabled,preorder_days FROM products WHERE id=? AND active=1 AND deleted_at IS NULL',
+        'SELECT variants_json,preorder_enabled,preorder_days FROM products WHERE id=? AND store_id=? AND active=1 AND deleted_at IS NULL',
       )
-      .bind(productId)
+      .bind(productId, u.storeId)
       .first<{ variants_json: string; preorder_enabled: number; preorder_days: number }>();
     let variants: Array<{ stock?: number }> = [];
     try {
@@ -55,16 +55,17 @@ export async function PUT(req: Request) {
   if (quantity === 0)
     await d
       .prepare(
-        'DELETE FROM cart_items WHERE user_id=? AND product_id=? AND variant_index=?',
+        'DELETE FROM cart_items WHERE store_id=? AND user_id=? AND product_id=? AND variant_index=?',
       )
-      .bind(u.userId, productId, variantIndex)
+      .bind(u.storeId, u.userId, productId, variantIndex)
       .run();
   else
     await d
       .prepare(
-        'INSERT INTO cart_items (user_id,product_id,variant_index,quantity,updated_at) VALUES (?,?,?,?,?) ON CONFLICT(user_id,product_id,variant_index) DO UPDATE SET quantity=excluded.quantity,updated_at=excluded.updated_at',
+        'INSERT INTO cart_items (store_id,user_id,product_id,variant_index,quantity,updated_at) VALUES (?,?,?,?,?,?) ON CONFLICT(store_id,user_id,product_id,variant_index) DO UPDATE SET quantity=excluded.quantity,updated_at=excluded.updated_at',
       )
       .bind(
+        u.storeId,
         u.userId,
         productId,
         variantIndex,

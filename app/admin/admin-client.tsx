@@ -1,5 +1,6 @@
 'use client';
 import { csvRecords } from '@/lib/catalog-csv';
+import type { Permission } from '@/lib/permissions';
 import { useEffect, useRef, useState } from 'react';
 import { Switch } from '@/components/ui/switch';
 import { VariantEditor } from './variant-editor';
@@ -525,7 +526,13 @@ function CategoryManager({
     </div>
   );
 }
-export function ProductManager() {
+export function ProductManager({
+  permissions,
+}: {
+  /** Actions the admin's role allows; hidden actions are also refused by the API. */
+  permissions: Permission[];
+}) {
+  const can = (permission: Permission) => permissions.includes(permission);
   const [items, setItems] = useState<Product[]>([]);
   const [editing, setEditing] = useState<Product | null>(null);
   const [open, setOpen] = useState(false);
@@ -814,8 +821,8 @@ export function ProductManager() {
       )}
       {!dedicatedEdit && (
         <>
-          <details className="admin-tool"><summary>Impor & ekspor produk CSV</summary><BulkImport onDone={load} products={items} /></details>
-          <details className="admin-tool"><summary>Kelola kategori & subkategori</summary><CategoryManager items={items} onDone={load} /></details>
+          {can('products.import') && <details className="admin-tool"><summary>Impor & ekspor produk CSV</summary><BulkImport onDone={load} products={items} /></details>}
+          {can('categories.manage') && <details className="admin-tool"><summary>Kelola kategori & subkategori</summary><CategoryManager items={items} onDone={load} /></details>}
         </>
       )}
       {!dedicatedEdit && mergeIds.length > 0 && (
@@ -1115,7 +1122,7 @@ export function ProductManager() {
                 key={p.id}
                 className={`admin-product-row flex gap-3 border-b p-4 ${p.active === 0 ? 'bg-[#f1f1ed]' : ''}`}
               >
-                {productTab === 'active' && (
+                {productTab === 'active' && can('products.merge') && (
                   <input
                     type="checkbox"
                     aria-label={`Pilih ${p.name} untuk digabung`}
@@ -1170,12 +1177,14 @@ export function ProductManager() {
                         >
                           <RotateCcw size={13} /> Pulihkan
                         </button>
-                        <button
-                          onClick={() => deletePermanently(p.id)}
-                          className="flex items-center gap-1 text-xs font-semibold text-red-700"
-                        >
-                          <Trash2 size={13} /> Hapus Permanen
-                        </button>
+                        {can('products.delete') && (
+                          <button
+                            onClick={() => deletePermanently(p.id)}
+                            className="flex items-center gap-1 text-xs font-semibold text-red-700"
+                          >
+                            <Trash2 size={13} /> Hapus Permanen
+                          </button>
+                        )}
                       </>
                     ) : (
                       <>
@@ -1496,7 +1505,10 @@ export function ShippingManager() {
   );
 }
 
-export function printLabel(order: Order) {
+/** Sender shown on shipping labels (the store's own name, phone and address). */
+export type LabelSender = { name: string; phone: string; address: string };
+
+export function printLabel(order: Order, sender: LabelSender) {
     const items = JSON.parse(order.items_json) as {
       name: string;
       quantity: number;
@@ -1519,7 +1531,7 @@ export function printLabel(order: Order) {
     const popup = window.open('', '_blank', 'width=620,height=880');
     if (!popup) return;
     popup.document.write(
-      `<!doctype html><html><head><title>Label ${escape(order.order_number)}</title><style>@page{size:A6 portrait;margin:7mm}*{box-sizing:border-box}body{font:12px Arial,sans-serif;margin:0;color:#111}.label{border:2px solid #111;padding:12px;min-height:134mm}.brand{font-size:20px;font-weight:800}.order{font-size:17px;font-weight:800;border:2px solid #111;padding:8px;margin:10px 0}.box{border-top:1px solid #111;padding-top:9px;margin-top:9px}.small{font-size:10px;line-height:1.4}h2{font-size:11px;margin:0 0 5px;text-transform:uppercase}p{white-space:pre-line;margin:2px 0;line-height:1.4}ul{padding-left:18px;margin:5px 0}</style></head><body><div class="label"><div class="brand">SIMPLE GROUND</div><div class="order">${escape(order.order_number)}</div><div class="box"><h2>Penerima</h2><b>${escape(order.customer_name)}</b><p>${escape(order.customer_phone)}</p><p>${escape(order.shipping_address)}</p></div><div class="box"><h2>Isi paket</h2><ul>${items.map((item) => `<li>${item.quantity}× ${escape(item.name)}${item.color || item.size ? ` — ${escape(item.color || '-')} / ${escape(item.size || '-')}` : ''}${item.sku ? ` (${escape(item.sku)})` : ''}</li>`).join('')}</ul></div><div class="box small"><h2>Pengirim</h2><b>Simple Ground · 085172381996</b><p>Kp. Dungus Maung RT 7 RW 4, Sirnagalih, Cisurupan, Garut, Jawa Barat 44163</p></div></div><script>window.onload=()=>{window.print()}<\/script></body></html>`,
+      `<!doctype html><html><head><title>Label ${escape(order.order_number)}</title><style>@page{size:A6 portrait;margin:7mm}*{box-sizing:border-box}body{font:12px Arial,sans-serif;margin:0;color:#111}.label{border:2px solid #111;padding:12px;min-height:134mm}.brand{font-size:20px;font-weight:800}.order{font-size:17px;font-weight:800;border:2px solid #111;padding:8px;margin:10px 0}.box{border-top:1px solid #111;padding-top:9px;margin-top:9px}.small{font-size:10px;line-height:1.4}h2{font-size:11px;margin:0 0 5px;text-transform:uppercase}p{white-space:pre-line;margin:2px 0;line-height:1.4}ul{padding-left:18px;margin:5px 0}</style></head><body><div class="label"><div class="brand">SIMPLE GROUND</div><div class="order">${escape(order.order_number)}</div><div class="box"><h2>Penerima</h2><b>${escape(order.customer_name)}</b><p>${escape(order.customer_phone)}</p><p>${escape(order.shipping_address)}</p></div><div class="box"><h2>Isi paket</h2><ul>${items.map((item) => `<li>${item.quantity}× ${escape(item.name)}${item.color || item.size ? ` — ${escape(item.color || '-')} / ${escape(item.size || '-')}` : ''}${item.sku ? ` (${escape(item.sku)})` : ''}</li>`).join('')}</ul></div><div class="box small"><h2>Pengirim</h2><b>${escape([sender.name, sender.phone].filter(Boolean).join(' · '))}</b><p>${escape(sender.address)}</p></div></div><script>window.onload=()=>{window.print()}<\/script></body></html>`,
     );
     popup.document.close();
   }

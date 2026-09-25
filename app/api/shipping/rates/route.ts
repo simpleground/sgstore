@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 import { getD1 } from '@/db';
 import { retrieveShippingRates } from '@/lib/biteship';
 import { getEnabledCourierCodes } from '@/lib/shipping-settings';
+import { biteshipConfig, getStoreSettings } from '@/lib/store-settings';
+import { getOpenStore, storeNotFound } from '@/lib/tenant';
 
 type RequestedItem = { id: string; variantIndex: number; quantity: number };
 type StoredVariant = {
@@ -14,6 +16,8 @@ type StoredVariant = {
 
 export async function POST(request: Request) {
   try {
+    const store = await getOpenStore();
+    if (!store) return storeNotFound();
     const body = (await request.json()) as {
       destinationPostalCode?: string;
       items?: RequestedItem[];
@@ -45,9 +49,9 @@ export async function POST(request: Request) {
         );
       const product = await d1
         .prepare(
-          'SELECT id,name,variants_json,weight_grams,preorder_enabled,preorder_days FROM products WHERE id=? AND active=1 AND deleted_at IS NULL',
+          'SELECT id,name,variants_json,weight_grams,preorder_enabled,preorder_days FROM products WHERE id=? AND store_id=? AND active=1 AND deleted_at IS NULL',
         )
-        .bind(requested.id)
+        .bind(requested.id, store.id)
         .first<{
           id: string;
           name: string;
@@ -79,13 +83,18 @@ export async function POST(request: Request) {
         weight: product.weight_grams,
       });
     }
-    const couriers = await getEnabledCourierCodes();
+    const couriers = await getEnabledCourierCodes(store.id);
     if (!couriers.length)
       return NextResponse.json(
         { error: 'Pengiriman sedang dinonaktifkan.' },
         { status: 409 },
       );
-    const options = await retrieveShippingRates(postalCode, items, couriers);
+    const options = await retrieveShippingRates(
+      postalCode,
+      items,
+      couriers,
+      await biteshipConfig(store.id, await getStoreSettings(store.id)),
+    );
     return NextResponse.json({
       options: options.slice(0, 20),
       mode: 'sandbox',
