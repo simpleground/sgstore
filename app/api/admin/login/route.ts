@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import {
+  canManageStore,
   clearLoginFailures,
   createAdminSession,
   findAdminByEmail,
@@ -8,8 +9,11 @@ import {
   syncEnvAdmin,
 } from '@/lib/admin-auth';
 import { verifyPassword } from '@/lib/password';
+import { getCurrentStore, storeNotFound } from '@/lib/tenant';
 
 export async function POST(request: Request) {
+  const store = await getCurrentStore();
+  if (!store) return storeNotFound();
   const body = (await request.json().catch(() => ({}))) as { email?: string; password?: string };
   const email = body.email?.trim().toLowerCase() ?? '';
   const password = body.password ?? '';
@@ -28,6 +32,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Email atau password salah.' }, { status: 401 });
   }
   clearLoginFailures(key);
+  if (!(await canManageStore(admin.user_id, admin.platform_role, store.id)))
+    return NextResponse.json(
+      { error: `Akun ini bukan administrator ${store.name}.` },
+      { status: 403 },
+    );
   await createAdminSession(admin.user_id);
   return NextResponse.json({ ok: true });
 }

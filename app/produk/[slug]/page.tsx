@@ -4,6 +4,7 @@ import { getD1 } from '@/db';
 import { productImageUrl } from '@/lib/product-editor';
 import { productSlug } from '@/lib/product-slug';
 import { siteUrl } from '@/lib/site';
+import { getCurrentStore } from '@/lib/tenant';
 import ProductDetailClient, {
   type DetailProduct,
 } from './product-detail-client';
@@ -33,8 +34,11 @@ const productFromRow = (row: any): DetailProduct => {
 };
 
 async function findProduct(slug: string) {
+  const store = await getCurrentStore();
+  if (!store) return null;
   const result = await getD1()
-    .prepare('SELECT * FROM products WHERE active=1 AND deleted_at IS NULL')
+    .prepare('SELECT * FROM products WHERE store_id=? AND active=1 AND deleted_at IS NULL')
+    .bind(store.id)
     .all<any>();
   const row = result.results.find((item) => productSlug(item.name) === slug);
   return row ? productFromRow(row) : null;
@@ -72,21 +76,22 @@ export default async function ProductPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
+  const store = await getCurrentStore();
   const product = await findProduct(slug);
-  if (!product) notFound();
+  if (!store || !product) notFound();
   const d1 = getD1();
   const [relatedRows, reviewRows] = await Promise.all([
     d1
       .prepare(
-        'SELECT * FROM products WHERE id!=? AND active=1 AND deleted_at IS NULL AND (subcategory=? OR category=?) ORDER BY created_at DESC LIMIT 4',
+        'SELECT * FROM products WHERE store_id=? AND id!=? AND active=1 AND deleted_at IS NULL AND (subcategory=? OR category=?) ORDER BY created_at DESC LIMIT 4',
       )
-      .bind(product.id, product.subcategory, product.category)
+      .bind(store.id, product.id, product.subcategory, product.category)
       .all<any>(),
     d1
       .prepare(
-        'SELECT id,display_name,city,rating,body,created_at FROM reviews WHERE product_id=? AND active=1 ORDER BY created_at DESC',
+        'SELECT id,display_name,city,rating,body,created_at FROM reviews WHERE store_id=? AND product_id=? AND active=1 ORDER BY created_at DESC',
       )
-      .bind(product.id)
+      .bind(store.id, product.id)
       .all<any>(),
   ]);
   return (

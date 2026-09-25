@@ -119,8 +119,12 @@ describe('produk (admin → katalog publik)', () => {
     assert.ok(product);
     assert.equal(product.variants.length, 2);
     state.imageUrl = product.images[0];
-    assert.match(state.imageUrl, /^\/api\/product-image\/products\//);
-    const image = await fetch(`${process.env.TEST_APP_URL}${state.imageUrl}`);
+    // New photos are stored under the store's own prefix.
+    assert.match(
+      state.imageUrl,
+      /^\/api\/product-image\/stores\/default\/products\//,
+    );
+    const image = await call(state.imageUrl);
     assert.equal(image.status, 200);
     assert.equal(image.headers.get('content-type'), 'image/png');
   });
@@ -459,7 +463,7 @@ describe('arsip & penghapusan produk', () => {
       state.productId,
     ]);
     assert.equal(rowCount, 0);
-    const image = await fetch(`${process.env.TEST_APP_URL}${state.imageUrl}`);
+    const image = await call(state.imageUrl);
     assert.equal(image.status, 404);
   });
 });

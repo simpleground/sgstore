@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
-import { isAdmin } from '@/lib/admin-auth';
+import { getStoreAdmin } from '@/lib/admin-auth';
 import { getD1, getFiles } from '@/db';
 import { validateVariants, resolveGallery, productImageUrl } from '@/lib/product-editor';
 import {
   normalizeCategory,
   normalizeSubcategory,
 } from '@/lib/catalog-normalize';
-const auth = isAdmin;
-async function images(files: File[]) {
+import { storeFileKey } from '@/lib/tenant';
+async function images(storeId: string, files: File[]) {
   if (files.length > 9) throw new Error('Maksimal 9 foto per produk.');
   const keys: string[] = [];
   for (const file of files) {
@@ -17,7 +17,11 @@ async function images(files: File[]) {
       !['image/jpeg', 'image/png', 'image/webp'].includes(file.type)
     )
       throw new Error('Setiap foto harus JPG, PNG, atau WebP maksimal 5 MB.');
-    const key = `products/${crypto.randomUUID()}.${file.type.split('/')[1].replace('jpeg', 'jpg')}`;
+    const key = storeFileKey(
+      storeId,
+      'products',
+      file.type.split('/')[1].replace('jpeg', 'jpg'),
+    );
     await getFiles().put(key, await file.arrayBuffer(), {
       httpMetadata: { contentType: file.type },
     });
@@ -88,9 +92,13 @@ function preorderSettings(f: FormData) {
 const select =
   "SELECT id,name,category,subcategory,tone,price,stock,sold_count,preorder_enabled,preorder_days,weight_grams,active,created_at,description,material,care_instructions,production_estimate,size_guide,variants_json,images_json,deleted_at,COALESCE('/api/product-image/' || image_key,image_url) AS image FROM products";
 export async function GET() {
-  if (!(await auth()))
+  const admin = await getStoreAdmin();
+  if (!admin)
     return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
-  const r = await getD1().prepare(`${select} ORDER BY updated_at DESC`).all();
+  const r = await getD1()
+    .prepare(`${select} WHERE store_id=? ORDER BY updated_at DESC`)
+    .bind(admin.store.id)
+    .all();
   return NextResponse.json({
     products: r.results.map((p: any) => ({
       ...p,
@@ -100,25 +108,27 @@ export async function GET() {
   });
 }
 export async function POST(req: Request) {
-  if (!(await auth()))
+  const admin = await getStoreAdmin();
+  if (!admin)
     return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
+  const storeId = admin.store.id;
   try {
     const f = await req.formData(),
       d1 = getD1(),
       copyId = String(f.get('copyId') || '');
     if (copyId) {
       const p = await d1
-        .prepare(`${select} WHERE id=?`)
-        .bind(copyId)
+        .prepare(`${select} WHERE id=? AND store_id=?`)
+        .bind(copyId, storeId)
         .first<any>();
       if (!p) throw new Error('Produk tidak ditemukan.');
       const id = crypto.randomUUID(),
         now = new Date().toISOString();
       await d1
         .prepare(
-          "INSERT INTO products (id,name,category,subcategory,tone,price,stock,sold_count,preorder_enabled,preorder_days,weight_grams,description,material,care_instructions,production_estimate,size_guide,variants_json,image_url,image_key,images_json,active,created_at,updated_at) SELECT ?,name||' (Salinan)',category,subcategory,tone,price,stock,sold_count,preorder_enabled,preorder_days,weight_grams,description,material,care_instructions,production_estimate,size_guide,variants_json,image_url,image_key,images_json,0,?,? FROM products WHERE id=?",
+          "INSERT INTO products (id,store_id,name,category,subcategory,tone,price,stock,sold_count,preorder_enabled,preorder_days,weight_grams,description,material,care_instructions,production_estimate,size_guide,variants_json,image_url,image_key,images_json,active,created_at,updated_at) SELECT ?,store_id,name||' (Salinan)',category,subcategory,tone,price,stock,sold_count,preorder_enabled,preorder_days,weight_grams,description,material,care_instructions,production_estimate,size_guide,variants_json,image_url,image_key,images_json,0,?,? FROM products WHERE id=? AND store_id=?",
         )
-        .bind(id, now, now, copyId)
+        .bind(id, now, now, copyId, storeId)
         .run();
       return NextResponse.json({ ok: true, id });
     }
@@ -135,6 +145,7 @@ export async function POST(req: Request) {
       weightGrams = Number(f.get('weightGrams') || 500),
       vs = f.has('variantsJson') ? validateVariants(JSON.parse(String(f.get('variantsJson')))) : variants(String(f.get('variants') || ''));
     const uploadedKeys = await images(
+      storeId,
       f.getAll('images').filter((v): v is File => v instanceof File),
     );
     const keys = f.has('galleryOrder') ? resolveGallery(JSON.parse(String(f.get('galleryOrder'))), [], uploadedKeys) : uploadedKeys;
@@ -158,10 +169,11 @@ export async function POST(req: Request) {
       now = new Date().toISOString();
     await d1
       .prepare(
-        'INSERT INTO products (id,name,category,subcategory,tone,price,stock,sold_count,preorder_enabled,preorder_days,weight_grams,description,material,care_instructions,production_estimate,size_guide,variants_json,image_key,images_json,active,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        'INSERT INTO products (id,store_id,name,category,subcategory,tone,price,stock,sold_count,preorder_enabled,preorder_days,weight_grams,description,material,care_instructions,production_estimate,size_guide,variants_json,image_key,images_json,active,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
       )
       .bind(
         id,
+        storeId,
         name,
         category,
         subcategory,
@@ -194,8 +206,10 @@ export async function POST(req: Request) {
   }
 }
 export async function PATCH(req: Request) {
-  if (!(await auth()))
+  const admin = await getStoreAdmin();
+  if (!admin)
     return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
+  const storeId = admin.store.id;
   try {
     const f = await req.formData(),
       d1 = getD1(),
@@ -214,10 +228,13 @@ export async function PATCH(req: Request) {
       vs = f.has('variantsJson') ? validateVariants(JSON.parse(String(f.get('variantsJson')))) : variants(String(f.get('variants') || '')),
       active = String(f.get('active')) === 'true' ? 1 : 0,
       old = await d1
-        .prepare('SELECT image_key,image_url,images_json FROM products WHERE id=?')
-        .bind(id)
-        .first<{ image_key: string | null; image_url: string | null; images_json: string }>(),
-      newKeys = await images(
+        .prepare('SELECT image_key,image_url,images_json FROM products WHERE id=? AND store_id=?')
+        .bind(id, storeId)
+        .first<{ image_key: string | null; image_url: string | null; images_json: string }>();
+    // Check before uploading so a wrong id never leaves orphan files behind.
+    if (!old) throw new Error('Produk tidak ditemukan.');
+    const newKeys = await images(
+        storeId,
         f.getAll('images').filter((v): v is File => v instanceof File),
       ),
       price = Math.min(...vs.map((v) => v.price)),
@@ -233,7 +250,6 @@ export async function PATCH(req: Request) {
           ? newKeys
           : [...previousKeys, ...newKeys],
       finalKeys = f.has('galleryOrder') ? resolveGallery(JSON.parse(String(f.get('galleryOrder'))), previousKeys, newKeys) : combinedKeys;
-    if (!old) throw new Error('Produk tidak ditemukan.');
     if (
       !name ||
       !category ||
@@ -250,7 +266,7 @@ export async function PATCH(req: Request) {
       throw new Error('Total foto maksimal 9 per produk.');
     await d1
       .prepare(
-        'UPDATE products SET name=?,category=?,subcategory=?,tone=?,price=?,stock=?,sold_count=?,preorder_enabled=?,preorder_days=?,weight_grams=?,description=?,material=?,care_instructions=?,production_estimate=?,size_guide=?,variants_json=?,active=?,image_key=?,image_url=?,images_json=?,updated_at=? WHERE id=?',
+        'UPDATE products SET name=?,category=?,subcategory=?,tone=?,price=?,stock=?,sold_count=?,preorder_enabled=?,preorder_days=?,weight_grams=?,description=?,material=?,care_instructions=?,production_estimate=?,size_guide=?,variants_json=?,active=?,image_key=?,image_url=?,images_json=?,updated_at=? WHERE id=? AND store_id=?',
       )
       .bind(
         name,
@@ -275,6 +291,7 @@ export async function PATCH(req: Request) {
         JSON.stringify(finalKeys),
         new Date().toISOString(),
         id,
+        storeId,
       )
       .run();
     return NextResponse.json({ ok: true });
@@ -286,8 +303,10 @@ export async function PATCH(req: Request) {
   }
 }
 export async function PUT(req: Request) {
-  if (!(await auth()))
+  const admin = await getStoreAdmin();
+  if (!admin)
     return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
+  const storeId = admin.store.id;
   try {
     const { id, active, restoreDeleted } = (await req.json()) as {
       id?: string;
@@ -296,8 +315,8 @@ export async function PUT(req: Request) {
     };
     if (id && restoreDeleted) {
       const product = await getD1()
-        .prepare('SELECT deleted_at FROM products WHERE id=?')
-        .bind(id)
+        .prepare('SELECT deleted_at FROM products WHERE id=? AND store_id=?')
+        .bind(id, storeId)
         .first<{ deleted_at: string | null }>();
       if (!product?.deleted_at)
         throw new Error('Produk tidak ditemukan di Tong Sampah.');
@@ -308,18 +327,19 @@ export async function PUT(req: Request) {
         );
       await getD1()
         .prepare(
-          'UPDATE products SET deleted_at=NULL,active=0,updated_at=? WHERE id=?',
+          'UPDATE products SET deleted_at=NULL,active=0,updated_at=? WHERE id=? AND store_id=?',
         )
-        .bind(new Date().toISOString(), id)
+        .bind(new Date().toISOString(), id, storeId)
         .run();
       return NextResponse.json({ ok: true, restored: true });
     }
     if (!id || (active !== 0 && active !== 1))
       throw new Error('Permintaan arsip tidak valid.');
-    await getD1()
-      .prepare('UPDATE products SET active=?,updated_at=? WHERE id=?')
-      .bind(active, new Date().toISOString(), id)
+    const result = await getD1()
+      .prepare('UPDATE products SET active=?,updated_at=? WHERE id=? AND store_id=?')
+      .bind(active, new Date().toISOString(), id, storeId)
       .run();
+    if (!result.meta.changes) throw new Error('Produk tidak ditemukan.');
     return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json(
@@ -329,8 +349,10 @@ export async function PUT(req: Request) {
   }
 }
 export async function DELETE(req: Request) {
-  if (!(await auth()))
+  const admin = await getStoreAdmin();
+  if (!admin)
     return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
+  const storeId = admin.store.id;
   try {
     const { id, permanent } = (await req.json()) as {
       id?: string;
@@ -341,9 +363,9 @@ export async function DELETE(req: Request) {
     if (!permanent) {
       const result = await d1
         .prepare(
-          'UPDATE products SET deleted_at=?,active=0,updated_at=? WHERE id=? AND deleted_at IS NULL',
+          'UPDATE products SET deleted_at=?,active=0,updated_at=? WHERE id=? AND store_id=? AND deleted_at IS NULL',
         )
-        .bind(new Date().toISOString(), new Date().toISOString(), id)
+        .bind(new Date().toISOString(), new Date().toISOString(), id, storeId)
         .run();
       if (!(result.meta.changes ?? 0))
         throw new Error(
@@ -353,9 +375,9 @@ export async function DELETE(req: Request) {
     }
     const product = await d1
       .prepare(
-        'SELECT image_key,images_json FROM products WHERE id=? AND deleted_at IS NOT NULL',
+        'SELECT image_key,images_json FROM products WHERE id=? AND store_id=? AND deleted_at IS NOT NULL',
       )
-      .bind(id)
+      .bind(id, storeId)
       .first<{ image_key: string | null; images_json: string }>();
     if (!product)
       throw new Error(
@@ -368,12 +390,13 @@ export async function DELETE(req: Request) {
     if (product.image_key && !keys.includes(product.image_key))
       keys.push(product.image_key);
     await d1.batch([
-      d1.prepare('DELETE FROM cart_items WHERE product_id=?').bind(id),
-      d1.prepare('DELETE FROM reviews WHERE product_id=?').bind(id),
-      d1.prepare('DELETE FROM products WHERE id=?').bind(id),
+      d1.prepare('DELETE FROM cart_items WHERE store_id=? AND product_id=?').bind(storeId, id),
+      d1.prepare('DELETE FROM reviews WHERE store_id=? AND product_id=?').bind(storeId, id),
+      d1.prepare('DELETE FROM products WHERE id=? AND store_id=?').bind(id, storeId),
     ]);
     const remaining = await d1
-      .prepare('SELECT image_key,images_json FROM products')
+      .prepare('SELECT image_key,images_json FROM products WHERE store_id=?')
+      .bind(storeId)
       .all<any>();
     const referenced = new Set<string>();
     for (const row of remaining.results) {

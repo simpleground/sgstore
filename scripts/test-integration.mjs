@@ -148,7 +148,8 @@ try {
     ADMIN_NAME: 'Integration Admin',
     ADMIN_EMAILS: '',
     DEFAULT_STORE_SLUG: '',
-    PLATFORM_ROOT_DOMAIN: '',
+    // Stores are reachable as <slug>.platform.test (tests send that Host header).
+    PLATFORM_ROOT_DOMAIN: 'platform.test',
     STORAGE_DRIVER: 'local',
     STORAGE_LOCAL_DIR: join(storageDir, 'files'),
     BITESHIP_API_KEY: 'integration-test',

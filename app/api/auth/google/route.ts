@@ -2,9 +2,12 @@ import { NextResponse } from 'next/server';
 import { getD1 } from '@/db';
 import { createCustomerSession } from '@/app/customer-auth';
 import { verifyGoogleCredential } from '@/lib/google';
+import { getCurrentStore, storeNotFound } from '@/lib/tenant';
 
 export async function POST(req: Request) {
   try {
+    const store = await getCurrentStore();
+    if (!store) return storeNotFound();
     const { credential } = (await req.json()) as { credential?: string };
     if (!credential)
       return NextResponse.json(
@@ -20,11 +23,11 @@ export async function POST(req: Request) {
     const now = new Date().toISOString();
     await getD1()
       .prepare(
-        'INSERT INTO customers (user_id,name,email,created_at) VALUES (?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET name=excluded.name,email=excluded.email',
+        'INSERT INTO customers (store_id,user_id,name,email,created_at) VALUES (?,?,?,?,?) ON CONFLICT(store_id,user_id) DO UPDATE SET name=excluded.name,email=excluded.email',
       )
-      .bind(google.sub, google.name, google.email, now)
+      .bind(store.id, google.sub, google.name, google.email, now)
       .run();
-    await createCustomerSession(google.sub);
+    await createCustomerSession(store.id, google.sub);
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ error: 'Login Google gagal.' }, { status: 500 });

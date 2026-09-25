@@ -1,19 +1,21 @@
 import { NextResponse } from 'next/server';
-import { isAdmin } from '@/lib/admin-auth';
+import { getStoreAdmin } from '@/lib/admin-auth';
 import { getD1 } from '@/db';
 import { SUPPORTED_COURIERS } from '@/lib/biteship';
 import { getCourierSettings } from '@/lib/shipping-settings';
 
-const authorized = isAdmin;
-
 export async function GET() {
-  if (!(await authorized()))
+  const admin = await getStoreAdmin();
+  if (!admin)
     return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
-  return NextResponse.json({ couriers: await getCourierSettings() });
+  return NextResponse.json({
+    couriers: await getCourierSettings(admin.store.id),
+  });
 }
 
 export async function PATCH(request: Request) {
-  if (!(await authorized()))
+  const admin = await getStoreAdmin();
+  if (!admin)
     return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
   const body = (await request.json()) as { code?: string; active?: boolean };
   const courier = SUPPORTED_COURIERS.find((item) => item.code === body.code);
@@ -24,9 +26,10 @@ export async function PATCH(request: Request) {
     );
   await getD1()
     .prepare(
-      'INSERT INTO shipping_settings (courier_code,courier_name,active,updated_at) VALUES (?,?,?,?) ON CONFLICT(courier_code) DO UPDATE SET courier_name=excluded.courier_name,active=excluded.active,updated_at=excluded.updated_at',
+      'INSERT INTO shipping_settings (store_id,courier_code,courier_name,active,updated_at) VALUES (?,?,?,?,?) ON CONFLICT(store_id,courier_code) DO UPDATE SET courier_name=excluded.courier_name,active=excluded.active,updated_at=excluded.updated_at',
     )
     .bind(
+      admin.store.id,
       courier.code,
       courier.name,
       body.active ? 1 : 0,

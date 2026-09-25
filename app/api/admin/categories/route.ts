@@ -1,15 +1,14 @@
 import { NextResponse } from 'next/server';
-import { isAdmin } from '@/lib/admin-auth';
+import { getStoreAdmin } from '@/lib/admin-auth';
 import { getD1 } from '@/db';
 import {
   normalizeCategory,
   normalizeSubcategory,
 } from '@/lib/catalog-normalize';
 
-const authorized = isAdmin;
-
 export async function PATCH(request: Request) {
-  if (!(await authorized()))
+  const admin = await getStoreAdmin();
+  if (!admin)
     return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
   const body = (await request.json()) as {
     type?: 'category' | 'subcategory';
@@ -31,16 +30,16 @@ export async function PATCH(request: Request) {
     body.type === 'category'
       ? await database
           .prepare(
-            'UPDATE products SET category=?,updated_at=? WHERE category=?',
+            'UPDATE products SET category=?,updated_at=? WHERE store_id=? AND category=?',
           )
-          .bind(to, now, from)
+          .bind(to, now, admin.store.id, from)
           .run()
       : category
         ? await database
             .prepare(
-              'UPDATE products SET subcategory=?,updated_at=? WHERE category=? AND subcategory=?',
+              'UPDATE products SET subcategory=?,updated_at=? WHERE store_id=? AND category=? AND subcategory=?',
             )
-            .bind(to, now, category, from)
+            .bind(to, now, admin.store.id, category, from)
             .run()
         : null;
   if (!result)
@@ -52,11 +51,13 @@ export async function PATCH(request: Request) {
 }
 
 export async function POST() {
-  if (!(await authorized()))
+  const admin = await getStoreAdmin();
+  if (!admin)
     return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
   const database = getD1();
   const rows = await database
-    .prepare('SELECT id,category,subcategory FROM products')
+    .prepare('SELECT id,category,subcategory FROM products WHERE store_id=?')
+    .bind(admin.store.id)
     .all<any>();
   const now = new Date().toISOString();
   const statements = [];
@@ -68,9 +69,9 @@ export async function POST() {
     statements.push(
       database
         .prepare(
-          'UPDATE products SET category=?,subcategory=?,updated_at=? WHERE id=?',
+          'UPDATE products SET category=?,subcategory=?,updated_at=? WHERE id=? AND store_id=?',
         )
-        .bind(category, subcategory, now, row.id),
+        .bind(category, subcategory, now, row.id, admin.store.id),
     );
     changed++;
   }

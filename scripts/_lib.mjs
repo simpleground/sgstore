@@ -17,6 +17,22 @@ export function createPool() {
   });
 }
 
+/**
+ * The store a command works on: --store=<slug> when given, otherwise the
+ * default store (DEFAULT_STORE_SLUG, or the original store with id 'default').
+ */
+export async function findStore(pool, slug) {
+  const wanted = slug?.trim().toLowerCase() || process.env.DEFAULT_STORE_SLUG?.trim().toLowerCase();
+  const { rows } = wanted
+    ? await pool.query('SELECT id, slug, name FROM stores WHERE slug = $1', [wanted])
+    : await pool.query("SELECT id, slug, name FROM stores WHERE id = 'default'");
+  if (!rows[0]) {
+    console.error(`✖ Toko "${wanted || 'default'}" tidak ditemukan. Sudah menjalankan "npm run db:migrate"?`);
+    process.exit(1);
+  }
+  return rows[0];
+}
+
 // Must stay identical to lib/password.ts
 const ITERATIONS = 210000;
 const b64 = (bytes) => Buffer.from(bytes).toString('base64');

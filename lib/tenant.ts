@@ -13,6 +13,7 @@
  * Host asli (`proxy_set_header Host $host;`).
  */
 import { headers } from 'next/headers';
+import { NextResponse } from 'next/server';
 import { getD1 } from '@/db';
 import type { StoreRow } from '@/db/schema';
 
@@ -126,4 +127,27 @@ export function clearStoreCache() {
  */
 export async function getCurrentStore() {
   return resolveStoreByHost((await headers()).get('host'));
+}
+
+/** Respons API untuk host yang tidak mengarah ke toko mana pun. */
+export function storeNotFound() {
+  return NextResponse.json({ error: 'Toko tidak ditemukan.' }, { status: 404 });
+}
+
+/** Kunci file baru milik sebuah toko, mis. stores/<id>/products/<uuid>.jpg */
+export function storeFileKey(
+  storeId: string,
+  folder: string,
+  extension: string,
+) {
+  return `stores/${storeId}/${folder}/${crypto.randomUUID()}.${extension}`;
+}
+
+/**
+ * true bila file boleh disajikan untuk toko ini. File lama (sebelum multi-toko)
+ * disimpan tanpa prefix toko dan hanya milik toko bawaan.
+ */
+export function storeOwnsFileKey(storeId: string, key: string) {
+  if (key.startsWith(`stores/${storeId}/`)) return true;
+  return storeId === DEFAULT_STORE_ID && key.startsWith('products/');
 }

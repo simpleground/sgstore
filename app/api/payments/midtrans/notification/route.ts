@@ -55,10 +55,12 @@ export async function POST(request: Request) {
       );
 
     const d1 = getD1();
+    // Order numbers are unique across all stores, so the order identifies its
+    // store; the notification does not depend on the host it was sent to.
     const order = await d1
-      .prepare('SELECT total FROM orders WHERE order_number=?')
+      .prepare('SELECT store_id,total FROM orders WHERE order_number=?')
       .bind(body.order_id)
-      .first<{ total: number }>();
+      .first<{ store_id: string; total: number }>();
     // Midtrans' dashboard sends a signed sample order when testing this URL.
     // Acknowledge unknown orders without updating anything so the endpoint test
     // succeeds and production retries are not triggered for irrelevant records.
@@ -81,8 +83,8 @@ export async function POST(request: Request) {
     )
       status = 'dibatalkan';
     await d1
-      .prepare("UPDATE orders SET status=?, updated_at=? WHERE order_number=? AND status NOT IN ('dibayar','diproses','dikirim','selesai')")
-      .bind(status, new Date().toISOString(), body.order_id)
+      .prepare("UPDATE orders SET status=?, updated_at=? WHERE order_number=? AND store_id=? AND status NOT IN ('dibayar','diproses','dikirim','selesai')")
+      .bind(status, new Date().toISOString(), body.order_id, order.store_id)
       .run();
     return NextResponse.json({ received: true });
   } catch {

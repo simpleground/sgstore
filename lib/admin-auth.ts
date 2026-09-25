@@ -9,12 +9,18 @@
  *
  * Sessions are random tokens in an httpOnly cookie; only a SHA-256 hash of the
  * token is stored in the admin_sessions table.
+ *
+ * Multi-toko: an admin may only manage the store of the current host (see
+ * lib/tenant.ts) when they are a member of it (store_memberships), or when they
+ * are a platform super_admin. Use getStoreAdmin() in API routes and use its
+ * `store.id` for every query — never a store id sent by the browser.
  */
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getD1 } from '@/db';
 import { hashPassword, verifyPassword } from '@/lib/password';
 import { secureCookies } from '@/lib/site';
+import { getCurrentStore, getDefaultStore, type Store } from '@/lib/tenant';
 
 const COOKIE = 'sg_admin';
 const SESSION_DAYS = 14;
@@ -24,6 +30,16 @@ export type AdminUser = {
   email: string;
   name: string;
   displayName: string;
+  platformRole: 'super_admin' | null;
+};
+
+export type StoreRole = 'store_owner' | 'store_admin' | 'store_staff';
+
+/** A logged-in admin allowed to manage the current store. */
+export type StoreAdmin = AdminUser & {
+  store: Store;
+  /** Membership role; null for a super_admin who is not a member of this store. */
+  role: StoreRole | null;
 };
 
 async function sha256(value: string) {
@@ -36,31 +52,76 @@ export async function getAdmin(): Promise<AdminUser | null> {
   if (!token) return null;
   const row = await getD1()
     .prepare(
-      'SELECT a.user_id AS "userId", a.email, a.name FROM admin_sessions s JOIN admin_users a ON a.user_id=s.user_id WHERE s.token_hash=? AND s.expires_at>?',
+      'SELECT a.user_id AS "userId", a.email, a.name, a.platform_role AS "platformRole" FROM admin_sessions s JOIN admin_users a ON a.user_id=s.user_id WHERE s.token_hash=? AND s.expires_at>?',
     )
     .bind(await sha256(token), new Date().toISOString())
-    .first<{ userId: string; email: string; name: string }>();
+    .first<Omit<AdminUser, 'displayName'>>();
   if (!row) return null;
   return { ...row, displayName: row.name || row.email };
 }
 
-/** For API routes: true when the request comes from a logged-in admin. */
-export async function isAdmin() {
-  return Boolean(await getAdmin());
+async function membershipRole(storeId: string, userId: string) {
+  return getD1()
+    .prepare('SELECT role FROM store_memberships WHERE store_id=? AND user_id=?')
+    .bind(storeId, userId)
+    .first<StoreRole>('role');
 }
 
-/** For pages: redirect to the admin login page when not logged in. */
+/** true when the admin account may manage the store (member or super_admin). */
+export async function canManageStore(
+  userId: string,
+  platformRole: string | null,
+  storeId: string,
+) {
+  return platformRole === 'super_admin' || Boolean(await membershipRole(storeId, userId));
+}
+
+/**
+ * For API routes: the logged-in admin of the current store, or null when not
+ * logged in, the host has no store, or the admin does not belong to the store.
+ */
+export async function getStoreAdmin(): Promise<StoreAdmin | null> {
+  const [admin, store] = await Promise.all([getAdmin(), getCurrentStore()]);
+  if (!admin || !store) return null;
+  const role = await membershipRole(store.id, admin.userId);
+  if (!role && admin.platformRole !== 'super_admin') return null;
+  return { ...admin, store, role };
+}
+
+/** true when the request comes from an admin of the current store. */
+export async function isAdmin() {
+  return Boolean(await getStoreAdmin());
+}
+
+/** For pages: redirect to the admin login page when not an admin of this store. */
 export async function requireAdmin(returnTo = '/admin') {
-  const admin = await getAdmin();
+  const admin = await getStoreAdmin();
   if (admin) return admin;
   redirect(`/admin/login?next=${encodeURIComponent(returnTo.startsWith('/') ? returnTo : '/admin')}`);
 }
 
 export async function findAdminByEmail(email: string) {
   return getD1()
-    .prepare('SELECT user_id, email, name, password_hash FROM admin_users WHERE email=?')
+    .prepare('SELECT user_id, email, name, password_hash, platform_role FROM admin_users WHERE email=?')
     .bind(email.trim().toLowerCase())
-    .first<{ user_id: string; email: string; name: string; password_hash: string | null }>();
+    .first<{
+      user_id: string;
+      email: string;
+      name: string;
+      password_hash: string | null;
+      platform_role: string | null;
+    }>();
+}
+
+/** Add the admin to a store (no change when already a member). */
+export async function addStoreMember(storeId: string, userId: string, role: StoreRole) {
+  const now = new Date().toISOString();
+  await getD1()
+    .prepare(
+      'INSERT INTO store_memberships (store_id,user_id,role,created_at,updated_at) VALUES (?,?,?,?,?) ON CONFLICT (store_id,user_id) DO NOTHING',
+    )
+    .bind(storeId, userId, role, now, now)
+    .run();
 }
 
 export async function createAdmin(input: { email: string; name: string; passwordHash: string | null }) {
@@ -77,29 +138,38 @@ export async function createAdmin(input: { email: string; name: string; password
 
 /**
  * Make sure the admin account from ADMIN_EMAIL / ADMIN_PASSWORD exists and
- * uses the current password from .env. Returns the account's user_id, or null
- * when those variables are not set.
+ * uses the current password from .env. This account is the platform owner:
+ * super_admin, and owner of the default store. Returns the account's user_id,
+ * or null when those variables are not set.
  */
 export async function syncEnvAdmin() {
   const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
   const password = process.env.ADMIN_PASSWORD;
   if (!email || !password) return null;
   const existing = await findAdminByEmail(email);
-  if (!existing)
-    return createAdmin({
+  const userId =
+    existing?.user_id ??
+    (await createAdmin({
       email,
       name: process.env.ADMIN_NAME?.trim() || 'Admin',
       passwordHash: await hashPassword(password),
-    });
-  if (!(await verifyPassword(password, existing.password_hash)))
+    }));
+  if (existing && !(await verifyPassword(password, existing.password_hash)))
     await getD1()
       .prepare('UPDATE admin_users SET password_hash=?, updated_at=? WHERE user_id=?')
-      .bind(await hashPassword(password), new Date().toISOString(), existing.user_id)
+      .bind(await hashPassword(password), new Date().toISOString(), userId)
       .run();
-  return existing.user_id;
+  if (existing?.platform_role !== 'super_admin')
+    await getD1()
+      .prepare("UPDATE admin_users SET platform_role='super_admin', updated_at=? WHERE user_id=?")
+      .bind(new Date().toISOString(), userId)
+      .run();
+  const defaultStore = await getDefaultStore();
+  if (defaultStore) await addStoreMember(defaultStore.id, userId, 'store_owner');
+  return userId;
 }
 
-/** Emails in ADMIN_EMAILS may always log in with Google. */
+/** Emails in ADMIN_EMAILS may always log in with Google to the default store. */
 export function allowedAdminEmails() {
   return (process.env.ADMIN_EMAILS || '')
     .split(',')

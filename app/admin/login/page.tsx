@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { getAdmin } from '@/lib/admin-auth';
+import { getStoreAdmin } from '@/lib/admin-auth';
 import { googleClientId } from '@/lib/site';
 import { AdminLogin } from './login-client';
 
@@ -17,7 +17,7 @@ export default async function AdminLoginPage({
 }) {
   const { next } = await searchParams;
   const target = next?.startsWith('/') && !next.startsWith('//') ? next : '/admin';
-  if (await getAdmin()) redirect(target);
+  if (await getStoreAdmin()) redirect(target);
   return (
     <main className="min-h-screen bg-[#f7f4ec] px-5 py-10">
       <AdminLogin next={target} googleClientId={googleClientId()} />

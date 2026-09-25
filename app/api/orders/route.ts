@@ -5,6 +5,7 @@ import { getD1 } from '@/db';
 import { retrieveShippingRates } from '@/lib/biteship';
 import { getEnabledCourierCodes } from '@/lib/shipping-settings';
 import { siteUrl } from '@/lib/site';
+import { getCurrentStore, storeNotFound } from '@/lib/tenant';
 
 type RequestedItem = { id: string; variantIndex: number; quantity: number };
 type StoredVariant = {
@@ -18,6 +19,8 @@ type StoredVariant = {
 
 export async function POST(request: Request) {
   try {
+    const store = await getCurrentStore();
+    if (!store) return storeNotFound();
     const body = (await request.json()) as {
       customerName?: string;
       customerPhone?: string;
@@ -79,9 +82,9 @@ export async function POST(request: Request) {
     for (const requested of requestedItems) {
       const product = await d1
         .prepare(
-          'SELECT id,name,variants_json,weight_grams,preorder_enabled,preorder_days FROM products WHERE id=? AND active=1 AND deleted_at IS NULL',
+          'SELECT id,name,variants_json,weight_grams,preorder_enabled,preorder_days FROM products WHERE id=? AND store_id=? AND active=1 AND deleted_at IS NULL',
         )
-        .bind(requested.id)
+        .bind(requested.id, store.id)
         .first<{
           id: string;
           name: string;
@@ -131,7 +134,7 @@ export async function POST(request: Request) {
       (sum, item) => sum + item.price * item.quantity,
       0,
     );
-    const enabledCouriers = await getEnabledCourierCodes();
+    const enabledCouriers = await getEnabledCourierCodes(store.id);
     if (!enabledCouriers.length)
       return NextResponse.json(
         { error: 'Pengiriman sedang dinonaktifkan.' },
@@ -173,9 +176,10 @@ export async function POST(request: Request) {
         : 'Bank Mandiri';
     await d1
       .prepare(
-        'INSERT INTO orders (order_number, customer_name, customer_phone, shipping_address, items_json, subtotal, shipping, total, payment_method, status, created_at, updated_at, payment_token_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO orders (store_id, order_number, customer_name, customer_phone, shipping_address, items_json, subtotal, shipping, total, payment_method, status, created_at, updated_at, payment_token_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       )
       .bind(
+        store.id,
         orderNumber,
         name,
         phone,
@@ -199,8 +203,8 @@ export async function POST(request: Request) {
     const clientKey = process.env.MIDTRANS_CLIENT_KEY;
     if (!serverKey || !clientKey) {
       await d1
-        .prepare('DELETE FROM orders WHERE order_number=?')
-        .bind(orderNumber)
+        .prepare('DELETE FROM orders WHERE order_number=? AND store_id=?')
+        .bind(orderNumber, store.id)
         .run();
       return NextResponse.json(
         { error: 'Pembayaran otomatis belum siap. Pilih transfer Mandiri.' },
@@ -261,8 +265,8 @@ export async function POST(request: Request) {
     };
     if (!midtransResponse.ok || !midtrans.token) {
       await d1
-        .prepare('DELETE FROM orders WHERE order_number=?')
-        .bind(orderNumber)
+        .prepare('DELETE FROM orders WHERE order_number=? AND store_id=?')
+        .bind(orderNumber, store.id)
         .run();
       return NextResponse.json(
         {

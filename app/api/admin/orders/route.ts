@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
-import { isAdmin } from '@/lib/admin-auth';
+import { getStoreAdmin } from '@/lib/admin-auth';
 import { getD1 } from '@/db';
 
-const authorized = isAdmin;
 export async function PATCH(request: Request) {
-  if (!(await authorized()))
+  const admin = await getStoreAdmin();
+  if (!admin)
     return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
   const { orderNumber, status } = (await request.json()) as {
     orderNumber?: string;
@@ -20,11 +20,16 @@ export async function PATCH(request: Request) {
   ];
   if (!orderNumber || !status || !allowed.includes(status))
     return NextResponse.json({ error: 'Data tidak valid.' }, { status: 400 });
-  await getD1()
+  const result = await getD1()
     .prepare(
-      'UPDATE orders SET status = ?, updated_at = ? WHERE order_number = ?',
+      'UPDATE orders SET status = ?, updated_at = ? WHERE order_number = ? AND store_id = ?',
     )
-    .bind(status, new Date().toISOString(), orderNumber)
+    .bind(status, new Date().toISOString(), orderNumber, admin.store.id)
     .run();
+  if (!result.meta.changes)
+    return NextResponse.json(
+      { error: 'Pesanan tidak ditemukan.' },
+      { status: 404 },
+    );
   return NextResponse.json({ ok: true });
 }

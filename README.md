@@ -55,8 +55,8 @@ Buka **http://localhost:3000**. Panel admin: **http://localhost:3000/admin**
 | `npm run dev` | Mode pengembangan (auto-reload) |
 | `npm run build` lalu `npm start` | Mode produksi |
 | `npm run db:migrate` | Menerapkan file baru di `db/migrations/` |
-| `npm run db:seed-demo` | Menambah produk demo bila tabel produk kosong |
-| `npm run admin:create -- email "password" "Nama"` | Membuat admin / reset password admin |
+| `npm run db:seed-demo` | Menambah produk demo bila toko belum punya produk (`-- --store=slug` untuk toko lain) |
+| `npm run admin:create -- email "password" "Nama"` | Membuat admin / reset password admin (tambahkan `--store=slug` untuk toko lain, `--super` untuk admin platform) |
 | `npm run typecheck` · `npm run lint` · `npm test` | Pemeriksaan kode |
 | `npm run test:integration` | Tes integrasi dengan PostgreSQL sungguhan (lihat bawah) |
 
@@ -211,6 +211,32 @@ scripts/             migrate, create-admin, seed-demo, test-integration
 tests/integration/   Tes integrasi (PostgreSQL + server Next.js)
 deploy/              Skrip VPS (setup, update, backup), Nginx, konfigurasi Cloudflare
 ```
+
+### Multi-toko (dalam pengembangan)
+
+Satu aplikasi melayani beberapa toko. Toko dipilih dari **domain** yang dibuka:
+domain yang terdaftar di tabel `store_domains`, atau subdomain `<slug>.PLATFORM_ROOT_DOMAIN`.
+Domain lain (localhost, domain lama) memakai toko bawaan **Simple Ground** — perilaku lama tetap sama.
+
+Data setiap toko (produk, pesanan, pelanggan, ulasan, keranjang, kurir, newsletter, foto) terpisah:
+admin hanya bisa mengelola toko tempat ia menjadi anggota; akun `ADMIN_EMAIL` adalah admin platform
+yang bisa mengelola semua toko. Pelanggan punya akun terpisah di setiap toko.
+
+Belum ada panel untuk membuat toko. Untuk mencoba toko kedua (mis. di lokal):
+
+```sql
+INSERT INTO stores (id, slug, name, created_at, updated_at)
+VALUES (gen_random_uuid()::text, 'toko-b', 'Toko B', now()::text, now()::text);
+INSERT INTO store_domains (host, store_id, is_primary, created_at)
+SELECT 'toko-b.localhost', id, 1, now()::text FROM stores WHERE slug = 'toko-b';
+```
+
+lalu `npm run admin:create -- admin@tokob.com "PasswordKuat123" "Admin B" --store=toko-b` dan buka
+`http://toko-b.localhost:3000/admin`. Catatan: nama, logo, warna, rekening, dan kontak toko masih sama
+untuk semua toko sampai fase pengaturan & tema selesai — jangan dipakai untuk toko sungguhan dulu.
+
+> **Sebelum `npm run db:migrate` di server, buat backup** (`deploy/backup.sh`). Migrasi multi-toko
+> (0004) tidak bisa dipakai oleh kode versi lama; kembali ke versi lama = pulihkan backup.
 
 **Menambah kolom/tabel:** buat file baru mis. `db/migrations/0002_tambah_kolom.sql`, isi SQL-nya,
 lalu jalankan `npm run db:migrate` (di lokal dan di VPS — `update.sh` menjalankannya otomatis).

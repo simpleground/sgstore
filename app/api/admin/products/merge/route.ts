@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
-import { isAdmin } from '@/lib/admin-auth';
+import { getStoreAdmin } from '@/lib/admin-auth';
 import { getD1 } from '@/db';
-
-const auth = isAdmin;
 
 type Variant = {
   sku?: string;
@@ -25,8 +23,10 @@ const skuPart = (value: string) =>
     .slice(0, 24) || 'VARIAN';
 
 export async function POST(req: Request) {
-  if (!(await auth()))
+  const admin = await getStoreAdmin();
+  if (!admin)
     return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
+  const storeId = admin.store.id;
   try {
     const { targetId, sourceIds } = (await req.json()) as {
       targetId?: string;
@@ -46,9 +46,9 @@ export async function POST(req: Request) {
     for (const id of ids) {
       const product = await db
         .prepare(
-          'SELECT id,name,variants_json,images_json,image_key,image_url FROM products WHERE id=? AND deleted_at IS NULL',
+          'SELECT id,name,variants_json,images_json,image_key,image_url FROM products WHERE id=? AND store_id=? AND deleted_at IS NULL',
         )
-        .bind(id)
+        .bind(id, storeId)
         .first<any>();
       if (!product) throw new Error(`Produk ${id} tidak ditemukan.`);
       products.push(product);
@@ -116,7 +116,7 @@ export async function POST(req: Request) {
     const statements: any[] = [
       db
         .prepare(
-          'UPDATE products SET price=?,stock=?,tone=?,variants_json=?,image_key=COALESCE(?,image_key),images_json=?,active=1,updated_at=? WHERE id=?',
+          'UPDATE products SET price=?,stock=?,tone=?,variants_json=?,image_key=COALESCE(?,image_key),images_json=?,active=1,updated_at=? WHERE id=? AND store_id=?',
         )
         .bind(
           price,
@@ -127,15 +127,16 @@ export async function POST(req: Request) {
           JSON.stringify(imageKeys),
           now,
           targetId,
+          storeId,
         ),
     ];
 
     for (const sourceId of sources) {
       const carts = await db
         .prepare(
-          'SELECT user_id,variant_index,quantity FROM cart_items WHERE product_id=?',
+          'SELECT user_id,variant_index,quantity FROM cart_items WHERE store_id=? AND product_id=?',
         )
-        .bind(sourceId)
+        .bind(storeId, sourceId)
         .all<any>();
       const map = sourceVariantMaps.get(sourceId) || [];
       for (const cart of carts.results) {
@@ -144,25 +145,36 @@ export async function POST(req: Request) {
         statements.push(
           db
             .prepare(
-              'INSERT INTO cart_items (user_id,product_id,variant_index,quantity,updated_at) VALUES (?,?,?,?,?) ON CONFLICT(user_id,product_id,variant_index) DO UPDATE SET quantity=cart_items.quantity+excluded.quantity,updated_at=excluded.updated_at',
+              'INSERT INTO cart_items (store_id,user_id,product_id,variant_index,quantity,updated_at) VALUES (?,?,?,?,?,?) ON CONFLICT(store_id,user_id,product_id,variant_index) DO UPDATE SET quantity=cart_items.quantity+excluded.quantity,updated_at=excluded.updated_at',
             )
-            .bind(cart.user_id, targetId, newIndex, cart.quantity, now),
+            .bind(
+              storeId,
+              cart.user_id,
+              targetId,
+              newIndex,
+              cart.quantity,
+              now,
+            ),
         );
       }
       statements.push(
-        db.prepare('DELETE FROM cart_items WHERE product_id=?').bind(sourceId),
+        db
+          .prepare('DELETE FROM cart_items WHERE store_id=? AND product_id=?')
+          .bind(storeId, sourceId),
       );
       statements.push(
         db
           .prepare(
-            'UPDATE reviews SET product_id=?,updated_at=? WHERE product_id=?',
+            'UPDATE reviews SET product_id=?,updated_at=? WHERE store_id=? AND product_id=?',
           )
-          .bind(targetId, now, sourceId),
+          .bind(targetId, now, storeId, sourceId),
       );
       statements.push(
         db
-          .prepare('UPDATE products SET active=0,updated_at=? WHERE id=?')
-          .bind(now, sourceId),
+          .prepare(
+            'UPDATE products SET active=0,updated_at=? WHERE id=? AND store_id=?',
+          )
+          .bind(now, sourceId, storeId),
       );
     }
     await db.batch(statements);

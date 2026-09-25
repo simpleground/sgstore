@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { isAdmin } from '@/lib/admin-auth';
+import { getStoreAdmin } from '@/lib/admin-auth';
 import { getD1 } from '@/db';
 import {
   normalizeCategory,
@@ -7,8 +7,6 @@ import {
   productIdentity,
   productNameSimilarity,
 } from '@/lib/catalog-normalize';
-
-const auth = isAdmin;
 
 const columns = [
   'product_id',
@@ -88,12 +86,14 @@ function mergeVariants(existing: ImportVariant[], incoming: ImportVariant[]) {
 }
 
 export async function GET(request: Request) {
-  if (!(await auth()))
+  const admin = await getStoreAdmin();
+  if (!admin)
     return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
   const result = await getD1()
     .prepare(
-      'SELECT * FROM products WHERE deleted_at IS NULL ORDER BY name,id',
+      'SELECT * FROM products WHERE store_id=? AND deleted_at IS NULL ORDER BY name,id',
     )
+    .bind(admin.store.id)
     .all();
   const rows: Record<string, unknown>[] = [];
   const ids = new URL(request.url).searchParams.getAll('id');
@@ -150,8 +150,10 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  if (!(await auth()))
+  const admin = await getStoreAdmin();
+  if (!admin)
     return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
+  const storeId = admin.store.id;
   try {
     const { rows, preview = false } = (await request.json()) as {
       rows: any[];
@@ -254,8 +256,9 @@ export async function POST(request: Request) {
     const now = new Date().toISOString();
     const existingRows = await database
       .prepare(
-        'SELECT id,name,category,subcategory,variants_json,active FROM products WHERE deleted_at IS NULL',
+        'SELECT id,name,category,subcategory,variants_json,active FROM products WHERE store_id=? AND deleted_at IS NULL',
       )
+      .bind(storeId)
       .all();
     const existingIds = new Set(
       (existingRows.results as Array<{ id: string }>).map((row) => row.id),
@@ -335,12 +338,12 @@ export async function POST(request: Request) {
         if (!existingIds.has(group.productId))
           throw new Error(`Produk ID ${group.productId} tidak ditemukan.`);
         if (String(group.image_url || '').trim()) {
-          statements.push(database.prepare('UPDATE products SET image_url=?,image_key=NULL,images_json=? WHERE id=? AND COALESCE(image_url,\'\')!=?').bind(String(group.image_url).trim(), '[]', group.productId, String(group.image_url).trim()));
+          statements.push(database.prepare('UPDATE products SET image_url=?,image_key=NULL,images_json=? WHERE id=? AND store_id=? AND COALESCE(image_url,\'\')!=?').bind(String(group.image_url).trim(), '[]', group.productId, storeId, String(group.image_url).trim()));
         }
         statements.push(
           database
             .prepare(
-              'UPDATE products SET material=COALESCE(?,material),care_instructions=COALESCE(?,care_instructions),production_estimate=COALESCE(?,production_estimate),size_guide=COALESCE(?,size_guide),weight_grams=COALESCE(?,weight_grams),sold_count=COALESCE(?,sold_count),name=?,category=?,subcategory=?,description=?,tone=?,price=?,stock=?,variants_json=?,active=?,updated_at=? WHERE id=?',
+              'UPDATE products SET material=COALESCE(?,material),care_instructions=COALESCE(?,care_instructions),production_estimate=COALESCE(?,production_estimate),size_guide=COALESCE(?,size_guide),weight_grams=COALESCE(?,weight_grams),sold_count=COALESCE(?,sold_count),name=?,category=?,subcategory=?,description=?,tone=?,price=?,stock=?,variants_json=?,active=?,updated_at=? WHERE id=? AND store_id=?',
             )
             .bind(
               group.material ?? null,
@@ -360,6 +363,7 @@ export async function POST(request: Request) {
               activeValue,
               now,
               group.productId,
+              storeId,
             ),
         );
         updated++;
@@ -368,9 +372,10 @@ export async function POST(request: Request) {
         statements.push(
           database
             .prepare(
-              'INSERT INTO products (material,care_instructions,production_estimate,size_guide,weight_grams,sold_count,id,name,category,subcategory,tone,price,stock,description,variants_json,image_url,images_json,active,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+              'INSERT INTO products (store_id,material,care_instructions,production_estimate,size_guide,weight_grams,sold_count,id,name,category,subcategory,tone,price,stock,description,variants_json,image_url,images_json,active,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
             )
             .bind(
+              storeId,
               group.material ?? '',
               group.care_instructions ?? '',
               group.production_estimate ?? '',
