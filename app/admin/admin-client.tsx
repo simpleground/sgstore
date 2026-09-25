@@ -55,51 +55,6 @@ const rupiah = (v: number) =>
     maximumFractionDigits: 0,
   }).format(v);
 
-export function AdminSetup() {
-  const [code, setCode] = useState('');
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-  async function submit() {
-    setBusy(true);
-    setError('');
-    const r = await fetch('/api/admin/setup', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ code }),
-    });
-    if (r.ok) location.reload();
-    else setError((await r.json()).error ?? 'Gagal mengaktifkan.');
-    setBusy(false);
-  }
-  return (
-    <div className="mx-auto mt-20 max-w-md rounded-3xl border bg-white p-8 shadow-sm">
-      <p className="text-xs font-bold uppercase tracking-[.2em] text-[#a34f2c]">
-        Aktivasi pertama
-      </p>
-      <h1 className="mt-3 font-serif text-3xl">Hubungkan akun admin</h1>
-      <p className="mt-3 text-sm leading-6 text-[#68736b]">
-        Masukkan kode aktivasi satu kali. Setelah berhasil, hanya akun ChatGPT
-        ini yang dapat membuka panel admin.
-      </p>
-      <input
-        value={code}
-        onChange={(e) => setCode(e.target.value)}
-        type="password"
-        placeholder="Kode aktivasi"
-        className="mt-6 w-full rounded-xl border px-4 py-3 outline-none focus:border-[#243b2c]"
-      />
-      <button
-        onClick={submit}
-        disabled={busy || !code}
-        className="mt-3 w-full rounded-full bg-[#243b2c] py-3 font-semibold text-white disabled:opacity-50"
-      >
-        {busy ? 'Mengaktifkan…' : 'Aktifkan admin'}
-      </button>
-      {error && <p className="mt-3 text-sm text-red-700">{error}</p>}
-    </div>
-  );
-}
-
 type Variant = {
   sku?: string;
   color: string;
@@ -441,7 +396,7 @@ function CategoryManager({
         .filter(Boolean),
     ),
   ).sort((a, b) => a.localeCompare(b, 'id'));
-  async function rename(event: React.FormEvent) {
+  async function rename(event: React.SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
     setMessage('');

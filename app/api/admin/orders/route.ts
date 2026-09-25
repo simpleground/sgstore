@@ -1,16 +1,8 @@
 import { NextResponse } from 'next/server';
-import { getChatGPTUser } from '@/app/chatgpt-auth';
+import { isAdmin } from '@/lib/admin-auth';
 import { getD1 } from '@/db';
 
-async function authorized() {
-  const user = await getChatGPTUser();
-  if (!user) return false;
-  const row = await getD1()
-    .prepare('SELECT user_id FROM admin_users WHERE user_id = ?')
-    .bind(user.userId)
-    .first();
-  return Boolean(row);
-}
+const authorized = isAdmin;
 export async function PATCH(request: Request) {
   if (!(await authorized()))
     return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });

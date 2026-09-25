@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { getD1 } from '@/db';
 import { retrieveShippingRates } from '@/lib/biteship';
 import { getEnabledCourierCodes } from '@/lib/shipping-settings';
+import { siteUrl } from '@/lib/site';
 
 type RequestedItem = { id: string; variantIndex: number; quantity: number };
 type StoredVariant = {
@@ -14,7 +15,6 @@ type StoredVariant = {
   stock: number;
 };
 
-const schemaSql = `CREATE TABLE IF NOT EXISTS orders (id INTEGER PRIMARY KEY AUTOINCREMENT, order_number TEXT NOT NULL UNIQUE, customer_name TEXT NOT NULL, customer_phone TEXT NOT NULL, shipping_address TEXT NOT NULL, items_json TEXT NOT NULL, subtotal INTEGER NOT NULL, shipping INTEGER NOT NULL, total INTEGER NOT NULL, payment_method TEXT NOT NULL DEFAULT 'Bank Mandiri', status TEXT NOT NULL DEFAULT 'menunggu_pembayaran', created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`;
 
 export async function POST(request: Request) {
   try {
@@ -209,7 +209,9 @@ export async function POST(request: Request) {
     }
 
     const midtransResponse = await fetch(
-      'https://app.midtrans.com/snap/v1/transactions',
+      process.env.MIDTRANS_IS_PRODUCTION === 'false'
+        ? 'https://app.sandbox.midtrans.com/snap/v1/transactions'
+        : 'https://app.midtrans.com/snap/v1/transactions',
       {
         method: 'POST',
         headers: {
@@ -219,7 +221,7 @@ export async function POST(request: Request) {
         },
         body: JSON.stringify({
           transaction_details: { order_id: orderNumber, gross_amount: total },
-          callbacks: { finish: `https://simpleground.online/checkout?order_id=${encodeURIComponent(orderNumber)}` },
+          callbacks: { finish: `${siteUrl()}/checkout?order_id=${encodeURIComponent(orderNumber)}` },
           item_details: [
             ...items.map((item, index) => ({
               id: (item.sku || `${item.id}-${index}`).slice(0, 50),

@@ -2,19 +2,15 @@
 /node_modules
 /.pnp
 .pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
 
 # testing
 /coverage
 
 # next.js
 /.next/
-/.vinext/
 /out/
+next-env.d.ts
+*.tsbuildinfo
 
 # misc
 .DS_Store
@@ -26,13 +22,21 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# local environment
-.env*
+# local environment (secrets!) — keep .env.example committed
+.env
+.env.*
+!.env.example
 
-# deployment and generated files
-.vercel
-next-env.d.ts
-/dist/
+# uploaded product images (local storage driver)
+/storage/
+
+# optional Cloudflare build output
+/.open-next/
 /.wrangler/
+.dev.vars
+
+# legacy build output from the old ChatGPT Sites setup
+/dist/
+/.vinext/
 /outputs/
 /work/

@@ -1,21 +1,10 @@
 import { NextResponse } from 'next/server';
-import { getChatGPTUser } from '@/app/chatgpt-auth';
+import { isAdmin } from '@/lib/admin-auth';
 import { getD1 } from '@/db';
 import { SUPPORTED_COURIERS } from '@/lib/biteship';
 import { getCourierSettings } from '@/lib/shipping-settings';
 
-async function authorized() {
-  const user = await getChatGPTUser();
-  return (
-    user &&
-    Boolean(
-      await getD1()
-        .prepare('SELECT user_id FROM admin_users WHERE user_id=?')
-        .bind(user.userId)
-        .first(),
-    )
-  );
-}
+const authorized = isAdmin;
 
 export async function GET() {
   if (!(await authorized()))

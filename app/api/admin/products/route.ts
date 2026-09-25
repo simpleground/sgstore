@@ -1,23 +1,12 @@
 import { NextResponse } from 'next/server';
-import { getChatGPTUser } from '@/app/chatgpt-auth';
+import { isAdmin } from '@/lib/admin-auth';
 import { getD1, getFiles } from '@/db';
 import { validateVariants, resolveGallery, productImageUrl } from '@/lib/product-editor';
 import {
   normalizeCategory,
   normalizeSubcategory,
 } from '@/lib/catalog-normalize';
-async function auth() {
-  const u = await getChatGPTUser();
-  return (
-    u &&
-    Boolean(
-      await getD1()
-        .prepare('SELECT user_id FROM admin_users WHERE user_id=?')
-        .bind(u.userId)
-        .first(),
-    )
-  );
-}
+const auth = isAdmin;
 async function images(files: File[]) {
   if (files.length > 9) throw new Error('Maksimal 9 foto per produk.');
   const keys: string[] = [];

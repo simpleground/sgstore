@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getChatGPTUser } from '@/app/chatgpt-auth';
+import { isAdmin } from '@/lib/admin-auth';
 import { getD1 } from '@/db';
 import {
   normalizeCategory,
@@ -8,18 +8,7 @@ import {
   productNameSimilarity,
 } from '@/lib/catalog-normalize';
 
-async function auth() {
-  const user = await getChatGPTUser();
-  return (
-    user &&
-    Boolean(
-      await getD1()
-        .prepare('SELECT user_id FROM admin_users WHERE user_id=?')
-        .bind(user.userId)
-        .first(),
-    )
-  );
-}
+const auth = isAdmin;
 
 const columns = [
   'product_id',

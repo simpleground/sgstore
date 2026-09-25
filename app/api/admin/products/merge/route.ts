@@ -1,19 +1,8 @@
 import { NextResponse } from 'next/server';
-import { getChatGPTUser } from '@/app/chatgpt-auth';
+import { isAdmin } from '@/lib/admin-auth';
 import { getD1 } from '@/db';
 
-async function auth() {
-  const user = await getChatGPTUser();
-  return (
-    user &&
-    Boolean(
-      await getD1()
-        .prepare('SELECT user_id FROM admin_users WHERE user_id=?')
-        .bind(user.userId)
-        .first(),
-    )
-  );
-}
+const auth = isAdmin;
 
 type Variant = {
   sku?: string;
@@ -155,7 +144,7 @@ export async function POST(req: Request) {
         statements.push(
           db
             .prepare(
-              'INSERT INTO cart_items (user_id,product_id,variant_index,quantity,updated_at) VALUES (?,?,?,?,?) ON CONFLICT(user_id,product_id,variant_index) DO UPDATE SET quantity=quantity+excluded.quantity,updated_at=excluded.updated_at',
+              'INSERT INTO cart_items (user_id,product_id,variant_index,quantity,updated_at) VALUES (?,?,?,?,?) ON CONFLICT(user_id,product_id,variant_index) DO UPDATE SET quantity=cart_items.quantity+excluded.quantity,updated_at=excluded.updated_at',
             )
             .bind(cart.user_id, targetId, newIndex, cart.quantity, now),
         );

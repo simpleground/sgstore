@@ -443,6 +443,7 @@ export default function Home() {
       if (!google) return;
       google.accounts.id.initialize({
         client_id:
+          process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
           '288475161498-4t2ksn25uhbgc2vm1f1h9bvsuln5feu0.apps.googleusercontent.com',
         callback: async ({ credential }: { credential: string }) => {
           const r = await fetch('/api/auth/google', {

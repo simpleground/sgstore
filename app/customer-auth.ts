@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { getD1 } from '@/db';
+import { secureCookies } from '@/lib/site';
 const COOKIE = 'sg_customer';
 export type Customer = { userId: string; name: string; email: string };
 async function hash(value: string) {
@@ -16,7 +17,7 @@ export async function getCustomer(): Promise<Customer | null> {
   if (!token) return null;
   const row = await getD1()
     .prepare(
-      'SELECT c.user_id userId,c.name,c.email FROM customer_sessions s JOIN customers c ON c.user_id=s.user_id WHERE s.token_hash=? AND s.expires_at>?',
+      'SELECT c.user_id AS "userId",c.name,c.email FROM customer_sessions s JOIN customers c ON c.user_id=s.user_id WHERE s.token_hash=? AND s.expires_at>?',
     )
     .bind(await hash(token), new Date().toISOString())
     .first<Customer>();
@@ -34,7 +35,7 @@ export async function createCustomerSession(userId: string) {
     .run();
   (await cookies()).set(COOKIE, token, {
     httpOnly: true,
-    secure: true,
+    secure: secureCookies(),
     sameSite: 'lax',
     path: '/',
     expires,
@@ -50,7 +51,7 @@ export async function clearCustomerSession() {
       .run();
   jar.set(COOKIE, '', {
     httpOnly: true,
-    secure: true,
+    secure: secureCookies(),
     sameSite: 'lax',
     path: '/',
     maxAge: 0,

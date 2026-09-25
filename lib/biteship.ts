@@ -25,7 +25,7 @@ export type ShippingOption = {
   duration: string;
 };
 
-const ORIGIN_POSTAL_CODE = 44163;
+const ORIGIN_POSTAL_CODE = Number(process.env.BITESHIP_ORIGIN_POSTAL_CODE || 44163);
 export async function retrieveShippingRates(
   destinationPostalCode: string,
   items: ShippingItem[],

@@ -1,0 +1,8 @@
+{
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "editor.formatOnSave": false,
+  "files.associations": { "*.css": "tailwindcss" },
+  "files.exclude": { ".next": true, "node_modules": true, "storage": false },
+  "search.exclude": { ".next": true, "node_modules": true, "storage": true }
+}

@@ -1,0 +1,30 @@
+// OPSIONAL — deploy ke Cloudflare Workers. Salin file ini ke root project.
+// Lihat README bagian "Deploy ke Cloudflare (opsional)".
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "sgstore",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  // Koneksi PostgreSQL lewat Hyperdrive (buat dengan: npx wrangler hyperdrive create sgstore-db --connection-string="postgres://...")
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "GANTI_DENGAN_ID_HYPERDRIVE",
+      "localConnectionString": "postgres://sgstore:sgstore@localhost:5432/sgstore"
+    }
+  ],
+  "vars": {
+    "SITE_URL": "https://simpleground.online",
+    "STORAGE_DRIVER": "s3",
+    "S3_REGION": "auto",
+    "MIDTRANS_IS_PRODUCTION": "true"
+  }
+  // Rahasia (jangan ditulis di sini) — isi dengan: npx wrangler secret put NAMA
+  //   ADMIN_EMAIL, ADMIN_PASSWORD, S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY,
+  //   MIDTRANS_SERVER_KEY, MIDTRANS_CLIENT_KEY, BITESHIP_API_KEY
+}

@@ -1,11 +1,30 @@
 import type { Metadata } from 'next';
-import { DM_Sans, Lora } from 'next/font/google';
+import localFont from 'next/font/local';
 import './globals.css';
+import { siteUrl } from '@/lib/site';
 
-const sans = DM_Sans({ variable: '--font-sans-custom', subsets: ['latin'] });
-const serif = Lora({ variable: '--font-serif-custom', subsets: ['latin'] });
+// Fonts are self-hosted (from npm) so builds never depend on Google Fonts.
+const sans = localFont({
+  variable: '--font-sans-custom',
+  src: [
+    { path: '../node_modules/@fontsource-variable/dm-sans/files/dm-sans-latin-wght-normal.woff2', style: 'normal' },
+    { path: '../node_modules/@fontsource-variable/dm-sans/files/dm-sans-latin-wght-italic.woff2', style: 'italic' },
+  ],
+  weight: '100 1000',
+  display: 'swap',
+});
+const serif = localFont({
+  variable: '--font-serif-custom',
+  src: [
+    { path: '../node_modules/@fontsource-variable/lora/files/lora-latin-wght-normal.woff2', style: 'normal' },
+    { path: '../node_modules/@fontsource-variable/lora/files/lora-latin-wght-italic.woff2', style: 'italic' },
+  ],
+  weight: '400 700',
+  display: 'swap',
+});
 export const metadata: Metadata = {
-  metadataBase: new URL('https://simpleground.online'),
+  metadataBase: new URL(siteUrl()),
+  icons: { icon: '/favicon.svg' },
   title: 'Simple Ground — Daily & Kitchen Wear',
   description:
     'Belanja baju chef, seragam kerja, dan daily wear Simple Ground. Pilih ukuran, cek ongkir, dan bayar dengan Virtual Account atau QRIS. Konsultasi tersedia via WhatsApp.',

@@ -1,0 +1,8 @@
+{
+  "recommendations": [
+    "bradlc.vscode-tailwindcss",
+    "oxc.oxc-vscode",
+    "ckolkman.vscode-postgres",
+    "ms-azuretools.vscode-containers"
+  ]
+}

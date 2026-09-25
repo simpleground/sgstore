@@ -1,0 +1,9 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    { "label": "dev", "type": "npm", "script": "dev", "isBackground": true, "problemMatcher": [] },
+    { "label": "db:migrate", "type": "npm", "script": "db:migrate", "problemMatcher": [] },
+    { "label": "build", "type": "npm", "script": "build", "group": "build", "problemMatcher": [] },
+    { "label": "test", "type": "npm", "script": "test", "group": "test", "problemMatcher": [] }
+  ]
+}
