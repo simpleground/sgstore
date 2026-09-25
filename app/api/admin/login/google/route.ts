@@ -7,6 +7,7 @@ import {
   createAdminSession,
   findAdminByEmail,
 } from '@/lib/admin-auth';
+import { audit } from '@/lib/audit';
 import { verifyGoogleCredential } from '@/lib/google';
 import { getCurrentStore, getDefaultStore, storeNotFound } from '@/lib/tenant';
 
@@ -29,12 +30,26 @@ export async function POST(request: Request) {
       userId ??= await createAdmin({ email: google.email, name: google.name, passwordHash: null });
       await addStoreMember(store.id, userId, 'store_owner');
     }
-    if (!userId || !(await canManageStore(userId, admin?.platform_role ?? null, store.id)))
+    if (!userId || !(await canManageStore(userId, admin?.platform_role ?? null, store.id))) {
+      if (userId)
+        await audit(
+          { userId, email: google.email },
+          { storeId: store.id, action: 'auth.login_denied', meta: { method: 'google' } },
+        );
       return NextResponse.json(
         { error: `Akun ${google.email} bukan administrator ${store.name}.` },
         { status: 403 },
       );
+    }
     await createAdminSession(userId);
+    await audit(
+      { userId, email: google.email },
+      {
+        storeId: store.id,
+        action: 'auth.login',
+        meta: { method: 'google', platformAdmin: admin?.platform_role === 'super_admin' },
+      },
+    );
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ error: 'Login Google gagal.' }, { status: 500 });

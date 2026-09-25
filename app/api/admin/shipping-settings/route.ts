@@ -1,22 +1,23 @@
 import { NextResponse } from 'next/server';
-import { getStoreAdmin } from '@/lib/admin-auth';
+import { authorizeStore } from '@/lib/admin-auth';
+import { audit } from '@/lib/audit';
 import { getD1 } from '@/db';
 import { SUPPORTED_COURIERS } from '@/lib/biteship';
 import { getCourierSettings } from '@/lib/shipping-settings';
 
 export async function GET() {
-  const admin = await getStoreAdmin();
-  if (!admin)
-    return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
+  const auth = await authorizeStore('shipping.manage');
+  if (!auth.ok) return auth.response;
+  const { admin } = auth;
   return NextResponse.json({
     couriers: await getCourierSettings(admin.store.id),
   });
 }
 
 export async function PATCH(request: Request) {
-  const admin = await getStoreAdmin();
-  if (!admin)
-    return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
+  const auth = await authorizeStore('shipping.manage');
+  if (!auth.ok) return auth.response;
+  const { admin } = auth;
   const body = (await request.json()) as { code?: string; active?: boolean };
   const courier = SUPPORTED_COURIERS.find((item) => item.code === body.code);
   if (!courier || typeof body.active !== 'boolean')
@@ -36,5 +37,11 @@ export async function PATCH(request: Request) {
       new Date().toISOString(),
     )
     .run();
+  await audit(admin, {
+    storeId: admin.store.id,
+    action: 'shipping.courier',
+    target: { type: 'courier', id: courier.code },
+    meta: { active: body.active },
+  });
   return NextResponse.json({ ok: true });
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getStoreAdmin } from '@/lib/admin-auth';
+import { authorizeStore } from '@/lib/admin-auth';
+import { audit } from '@/lib/audit';
 import { getD1 } from '@/db';
 import {
   normalizeCategory,
@@ -7,9 +8,9 @@ import {
 } from '@/lib/catalog-normalize';
 
 export async function PATCH(request: Request) {
-  const admin = await getStoreAdmin();
-  if (!admin)
-    return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
+  const auth = await authorizeStore('categories.manage');
+  if (!auth.ok) return auth.response;
+  const { admin } = auth;
   const body = (await request.json()) as {
     type?: 'category' | 'subcategory';
     from?: string;
@@ -47,13 +48,18 @@ export async function PATCH(request: Request) {
       { error: 'Kategori utama untuk subkategori belum dipilih.' },
       { status: 400 },
     );
+  await audit(admin, {
+    storeId: admin.store.id,
+    action: body.type === 'category' ? 'category.rename' : 'subcategory.rename',
+    meta: { from, to, category, changed: result.meta.changes ?? 0 },
+  });
   return NextResponse.json({ ok: true, changed: result.meta.changes ?? 0 });
 }
 
 export async function POST() {
-  const admin = await getStoreAdmin();
-  if (!admin)
-    return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
+  const auth = await authorizeStore('categories.manage');
+  if (!auth.ok) return auth.response;
+  const { admin } = auth;
   const database = getD1();
   const rows = await database
     .prepare('SELECT id,category,subcategory FROM products WHERE store_id=?')
@@ -77,5 +83,10 @@ export async function POST() {
   }
   for (let index = 0; index < statements.length; index += 75)
     await database.batch(statements.slice(index, index + 75));
+  await audit(admin, {
+    storeId: admin.store.id,
+    action: 'category.normalize',
+    meta: { changed },
+  });
   return NextResponse.json({ ok: true, changed });
 }

@@ -14,7 +14,7 @@ assert.throws(() => csv.csvRecords('"unfinished'));
 let batches = [];
 const products = [{id:'one',name:'Kaos',category:'Daily Basic',subcategory:'Kaos',active:1,material:'Katun',weight_grams:500,sold_count:4,variants_json:JSON.stringify([{color:'Hitam',size:'M',price:10000,normalPrice:10000,stock:5}])}, {id:'two',name:'Kemeja',variants_json:'[]'}];
 const db = {prepare(sql) { return {sql, values:[], bind(...values) {this.values=values; return this;}, async first(){return {user_id:'admin'};}, async all(){return {results:products};}};}, async batch(s){batches.push(...s);}};
-const api = moduleFrom('app/api/admin/products/bulk/route.ts', {'next/server':{NextResponse:{json:(d,o)=>new Response(JSON.stringify(d),o)}}, '@/lib/admin-auth':{getStoreAdmin:async()=>({store:{id:'default'}})}, '@/db':{getD1:()=>db}, '@/lib/catalog-normalize':moduleFrom('lib/catalog-normalize.ts')});
+const api = moduleFrom('app/api/admin/products/bulk/route.ts', {'next/server':{NextResponse:{json:(d,o)=>new Response(JSON.stringify(d),o)}}, '@/lib/admin-auth':{authorizeStore:async()=>({ok:true,admin:{store:{id:'default'}}}),adminCan:()=>true},'@/lib/audit':{audit:async()=>{}}, '@/db':{getD1:()=>db}, '@/lib/catalog-normalize':moduleFrom('lib/catalog-normalize.ts')});
 const base = {product_id:'one',name:'Kaos',category:'Daily Basic',subcategory:'Kaos',description:'Deskripsi',color:'Hitam',size:'M',sku:'A',normal_price:10000,discount_percent:0,stock:5};
 async function post(rows,preview=false){return api.POST({json:async()=>({rows,preview})});}
 (async()=>{

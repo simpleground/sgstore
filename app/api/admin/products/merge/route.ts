@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getStoreAdmin } from '@/lib/admin-auth';
+import { authorizeStore } from '@/lib/admin-auth';
+import { audit } from '@/lib/audit';
 import { getD1 } from '@/db';
 
 type Variant = {
@@ -23,9 +24,9 @@ const skuPart = (value: string) =>
     .slice(0, 24) || 'VARIAN';
 
 export async function POST(req: Request) {
-  const admin = await getStoreAdmin();
-  if (!admin)
-    return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
+  const auth = await authorizeStore('products.merge');
+  if (!auth.ok) return auth.response;
+  const { admin } = auth;
   const storeId = admin.store.id;
   try {
     const { targetId, sourceIds } = (await req.json()) as {
@@ -178,6 +179,12 @@ export async function POST(req: Request) {
       );
     }
     await db.batch(statements);
+    await audit(admin, {
+      storeId,
+      action: 'product.merge',
+      target: { type: 'product', id: targetId },
+      meta: { sources, mergedVariants: merged.length },
+    });
     return NextResponse.json({
       ok: true,
       targetId,

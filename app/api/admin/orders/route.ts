@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
-import { getStoreAdmin } from '@/lib/admin-auth';
+import { authorizeStore } from '@/lib/admin-auth';
+import { audit } from '@/lib/audit';
 import { getD1 } from '@/db';
 
 export async function PATCH(request: Request) {
-  const admin = await getStoreAdmin();
-  if (!admin)
-    return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
+  const auth = await authorizeStore('orders.update');
+  if (!auth.ok) return auth.response;
+  const { admin } = auth;
   const { orderNumber, status } = (await request.json()) as {
     orderNumber?: string;
     status?: string;
@@ -20,6 +21,10 @@ export async function PATCH(request: Request) {
   ];
   if (!orderNumber || !status || !allowed.includes(status))
     return NextResponse.json({ error: 'Data tidak valid.' }, { status: 400 });
+  const previous = await getD1()
+    .prepare('SELECT status FROM orders WHERE order_number = ? AND store_id = ?')
+    .bind(orderNumber, admin.store.id)
+    .first<string>('status');
   const result = await getD1()
     .prepare(
       'UPDATE orders SET status = ?, updated_at = ? WHERE order_number = ? AND store_id = ?',
@@ -31,5 +36,11 @@ export async function PATCH(request: Request) {
       { error: 'Pesanan tidak ditemukan.' },
       { status: 404 },
     );
+  await audit(admin, {
+    storeId: admin.store.id,
+    action: 'order.status',
+    target: { type: 'order', id: orderNumber },
+    meta: { from: previous, to: status },
+  });
   return NextResponse.json({ ok: true });
 }

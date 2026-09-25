@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
-import { getStoreAdmin } from '@/lib/admin-auth';
+import { authorizeStore } from '@/lib/admin-auth';
+import { audit } from '@/lib/audit';
 import { getD1 } from '@/db';
 export async function GET() {
-  const admin = await getStoreAdmin();
-  if (!admin)
-    return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
+  const auth = await authorizeStore('reviews.manage');
+  if (!auth.ok) return auth.response;
+  const { admin } = auth;
   const storeId = admin.store.id;
   const d = getD1();
   const [reviews, products, buyers] = await Promise.all([
@@ -34,9 +35,9 @@ export async function GET() {
   });
 }
 export async function POST(req: Request) {
-  const admin = await getStoreAdmin();
-  if (!admin)
-    return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
+  const auth = await authorizeStore('reviews.manage');
+  if (!auth.ok) return auth.response;
+  const { admin } = auth;
   const b = (await req.json()) as any;
   if (
     !b.productId ||
@@ -63,12 +64,13 @@ export async function POST(req: Request) {
       { status: 404 },
     );
   const now = new Date().toISOString();
+  const reviewId = crypto.randomUUID();
   await getD1()
     .prepare(
       'INSERT INTO reviews (id,store_id,product_id,order_number,display_name,city,rating,body,active,admin_created,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,1,1,?,?)',
     )
     .bind(
-      crypto.randomUUID(),
+      reviewId,
       admin.store.id,
       b.productId,
       b.orderNumber,
@@ -80,12 +82,18 @@ export async function POST(req: Request) {
       now,
     )
     .run();
+  await audit(admin, {
+    storeId: admin.store.id,
+    action: 'review.create',
+    target: { type: 'review', id: reviewId },
+    meta: { productId: b.productId },
+  });
   return NextResponse.json({ ok: true });
 }
 export async function PATCH(req: Request) {
-  const admin = await getStoreAdmin();
-  if (!admin)
-    return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
+  const auth = await authorizeStore('reviews.manage');
+  if (!auth.ok) return auth.response;
+  const { admin } = auth;
   const b = (await req.json()) as any;
   if (
     !b.id ||
@@ -115,5 +123,11 @@ export async function PATCH(req: Request) {
       { error: 'Ulasan tidak ditemukan.' },
       { status: 404 },
     );
+  await audit(admin, {
+    storeId: admin.store.id,
+    action: 'review.update',
+    target: { type: 'review', id: String(b.id) },
+    meta: { active: Boolean(b.active) },
+  });
   return NextResponse.json({ ok: true });
 }

@@ -12,13 +12,16 @@
  *
  * Multi-toko: an admin may only manage the store of the current host (see
  * lib/tenant.ts) when they are a member of it (store_memberships), or when they
- * are a platform super_admin. Use getStoreAdmin() in API routes and use its
- * `store.id` for every query — never a store id sent by the browser.
+ * are a platform super_admin. Use authorizeStore('<permission>') in API routes
+ * and use its `admin.store.id` for every query — never a store id sent by the
+ * browser. Roles and permissions: lib/permissions.ts.
  */
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { NextResponse } from 'next/server';
 import { getD1 } from '@/db';
 import { hashPassword, verifyPassword } from '@/lib/password';
+import { roleCan, type Permission, type StoreRole } from '@/lib/permissions';
 import { secureCookies } from '@/lib/site';
 import { getCurrentStore, getDefaultStore, type Store } from '@/lib/tenant';
 
@@ -33,7 +36,7 @@ export type AdminUser = {
   platformRole: 'super_admin' | null;
 };
 
-export type StoreRole = 'store_owner' | 'store_admin' | 'store_staff';
+export type { StoreRole } from '@/lib/permissions';
 
 /** A logged-in admin allowed to manage the current store. */
 export type StoreAdmin = AdminUser & {
@@ -86,6 +89,43 @@ export async function getStoreAdmin(): Promise<StoreAdmin | null> {
   const role = await membershipRole(store.id, admin.userId);
   if (!role && admin.platformRole !== 'super_admin') return null;
   return { ...admin, store, role };
+}
+
+/**
+ * The role used for permission checks: null (= everything) for a platform
+ * super_admin, even when they are also a member of the store.
+ */
+export function effectiveRole(admin: StoreAdmin): StoreRole | null {
+  return admin.platformRole === 'super_admin' ? null : admin.role;
+}
+
+export function adminCan(admin: StoreAdmin, permission: Permission) {
+  return roleCan(effectiveRole(admin), permission);
+}
+
+export function forbiddenForRole() {
+  return NextResponse.json(
+    { error: 'Peran Anda di toko ini tidak diizinkan melakukan tindakan ini.' },
+    { status: 403 },
+  );
+}
+
+/**
+ * For API routes: the admin of the current store who has `permission`.
+ *   const auth = await authorizeStore('products.edit');
+ *   if (!auth.ok) return auth.response;
+ */
+export async function authorizeStore(
+  permission: Permission,
+): Promise<{ ok: true; admin: StoreAdmin } | { ok: false; response: NextResponse }> {
+  const admin = await getStoreAdmin();
+  if (!admin)
+    return {
+      ok: false,
+      response: NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 }),
+    };
+  if (!adminCan(admin, permission)) return { ok: false, response: forbiddenForRole() };
+  return { ok: true, admin };
 }
 
 /** true when the request comes from an admin of the current store. */

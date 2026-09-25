@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getStoreAdmin } from '@/lib/admin-auth';
+import { adminCan, authorizeStore, forbiddenForRole } from '@/lib/admin-auth';
+import { audit } from '@/lib/audit';
 import { getD1, getFiles } from '@/db';
 import { validateVariants, resolveGallery, productImageUrl } from '@/lib/product-editor';
 import {
@@ -92,9 +93,9 @@ function preorderSettings(f: FormData) {
 const select =
   "SELECT id,name,category,subcategory,tone,price,stock,sold_count,preorder_enabled,preorder_days,weight_grams,active,created_at,description,material,care_instructions,production_estimate,size_guide,variants_json,images_json,deleted_at,COALESCE('/api/product-image/' || image_key,image_url) AS image FROM products";
 export async function GET() {
-  const admin = await getStoreAdmin();
-  if (!admin)
-    return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
+  const auth = await authorizeStore('products.view');
+  if (!auth.ok) return auth.response;
+  const { admin } = auth;
   const r = await getD1()
     .prepare(`${select} WHERE store_id=? ORDER BY updated_at DESC`)
     .bind(admin.store.id)
@@ -108,9 +109,9 @@ export async function GET() {
   });
 }
 export async function POST(req: Request) {
-  const admin = await getStoreAdmin();
-  if (!admin)
-    return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
+  const auth = await authorizeStore('products.edit');
+  if (!auth.ok) return auth.response;
+  const { admin } = auth;
   const storeId = admin.store.id;
   try {
     const f = await req.formData(),
@@ -130,6 +131,12 @@ export async function POST(req: Request) {
         )
         .bind(id, now, now, copyId, storeId)
         .run();
+      await audit(admin, {
+        storeId,
+        action: 'product.copy',
+        target: { type: 'product', id },
+        meta: { from: copyId, name: p.name },
+      });
       return NextResponse.json({ ok: true, id });
     }
     const name = String(f.get('name') || '').trim(),
@@ -197,6 +204,12 @@ export async function POST(req: Request) {
         now,
       )
       .run();
+    await audit(admin, {
+      storeId,
+      action: 'product.create',
+      target: { type: 'product', id },
+      meta: { name },
+    });
     return NextResponse.json({ ok: true, id });
   } catch (e) {
     return NextResponse.json(
@@ -206,9 +219,9 @@ export async function POST(req: Request) {
   }
 }
 export async function PATCH(req: Request) {
-  const admin = await getStoreAdmin();
-  if (!admin)
-    return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
+  const auth = await authorizeStore('products.edit');
+  if (!auth.ok) return auth.response;
+  const { admin } = auth;
   const storeId = admin.store.id;
   try {
     const f = await req.formData(),
@@ -294,6 +307,12 @@ export async function PATCH(req: Request) {
         storeId,
       )
       .run();
+    await audit(admin, {
+      storeId,
+      action: 'product.update',
+      target: { type: 'product', id },
+      meta: { name },
+    });
     return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json(
@@ -303,9 +322,9 @@ export async function PATCH(req: Request) {
   }
 }
 export async function PUT(req: Request) {
-  const admin = await getStoreAdmin();
-  if (!admin)
-    return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
+  const auth = await authorizeStore('products.edit');
+  if (!auth.ok) return auth.response;
+  const { admin } = auth;
   const storeId = admin.store.id;
   try {
     const { id, active, restoreDeleted } = (await req.json()) as {
@@ -331,6 +350,11 @@ export async function PUT(req: Request) {
         )
         .bind(new Date().toISOString(), id, storeId)
         .run();
+      await audit(admin, {
+        storeId,
+        action: 'product.restore',
+        target: { type: 'product', id },
+      });
       return NextResponse.json({ ok: true, restored: true });
     }
     if (!id || (active !== 0 && active !== 1))
@@ -340,6 +364,11 @@ export async function PUT(req: Request) {
       .bind(active, new Date().toISOString(), id, storeId)
       .run();
     if (!result.meta.changes) throw new Error('Produk tidak ditemukan.');
+    await audit(admin, {
+      storeId,
+      action: active ? 'product.unarchive' : 'product.archive',
+      target: { type: 'product', id },
+    });
     return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json(
@@ -349,9 +378,9 @@ export async function PUT(req: Request) {
   }
 }
 export async function DELETE(req: Request) {
-  const admin = await getStoreAdmin();
-  if (!admin)
-    return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
+  const auth = await authorizeStore('products.edit');
+  if (!auth.ok) return auth.response;
+  const { admin } = auth;
   const storeId = admin.store.id;
   try {
     const { id, permanent } = (await req.json()) as {
@@ -359,6 +388,7 @@ export async function DELETE(req: Request) {
       permanent?: boolean;
     };
     if (!id) throw new Error('Produk tidak valid.');
+    if (permanent && !adminCan(admin, 'products.delete')) return forbiddenForRole();
     const d1 = getD1();
     if (!permanent) {
       const result = await d1
@@ -371,6 +401,11 @@ export async function DELETE(req: Request) {
         throw new Error(
           'Produk tidak ditemukan atau sudah berada di Tong Sampah.',
         );
+      await audit(admin, {
+        storeId,
+        action: 'product.trash',
+        target: { type: 'product', id },
+      });
       return NextResponse.json({ ok: true, trashed: true });
     }
     const product = await d1
@@ -408,6 +443,11 @@ export async function DELETE(req: Request) {
     }
     for (const key of keys)
       if (!referenced.has(key)) await getFiles().delete(key);
+    await audit(admin, {
+      storeId,
+      action: 'product.delete',
+      target: { type: 'product', id },
+    });
     return NextResponse.json({ ok: true, permanent: true });
   } catch (error) {
     return NextResponse.json(

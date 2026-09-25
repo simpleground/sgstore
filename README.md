@@ -222,6 +222,19 @@ Data setiap toko (produk, pesanan, pelanggan, ulasan, keranjang, kurir, newslett
 admin hanya bisa mengelola toko tempat ia menjadi anggota; akun `ADMIN_EMAIL` adalah admin platform
 yang bisa mengelola semua toko. Pelanggan punya akun terpisah di setiap toko.
 
+**Peran anggota toko** (atur di Admin → Anggota):
+
+| Peran | Boleh |
+|---|---|
+| Pemilik | Semua, termasuk mengatur pemilik & admin lain |
+| Admin | Semua pengelolaan toko; di menu Anggota hanya boleh menambah/mengubah/mengeluarkan Staf |
+| Staf | Pesanan dan produk (tanpa hapus permanen, impor CSV, gabung produk, kategori); tanpa ulasan, pengiriman, anggota, aktivitas |
+
+Anggota baru yang ditambahkan dari panel masuk dengan **tombol Google** memakai email tersebut
+(akun baru sengaja dibuat tanpa password). Password bisa diberikan oleh pengelola server:
+`npm run admin:create -- email "Password" "Nama" --store=slug`. Toko selalu punya minimal satu Pemilik.
+Semua tindakan penting admin (masuk, produk, pesanan, anggota, dll.) tercatat di Admin → Aktivitas.
+
 Belum ada panel untuk membuat toko. Untuk mencoba toko kedua (mis. di lokal):
 
 ```sql

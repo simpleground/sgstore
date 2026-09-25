@@ -19,7 +19,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Foto produk: `getFiles()` / `lib/storage.ts` (driver `local` atau `s3`). URL publik: `/api/product-image/<key>`.
 - Auth admin: `lib/admin-auth.ts` (`isAdmin()` untuk API, `requireAdmin()` untuk halaman). Auth pelanggan: `app/customer-auth.ts`.
 - Multi-toko: toko aktif ditentukan dari header Host — `getCurrentStore()` (`lib/tenant.ts`) untuk halaman/API publik,
-  `getStoreAdmin()` (`lib/admin-auth.ts`) untuk API admin (anggota toko atau super_admin). JANGAN pernah memakai
+  `authorizeStore('<izin>')` (`lib/admin-auth.ts`, izin per peran di `lib/permissions.ts`) untuk API admin; catat
+  tindakan admin dengan `audit()` (`lib/audit.ts`). JANGAN pernah memakai
   store id dari body/query browser. Tabel products, orders, reviews, cart_items, customers, customer_sessions,
   shipping_settings, newsletter_subscribers wajib `store_id` di setiap SELECT/UPDATE/DELETE (WHERE) dan INSERT
   (kolom ini tidak punya DEFAULT). Foto baru: `storeFileKey()`; data lama milik toko `default` (slug `simple-ground`).

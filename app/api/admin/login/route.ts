@@ -8,6 +8,7 @@ import {
   recordLoginFailure,
   syncEnvAdmin,
 } from '@/lib/admin-auth';
+import { audit } from '@/lib/audit';
 import { verifyPassword } from '@/lib/password';
 import { getCurrentStore, storeNotFound } from '@/lib/tenant';
 
@@ -32,11 +33,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Email atau password salah.' }, { status: 401 });
   }
   clearLoginFailures(key);
-  if (!(await canManageStore(admin.user_id, admin.platform_role, store.id)))
+  const actor = { userId: admin.user_id, email: admin.email };
+  if (!(await canManageStore(admin.user_id, admin.platform_role, store.id))) {
+    await audit(actor, { storeId: store.id, action: 'auth.login_denied', meta: { method: 'password' } });
     return NextResponse.json(
       { error: `Akun ini bukan administrator ${store.name}.` },
       { status: 403 },
     );
+  }
   await createAdminSession(admin.user_id);
+  await audit(actor, {
+    storeId: store.id,
+    action: 'auth.login',
+    meta: { method: 'password', platformAdmin: admin.platform_role === 'super_admin' },
+  });
   return NextResponse.json({ ok: true });
 }

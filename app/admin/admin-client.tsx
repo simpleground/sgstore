@@ -1,5 +1,6 @@
 'use client';
 import { csvRecords } from '@/lib/catalog-csv';
+import type { Permission } from '@/lib/permissions';
 import { useEffect, useRef, useState } from 'react';
 import { Switch } from '@/components/ui/switch';
 import { VariantEditor } from './variant-editor';
@@ -525,7 +526,13 @@ function CategoryManager({
     </div>
   );
 }
-export function ProductManager() {
+export function ProductManager({
+  permissions,
+}: {
+  /** Actions the admin's role allows; hidden actions are also refused by the API. */
+  permissions: Permission[];
+}) {
+  const can = (permission: Permission) => permissions.includes(permission);
   const [items, setItems] = useState<Product[]>([]);
   const [editing, setEditing] = useState<Product | null>(null);
   const [open, setOpen] = useState(false);
@@ -814,8 +821,8 @@ export function ProductManager() {
       )}
       {!dedicatedEdit && (
         <>
-          <details className="admin-tool"><summary>Impor & ekspor produk CSV</summary><BulkImport onDone={load} products={items} /></details>
-          <details className="admin-tool"><summary>Kelola kategori & subkategori</summary><CategoryManager items={items} onDone={load} /></details>
+          {can('products.import') && <details className="admin-tool"><summary>Impor & ekspor produk CSV</summary><BulkImport onDone={load} products={items} /></details>}
+          {can('categories.manage') && <details className="admin-tool"><summary>Kelola kategori & subkategori</summary><CategoryManager items={items} onDone={load} /></details>}
         </>
       )}
       {!dedicatedEdit && mergeIds.length > 0 && (
@@ -1115,7 +1122,7 @@ export function ProductManager() {
                 key={p.id}
                 className={`admin-product-row flex gap-3 border-b p-4 ${p.active === 0 ? 'bg-[#f1f1ed]' : ''}`}
               >
-                {productTab === 'active' && (
+                {productTab === 'active' && can('products.merge') && (
                   <input
                     type="checkbox"
                     aria-label={`Pilih ${p.name} untuk digabung`}
@@ -1170,12 +1177,14 @@ export function ProductManager() {
                         >
                           <RotateCcw size={13} /> Pulihkan
                         </button>
-                        <button
-                          onClick={() => deletePermanently(p.id)}
-                          className="flex items-center gap-1 text-xs font-semibold text-red-700"
-                        >
-                          <Trash2 size={13} /> Hapus Permanen
-                        </button>
+                        {can('products.delete') && (
+                          <button
+                            onClick={() => deletePermanently(p.id)}
+                            className="flex items-center gap-1 text-xs font-semibold text-red-700"
+                          >
+                            <Trash2 size={13} /> Hapus Permanen
+                          </button>
+                        )}
                       </>
                     ) : (
                       <>

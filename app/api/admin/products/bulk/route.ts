@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getStoreAdmin } from '@/lib/admin-auth';
+import { authorizeStore } from '@/lib/admin-auth';
+import { audit } from '@/lib/audit';
 import { getD1 } from '@/db';
 import {
   normalizeCategory,
@@ -86,9 +87,9 @@ function mergeVariants(existing: ImportVariant[], incoming: ImportVariant[]) {
 }
 
 export async function GET(request: Request) {
-  const admin = await getStoreAdmin();
-  if (!admin)
-    return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
+  const auth = await authorizeStore('products.import');
+  if (!auth.ok) return auth.response;
+  const { admin } = auth;
   const result = await getD1()
     .prepare(
       'SELECT * FROM products WHERE store_id=? AND deleted_at IS NULL ORDER BY name,id',
@@ -150,9 +151,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const admin = await getStoreAdmin();
-  if (!admin)
-    return NextResponse.json({ error: 'Tidak diizinkan.' }, { status: 403 });
+  const auth = await authorizeStore('products.import');
+  if (!auth.ok) return auth.response;
+  const { admin } = auth;
   const storeId = admin.store.id;
   try {
     const { rows, preview = false } = (await request.json()) as {
@@ -432,6 +433,11 @@ export async function POST(request: Request) {
     if (preview) return NextResponse.json(summary);
     for (let index = 0; index < statements.length; index += 75)
       await database.batch(statements.slice(index, index + 75));
+    await audit(admin, {
+      storeId,
+      action: 'product.import',
+      meta: { rows: rows.length, created, updated, autoMatched },
+    });
     return NextResponse.json(summary);
   } catch (error) {
     return NextResponse.json(
