@@ -86,6 +86,8 @@ export async function canManageStore(
 export async function getStoreAdmin(): Promise<StoreAdmin | null> {
   const [admin, store] = await Promise.all([getAdmin(), getCurrentStore()]);
   if (!admin || !store) return null;
+  // A closed store is managed only by the platform (suspended stores keep their admins).
+  if (store.status === 'closed' && admin.platformRole !== 'super_admin') return null;
   const role = await membershipRole(store.id, admin.userId);
   if (!role && admin.platformRole !== 'super_admin') return null;
   return { ...admin, store, role };
@@ -126,6 +128,22 @@ export async function authorizeStore(
     };
   if (!adminCan(admin, permission)) return { ok: false, response: forbiddenForRole() };
   return { ok: true, admin };
+}
+
+/**
+ * For platform API routes: the logged-in platform super_admin (any host).
+ *   const auth = await requireSuperAdmin();
+ *   if (!auth.ok) return auth.response;
+ */
+export async function requireSuperAdmin(): Promise<
+  { ok: true; admin: AdminUser } | { ok: false; response: NextResponse }
+> {
+  const admin = await getAdmin();
+  if (admin?.platformRole === 'super_admin') return { ok: true, admin };
+  return {
+    ok: false,
+    response: NextResponse.json({ error: 'Khusus admin platform.' }, { status: 403 }),
+  };
 }
 
 /** true when the request comes from an admin of the current store. */

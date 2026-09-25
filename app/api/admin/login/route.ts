@@ -34,6 +34,8 @@ export async function POST(request: Request) {
   }
   clearLoginFailures(key);
   const actor = { userId: admin.user_id, email: admin.email };
+  if (store.status === 'closed' && admin.platform_role !== 'super_admin')
+    return NextResponse.json({ error: 'Toko ini sudah ditutup.' }, { status: 403 });
   if (!(await canManageStore(admin.user_id, admin.platform_role, store.id))) {
     await audit(actor, { storeId: store.id, action: 'auth.login_denied', meta: { method: 'password' } });
     return NextResponse.json(

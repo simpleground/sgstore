@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getCustomer } from '@/app/customer-auth';
 import { getD1 } from '@/db';
-import { getCurrentStore, storeNotFound } from '@/lib/tenant';
+import { getOpenStore, storeNotFound } from '@/lib/tenant';
 
 export async function GET() {
-  const store = await getCurrentStore();
+  const store = await getOpenStore();
   if (!store) return storeNotFound();
   const r = await getD1()
     .prepare(

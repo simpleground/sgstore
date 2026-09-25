@@ -130,6 +130,16 @@ export async function getCurrentStore() {
   return resolveStoreByHost((await headers()).get('host'));
 }
 
+/**
+ * Toko aktif yang sedang dibuka pembeli, atau null bila host tidak dikenal
+ * atau toko ditangguhkan/ditutup. Dipakai API publik (katalog, keranjang,
+ * checkout, ulasan, login pelanggan). Panel admin memakai getCurrentStore().
+ */
+export async function getOpenStore() {
+  const store = await getCurrentStore();
+  return store?.status === 'active' ? store : null;
+}
+
 /** Respons API untuk host yang tidak mengarah ke toko mana pun. */
 export function storeNotFound() {
   return NextResponse.json({ error: 'Toko tidak ditemukan.' }, { status: 404 });

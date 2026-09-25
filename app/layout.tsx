@@ -54,6 +54,8 @@ export async function generateMetadata(): Promise<Metadata> {
     ...(favicon ? { icons: { icon: favicon } } : {}),
     title,
     description: seo.description,
+    // Suspended or closed stores should not be indexed while their shop is hidden.
+    ...(store.status === 'active' ? {} : { robots: { index: false, follow: false } }),
     openGraph: {
       title,
       description: shareDescription,

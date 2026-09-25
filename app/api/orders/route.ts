@@ -11,7 +11,7 @@ import {
   midtransConfig,
   orderPrefix,
 } from '@/lib/store-settings';
-import { getCurrentStore, storeBaseUrl, storeNotFound } from '@/lib/tenant';
+import { getOpenStore, storeBaseUrl, storeNotFound } from '@/lib/tenant';
 
 type RequestedItem = { id: string; variantIndex: number; quantity: number };
 type StoredVariant = {
@@ -25,7 +25,7 @@ type StoredVariant = {
 
 export async function POST(request: Request) {
   try {
-    const store = await getCurrentStore();
+    const store = await getOpenStore();
     if (!store) return storeNotFound();
     const body = (await request.json()) as {
       customerName?: string;

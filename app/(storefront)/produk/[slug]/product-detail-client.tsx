@@ -4,7 +4,7 @@ import { quantityLimit, preorderLabel } from '@/lib/preorder';
 import { useState } from 'react';
 import { ChevronLeft, ChevronRight, ShoppingBag } from 'lucide-react';
 import { productPath } from '@/lib/product-slug';
-import { useStoreConfig, whatsappLink } from '../../store-config';
+import { useStoreConfig, whatsappLink } from '@/app/store-config';
 
 type Variant = {
   sku?: string;

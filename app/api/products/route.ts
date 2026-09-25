@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getD1 } from '@/db';
 import { productImageUrl } from '@/lib/product-editor';
-import { getCurrentStore, storeNotFound } from '@/lib/tenant';
+import { getOpenStore, storeNotFound } from '@/lib/tenant';
 
 function readArray(value: unknown) {
   if (Array.isArray(value)) return value;
@@ -14,7 +14,7 @@ function readArray(value: unknown) {
   }
 }
 export async function GET() {
-  const store = await getCurrentStore();
+  const store = await getOpenStore();
   if (!store) return storeNotFound();
   const d1 = getD1();
   const result = await d1

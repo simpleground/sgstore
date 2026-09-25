@@ -94,6 +94,9 @@ export function AppearanceManager() {
     null,
   );
   const [busy, setBusy] = useState(false);
+  // Free-text editors for lists, kept as typed while the admin edits.
+  const [catalogText, setCatalogText] = useState('');
+  const [hiddenText, setHiddenText] = useState('');
   const [message, setMessage] = useState('');
 
   const load = useCallback(
@@ -102,6 +105,15 @@ export function AppearanceManager() {
         .then((data) => {
           setLook(data.appearance);
           setImageUrls(data.imageUrls);
+          setCatalogText(
+            data.appearance.content.catalogOrder
+              .map(
+                (entry) =>
+                  `${entry.category}: ${entry.subcategories.join(', ')}`,
+              )
+              .join('\n'),
+          );
+          setHiddenText(data.appearance.content.hiddenSubcategories.join(', '));
         })
         .catch((error: Error) => setMessage(error.message)),
     [],
@@ -589,6 +601,128 @@ export function AppearanceManager() {
               </div>
             </>
           )}
+          <div className="sm:col-span-2">
+            <Field
+              label="Kategori yang selalu tampil (satu per baris)"
+              hint="Format: Kategori: Subkategori 1, Subkategori 2. Kategori lain muncul otomatis dari produk."
+            >
+              <textarea
+                className={input}
+                rows={3}
+                value={catalogText}
+                onChange={(e) => {
+                  setCatalogText(e.target.value);
+                  content({
+                    catalogOrder: e.target.value
+                      .split('\n')
+                      .map((line) => {
+                        const [category, subs = ''] = line.split(':');
+                        return {
+                          category: category.trim(),
+                          subcategories: subs
+                            .split(',')
+                            .map((item) => item.trim())
+                            .filter(Boolean),
+                        };
+                      })
+                      .filter((entry) => entry.category),
+                  });
+                }}
+              />
+            </Field>
+          </div>
+          <div className="sm:col-span-2">
+            <Field
+              label="Subkategori yang disembunyikan dari menu"
+              hint="Pisahkan dengan koma."
+            >
+              <input
+                className={input}
+                value={hiddenText}
+                onChange={(e) => {
+                  setHiddenText(e.target.value);
+                  content({
+                    hiddenSubcategories: e.target.value
+                      .split(',')
+                      .map((item) => item.trim())
+                      .filter(Boolean),
+                  });
+                }}
+              />
+            </Field>
+          </div>
+          <div className="space-y-2 sm:col-span-2">
+            <p className="text-sm font-semibold">
+              Tautan “Belanja” di footer (maks. 6; kosong = otomatis dari
+              kategori)
+            </p>
+            {look.content.shopLinks.map((link, index) => (
+              <div
+                key={index}
+                className="grid gap-2 sm:grid-cols-[1fr_1fr_1fr_auto]"
+              >
+                {(['label', 'category', 'subcategory'] as const).map((key) => (
+                  <input
+                    key={key}
+                    aria-label={
+                      key === 'label'
+                        ? 'Nama tautan'
+                        : key === 'category'
+                          ? 'Kategori'
+                          : 'Subkategori'
+                    }
+                    placeholder={
+                      key === 'label'
+                        ? 'Nama tautan'
+                        : key === 'category'
+                          ? 'Kategori'
+                          : 'Subkategori (Semua)'
+                    }
+                    className={input}
+                    value={link[key]}
+                    onChange={(e) =>
+                      content({
+                        shopLinks: look.content.shopLinks.map((item, i) =>
+                          i === index
+                            ? { ...item, [key]: e.target.value }
+                            : item,
+                        ),
+                      })
+                    }
+                  />
+                ))}
+                <button
+                  type="button"
+                  className="text-sm font-semibold text-red-700"
+                  onClick={() =>
+                    content({
+                      shopLinks: look.content.shopLinks.filter(
+                        (_, i) => i !== index,
+                      ),
+                    })
+                  }
+                >
+                  Hapus
+                </button>
+              </div>
+            ))}
+            {look.content.shopLinks.length < 6 && (
+              <button
+                type="button"
+                className="rounded-xl border px-3 py-2 text-sm font-semibold"
+                onClick={() =>
+                  content({
+                    shopLinks: [
+                      ...look.content.shopLinks,
+                      { label: '', category: 'Semua', subcategory: 'Semua' },
+                    ],
+                  })
+                }
+              >
+                + Tambah tautan
+              </button>
+            )}
+          </div>
           <label className="flex items-center gap-2 text-sm font-semibold sm:col-span-2">
             <input
               type="checkbox"

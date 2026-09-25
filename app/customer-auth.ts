@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { getD1 } from '@/db';
 import { secureCookies } from '@/lib/site';
-import { getCurrentStore } from '@/lib/tenant';
+import { getOpenStore } from '@/lib/tenant';
 const COOKIE = 'sg_customer';
 // Customer accounts and sessions belong to one store: a session created on
 // store A is never valid on store B, even for the same Google account.
@@ -23,7 +23,7 @@ async function hash(value: string) {
 export async function getCustomer(): Promise<Customer | null> {
   const token = (await cookies()).get(COOKIE)?.value;
   if (!token) return null;
-  const store = await getCurrentStore();
+  const store = await getOpenStore();
   if (!store) return null;
   const row = await getD1()
     .prepare(

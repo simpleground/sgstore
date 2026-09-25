@@ -2,11 +2,11 @@ import { NextResponse } from 'next/server';
 import { getD1 } from '@/db';
 import { createCustomerSession } from '@/app/customer-auth';
 import { verifyGoogleCredential } from '@/lib/google';
-import { getCurrentStore, storeNotFound } from '@/lib/tenant';
+import { getOpenStore, storeNotFound } from '@/lib/tenant';
 
 export async function POST(req: Request) {
   try {
-    const store = await getCurrentStore();
+    const store = await getOpenStore();
     if (!store) return storeNotFound();
     const { credential } = (await req.json()) as { credential?: string };
     if (!credential)

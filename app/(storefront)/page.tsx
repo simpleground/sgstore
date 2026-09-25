@@ -1,5 +1,5 @@
 'use client';
-import { formatWhatsapp, useStoreConfig, whatsappLink } from './store-config';
+import { formatWhatsapp, useStoreConfig, whatsappLink } from '@/app/store-config';
 import { quantityLimit, preorderLabel } from '@/lib/preorder';
 
 import { useEffect, useMemo, useState } from 'react';
@@ -75,101 +75,6 @@ type ShippingOption = {
   duration: string;
 };
 
-const defaultProducts: Product[] = [
-  {
-    id: '1',
-    name: 'Kemeja Linen Daily',
-    category: 'Daily Basic',
-    subcategory: 'Kemeja',
-    price: 289000,
-    stock: 20,
-    image:
-      'https://images.unsplash.com/photo-1598033129183-c4f50c736f10?auto=format&fit=crop&w=900&q=85',
-    tone: 'Sand',
-    description:
-      'Kemeja linen ringan dengan potongan rileks untuk aktivitas harian.',
-    variants: [
-      { color: 'Sand', size: 'M', price: 289000, stock: 10 },
-      { color: 'Sand', size: 'L', price: 299000, stock: 10 },
-    ],
-  },
-  {
-    id: '2',
-    name: 'Kaos Daily Essential',
-    category: 'Daily Basic',
-    subcategory: 'Kaos',
-    price: 159000,
-    stock: 30,
-    image:
-      'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=85',
-    tone: 'Oat',
-    description: 'Kaos lembut dan nyaman sebagai pilihan esensial sehari-hari.',
-    variants: [
-      { color: 'Oat', size: 'M', price: 159000, stock: 15 },
-      { color: 'Oat', size: 'L', price: 169000, stock: 15 },
-    ],
-  },
-  {
-    id: '3',
-    name: 'Celana Linen Relaxed',
-    category: 'Daily Basic',
-    subcategory: 'Celana',
-    price: 319000,
-    stock: 18,
-    image:
-      'https://images.unsplash.com/photo-1506629082955-511b1aa562c8?auto=format&fit=crop&w=900&q=85',
-    tone: 'Sage',
-    description: 'Celana linen berpotongan santai, sejuk, dan mudah dipadukan.',
-    variants: [
-      { color: 'Sage', size: 'M', price: 319000, stock: 9 },
-      { color: 'Sage', size: 'L', price: 329000, stock: 9 },
-    ],
-  },
-  {
-    id: '4',
-    name: 'Baju Chef Signature',
-    category: 'Chef & Kitchen Wear',
-    subcategory: 'Baju Chef',
-    price: 349000,
-    stock: 15,
-    image:
-      'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?auto=format&fit=crop&w=900&q=85',
-    tone: 'White',
-    description:
-      'Baju chef profesional yang rapi, nyaman, dan leluasa bergerak.',
-    variants: [
-      { color: 'Putih', size: 'M', price: 349000, stock: 8 },
-      { color: 'Hitam', size: 'L', price: 369000, stock: 7 },
-    ],
-  },
-  {
-    id: '5',
-    name: 'Apron Canvas Ground',
-    category: 'Chef & Kitchen Wear',
-    subcategory: 'Apron',
-    price: 219000,
-    stock: 25,
-    image:
-      'https://images.unsplash.com/photo-1556911220-bff31c812dba?auto=format&fit=crop&w=900&q=85',
-    tone: 'Earth',
-    description:
-      'Apron kanvas kokoh dengan tampilan natural untuk dapur dan usaha.',
-    variants: [{ color: 'Earth', size: 'All Size', price: 219000, stock: 25 }],
-  },
-  {
-    id: '6',
-    name: 'Topi Chef Classic',
-    category: 'Chef & Kitchen Wear',
-    subcategory: 'Topi',
-    price: 129000,
-    stock: 30,
-    image:
-      'https://images.unsplash.com/photo-1577106263724-2c8e03bfe9cf?auto=format&fit=crop&w=900&q=85',
-    tone: 'White',
-    description: 'Topi chef klasik yang ringan untuk melengkapi seragam dapur.',
-    variants: [{ color: 'Putih', size: 'All Size', price: 129000, stock: 30 }],
-  },
-];
 const rupiah = (value: number) =>
   new Intl.NumberFormat('id-ID', {
     style: 'currency',
@@ -316,15 +221,14 @@ export default function Home() {
     return result;
   }, [category, subcategory, query, products, priceLimit, sort]);
   const catalog = useMemo(() => {
-    const suggestions: Record<string, string[]> = {
-      'Chef & Kitchen Wear': ['Baju Chef', 'Apron'],
-      'Professional Workwear': ['Kemeja PDL', 'Seragam Kerja'],
-      'Daily Basic': ['Kaos', 'Kemeja', 'Celana'],
-    };
+    // Pinned categories (store appearance) first, then whatever the products use.
+    const suggestions: Record<string, string[]> = Object.fromEntries(
+      look.content.catalogOrder.map((entry) => [entry.category, [...entry.subcategories]]),
+    );
     for (const p of products) {
       const normalizedCategory = cleanCategory(p.category);
       const normalizedSubcategory = cleanLabel(p.subcategory);
-      if (normalizedSubcategory !== 'Topi Chef') {
+      if (!look.content.hiddenSubcategories.includes(normalizedSubcategory)) {
         suggestions[normalizedCategory] = Array.from(
           new Set([
             ...(suggestions[normalizedCategory] ?? []),
@@ -334,7 +238,7 @@ export default function Home() {
       }
     }
     return suggestions;
-  }, [products]);
+  }, [products, look.content.catalogOrder, look.content.hiddenSubcategories]);
   useEffect(
     () => setVisibleCount(16),
     [category, subcategory, query, priceLimit, sort],
@@ -368,7 +272,7 @@ export default function Home() {
     } catch {}
     fetch('/api/products')
       .then((r) => r.json())
-      .then((d: { products?: typeof defaultProducts }) => {
+      .then((d: { products?: Product[] }) => {
         if (d.products?.length) setProducts(d.products);
         else setProductsError('Katalog belum memiliki produk aktif.');
       })
@@ -1222,9 +1126,14 @@ export default function Home() {
               Belanja
             </p>
             <div className="mt-4 space-y-3 text-sm text-[#c6d0c6]">
-              <a className="block hover:underline" href="#koleksi" onClick={() => { setCategory('Daily Basic'); setSubcategory('Semua'); setQuery(''); }}>Koleksi Daily</a>
-              <a className="block hover:underline" href="#koleksi" onClick={() => { setCategory('Chef & Kitchen Wear'); setSubcategory('Baju Chef'); setQuery(''); }}>Baju Chef</a>
-              <a className="block hover:underline" href="#koleksi" onClick={() => { setCategory('Chef & Kitchen Wear'); setSubcategory('Semua'); setQuery(''); }}>Chef & Kitchen Wear</a>
+              {(look.content.shopLinks.length
+                ? look.content.shopLinks
+                : Object.keys(catalog)
+                    .slice(0, 3)
+                    .map((name) => ({ label: name, category: name, subcategory: 'Semua' }))
+              ).map((link) => (
+                <a key={link.label} className="block hover:underline" href="#koleksi" onClick={() => { setCategory(link.category); setSubcategory(link.subcategory); setQuery(''); }}>{link.label}</a>
+              ))}
             </div>
           </div>
           <div>

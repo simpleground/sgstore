@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getD1 } from '@/db';
-import { getCurrentStore, storeNotFound } from '@/lib/tenant';
+import { getOpenStore, storeNotFound } from '@/lib/tenant';
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(request: Request) {
-  const store = await getCurrentStore();
+  const store = await getOpenStore();
   if (!store) return storeNotFound();
   const { email } = (await request.json()) as { email?: string };
   const normalizedEmail = email?.trim().toLowerCase() ?? '';

@@ -1,7 +1,7 @@
 'use client';
 import {useEffect,useState} from 'react';
 import {preorderLabel,quantityLimit} from '@/lib/preorder';
-import {useStoreConfig,whatsappLink} from '../store-config';
+import {useStoreConfig,whatsappLink} from '@/app/store-config';
 type Variant={color:string;size:string;price:number;stock:number;sku?:string};
 type Product={id:string;name:string;image:string;images?:string[];variants:Variant[];preorder_enabled?:number;preorder_days?:number};
 type Line={productId:string;variantIndex:number;quantity:number};

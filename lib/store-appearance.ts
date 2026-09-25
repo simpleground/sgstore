@@ -19,6 +19,10 @@ export type HeroSlide = {
   label: string;
 };
 export type Highlight = { title: string; caption: string };
+/** Kategori yang selalu tampil di menu, dengan subkategori yang disarankan. */
+export type CatalogEntry = { category: string; subcategories: string[] };
+/** Tautan kolom "Belanja" di footer. */
+export type ShopLink = { label: string; category: string; subcategory: string };
 export type FontPreset = 'classic' | 'modern';
 export const IMAGE_FIELDS = ['logo', 'favicon', 'about', 'share'] as const;
 export type ImageField = (typeof IMAGE_FIELDS)[number];
@@ -44,6 +48,9 @@ export type StoreAppearance = {
       highlights: Highlight[];
     };
     showReviews: boolean;
+    catalogOrder: CatalogEntry[];
+    hiddenSubcategories: string[];
+    shopLinks: ShopLink[];
     newsletter: {
       enabled: boolean;
       eyebrow: string;
@@ -83,6 +90,9 @@ export function defaultAppearance(storeName: string): StoreAppearance {
         highlights: [],
       },
       showReviews: true,
+      catalogOrder: [],
+      hiddenSubcategories: [],
+      shopLinks: [],
       newsletter: {
         enabled: true,
         eyebrow: 'Kabar terbaru',
@@ -107,6 +117,12 @@ const obj = (value: unknown) =>
     ? (value as Record<string, unknown>)
     : {};
 const list = (value: unknown) => (Array.isArray(value) ? value : []);
+function limited(value: unknown, max: number, label: string) {
+  const items = list(value);
+  if (items.length > max)
+    throw new AppearanceError(`Maksimal ${max} ${label}.`);
+  return items;
+}
 
 function text(value: unknown, max: number, label: string) {
   const result = str(value);
@@ -201,6 +217,33 @@ export function validateAppearance(
           .filter((item) => item.title || item.caption),
       },
       showReviews: content.showReviews !== false,
+      catalogOrder: limited(content.catalogOrder, 12, 'kategori tetap')
+        .map((raw) => ({
+          category: text(obj(raw).category, 60, 'Nama kategori'),
+          subcategories: limited(obj(raw).subcategories, 20, 'subkategori')
+            .map((item) => text(item, 60, 'Nama subkategori'))
+            .filter(Boolean),
+        }))
+        .filter((entry) => entry.category),
+      hiddenSubcategories: limited(
+        content.hiddenSubcategories,
+        20,
+        'subkategori tersembunyi',
+      )
+        .map((item) => text(item, 60, 'Nama subkategori'))
+        .filter(Boolean),
+      shopLinks: limited(content.shopLinks, 6, 'tautan Belanja').map((raw) => {
+        const link = obj(raw);
+        const label = text(link.label, 40, 'Nama tautan Belanja');
+        if (!label)
+          throw new AppearanceError('Setiap tautan Belanja perlu nama.');
+        return {
+          label,
+          category: text(link.category, 60, 'Kategori tautan') || 'Semua',
+          subcategory:
+            text(link.subcategory, 60, 'Subkategori tautan') || 'Semua',
+        };
+      }),
       newsletter: {
         enabled: newsletter.enabled !== false,
         eyebrow: text(newsletter.eyebrow, 60, 'Label newsletter'),

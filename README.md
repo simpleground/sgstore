@@ -203,17 +203,19 @@ Cara paling praktis:
 
 ```
 app/                 Halaman & API (Next.js App Router)
+  (storefront)/      Etalase: beranda, produk, checkout (layout menolak toko nonaktif)
   admin/             Panel admin (+ admin/login)
+  platform/          Panel platform untuk admin platform (membuat & mengelola toko)
   api/               Endpoint API (produk, pesanan, pembayaran, ongkir, admin)
 db/index.ts          Koneksi PostgreSQL (API bergaya D1: prepare/bind/first/all/run/batch)
 db/migrations/       File SQL skema database — tambah file baru untuk perubahan skema
 lib/                 Logika bersama (auth admin, storage, Biteship, toko aktif, dll.)
 scripts/             migrate, create-admin, seed-demo, test-integration
 tests/integration/   Tes integrasi (PostgreSQL + server Next.js)
-deploy/              Skrip VPS (setup, update, backup), Nginx, konfigurasi Cloudflare
+deploy/              Skrip VPS (setup, update, backup, add-domain), Nginx, konfigurasi Cloudflare
 ```
 
-### Multi-toko (dalam pengembangan)
+### Multi-toko
 
 Satu aplikasi melayani beberapa toko. Toko dipilih dari **domain** yang dibuka:
 domain yang terdaftar di tabel `store_domains`, atau subdomain `<slug>.PLATFORM_ROOT_DOMAIN`.
@@ -249,18 +251,50 @@ deskripsi SEO dan gambar saat dibagikan. Semua toko memakai kode dan tata letak 
 pengaturannya. Toko tanpa warna sendiri memakai warna Simple Ground. Gambar diunggah sebagai PNG/JPG/WebP
 (SVG ditolak) dan disimpan di folder toko itu sendiri.
 
-Belum ada panel untuk membuat toko. Untuk mencoba toko kedua (mis. di lokal):
+**Membuat toko baru** — panel platform di `/platform` (hanya akun `ADMIN_EMAIL`/super admin):
+isi nama, slug (subdomain), email pemilik, dan (opsional) domain sendiri. Toko langsung aktif di
+`<slug>.PLATFORM_ROOT_DOMAIN`. Pemilik masuk ke `/admin` di domain tokonya dengan tombol Google memakai
+email tersebut. Di panel yang sama: tambah/lepas domain, pilih domain utama, tambah pemilik, dan ubah status:
 
-```sql
-INSERT INTO stores (id, slug, name, created_at, updated_at)
-VALUES (gen_random_uuid()::text, 'toko-b', 'Toko B', now()::text, now()::text);
-INSERT INTO store_domains (host, store_id, is_primary, created_at)
-SELECT 'toko-b.localhost', id, 1, now()::text FROM stores WHERE slug = 'toko-b';
-```
+| Status | Etalase & checkout | Admin toko |
+|---|---|---|
+| Aktif | buka | bisa masuk |
+| Ditangguhkan | ditutup (pesan "tidak aktif"); pesanan lama tetap bisa dicek & dibayar | bisa masuk |
+| Ditutup | ditutup | hanya admin platform |
 
-lalu `npm run admin:create -- admin@tokob.com "PasswordKuat123" "Admin B" --store=toko-b` dan buka
-`http://toko-b.localhost:3000/admin`. Catatan: nama, logo, warna, rekening, dan kontak toko masih sama
-untuk semua toko sampai fase pengaturan & tema selesai — jangan dipakai untuk toko sungguhan dulu.
+Data toko tidak pernah dihapus dari panel.
+
+**Mencoba di komputer lokal:** isi `PLATFORM_ROOT_DOMAIN=localhost` di `.env`, masuk ke
+`http://localhost:3000/admin` dengan `ADMIN_EMAIL`, buka `http://localhost:3000/platform`, buat toko
+dengan slug mis. `toko-b`, lalu buka `http://toko-b.localhost:3000` (Chrome/Edge/Firefox otomatis
+mengarahkan `*.localhost` ke komputer sendiri).
+
+**Checklist membuka toko baru:** Tampilan (logo, warna, isi beranda) · Pengaturan (kontak, rekening,
+kode pos gudang, kunci Midtrans sendiri) · produk · domain & SSL (lihat di bawah) · origin Google.
+
+#### Subdomain & domain sendiri di VPS
+
+Aplikasi memilih toko dari nama domain, jadi semua domain cukup diarahkan ke aplikasi yang sama.
+
+*Subdomain platform* (`<slug>.platform.id`), sekali saja:
+
+1. `.env`: `PLATFORM_ROOT_DOMAIN=platform.id`, lalu `pm2 reload sgstore --update-env`.
+2. DNS: A record `*.platform.id` (dan `platform.id`) ke IP VPS.
+3. Sertifikat wildcard (Let's Encrypt mewajibkan verifikasi DNS; Certbot meminta Anda membuat TXT record):
+   `sudo certbot certonly --manual --preferred-challenges dns -d platform.id -d '*.platform.id'`
+   Sertifikat manual tidak diperpanjang otomatis — untuk perpanjangan otomatis pakai plugin DNS penyedia
+   domain Anda (mis. `python3-certbot-dns-cloudflare`).
+4. Nginx: salin `deploy/nginx-sgstore.conf` sebagai `/etc/nginx/sites-available/sgstore-platform`, ganti
+   `server_name` menjadi `platform.id *.platform.id;`, aktifkan, lalu
+   `sudo certbot install --nginx --cert-name platform.id` dan `sudo systemctl reload nginx`.
+
+*Domain sendiri* (`tokoanda.com`), per toko: tambahkan domain di `/platform`, arahkan A record `@` dan
+`www` ke IP VPS, lalu jalankan `sudo bash /var/www/sgstore/deploy/add-domain.sh tokoanda.com`
+(membuat server block Nginx + sertifikat SSL).
+
+Untuk setiap domain baru, tambahkan juga `https://<domain>` di Google Cloud Console → *Authorized
+JavaScript origins* (login Google), dan bila toko memakai Midtrans, set *Payment Notification URL* akun
+Midtrans toko itu ke `https://<domain>/api/payments/midtrans/notification`.
 
 > **Sebelum `npm run db:migrate` di server, buat backup** (`deploy/backup.sh`). Migrasi multi-toko
 > (0004) tidak bisa dipakai oleh kode versi lama; kembali ke versi lama = pulihkan backup.
