@@ -110,13 +110,22 @@ export default function ProductDetailClient({
   }
 
   return (
-    <main className="min-h-screen bg-[#f7f4ec] text-[#17251c]">
+    <main className="min-h-screen bg-[#f7f4ec] text-[var(--brand-ink)]">
       <header className="sticky top-0 z-20 border-b bg-[#fffdf8]/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
           <a href="/" className="font-serif text-xl font-bold">
-            simple ground.
+            {store.appearance.logoUrl ? (
+              // oxlint-disable-next-line nextjs/no-img-element -- uploaded store logo served by /api/product-image
+              <img
+                src={store.appearance.logoUrl}
+                alt={store.name}
+                className="h-8 w-auto max-w-[180px] object-contain"
+              />
+            ) : (
+              `${store.name.toLowerCase()}.`
+            )}
           </a>
-          <a href="/#koleksi" className="text-sm font-bold text-[#24593d]">
+          <a href="/#koleksi" className="text-sm font-bold text-[var(--brand-mid-2)]">
             ← Kembali ke katalog
           </a>
         </div>
@@ -166,7 +175,7 @@ export default function ProductDetailClient({
                     <button
                       key={`${src}-${index}`}
                       onClick={() => setImageIndex(index)}
-                      className={`shrink-0 overflow-hidden rounded-lg border-2 ${index === imageIndex ? 'border-[#276344]' : 'border-transparent opacity-65'}`}
+                      className={`shrink-0 overflow-hidden rounded-lg border-2 ${index === imageIndex ? 'border-[var(--brand-mid)]' : 'border-transparent opacity-65'}`}
                     >
                       <img
                         src={src}
@@ -185,7 +194,7 @@ export default function ProductDetailClient({
               <h1 className="mt-2 font-serif text-3xl font-bold sm:text-4xl">
                 {product.name}
               </h1>
-              <p className="mt-3 text-2xl font-extrabold text-[#b4512d]">
+              <p className="mt-3 text-2xl font-extrabold text-[var(--brand-accent-2)]">
                 {rupiah(variant?.price || 0)}
               </p>
               <p className="mt-2 text-sm font-bold text-[#8a5a22]">
@@ -204,7 +213,7 @@ export default function ProductDetailClient({
                     {colors.map(color => {
                       const available = product.variants.some(item => item.color === color && quantityLimit(product, item) > 0);
                       return <button type="button" key={color} disabled={!available} aria-pressed={variant?.color === color} onClick={() => chooseColor(color)}
-                        className={`min-h-10 rounded-lg border px-3 py-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-35 ${variant?.color === color ? 'border-[#276344] bg-[#edf6ef] font-semibold text-[#173c2b]' : 'border-gray-200 hover:border-[#276344]'}`}>{color}</button>;
+                        className={`min-h-10 rounded-lg border px-3 py-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-35 ${variant?.color === color ? 'border-[var(--brand-mid)] bg-[#edf6ef] font-semibold text-[var(--brand)]' : 'border-gray-200 hover:border-[var(--brand-mid)]'}`}>{color}</button>;
                     })}
                   </div>
                 </fieldset>
@@ -214,7 +223,7 @@ export default function ProductDetailClient({
                     {sizes.map(size => {
                       const index = product.variants.findIndex(item => item.color === variant?.color && item.size === size && quantityLimit(product, item) > 0);
                       return <button type="button" key={size} disabled={index < 0} aria-pressed={variant?.size === size} onClick={() => { setVariantIndex(index); setMessage(''); }}
-                        className={`min-h-10 min-w-11 rounded-lg border px-3 py-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-35 ${variant?.size === size ? 'border-[#276344] bg-[#edf6ef] font-semibold text-[#173c2b]' : 'border-gray-200 hover:border-[#276344]'}`}>{size}</button>;
+                        className={`min-h-10 min-w-11 rounded-lg border px-3 py-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-35 ${variant?.size === size ? 'border-[var(--brand-mid)] bg-[#edf6ef] font-semibold text-[var(--brand)]' : 'border-gray-200 hover:border-[var(--brand-mid)]'}`}>{size}</button>;
                     })}
                   </div>
                 </fieldset>
@@ -265,14 +274,14 @@ export default function ProductDetailClient({
                 <button
                   onClick={addToCart}
                   disabled={!variant || quantityLimit(product, variant) < 1}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#173c2b] py-3.5 font-bold text-[#173c2b] disabled:border-gray-300 disabled:text-gray-400"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--brand)] py-3.5 font-bold text-[var(--brand)] disabled:border-gray-300 disabled:text-gray-400"
                 >
                   <ShoppingBag size={18} /> Tambah ke keranjang
                 </button>
                 <button
                   onClick={buyNow}
                   disabled={!variant || quantityLimit(product, variant) < 1}
-                  className="w-full rounded-xl bg-[#c0693c] py-3.5 font-bold text-white disabled:bg-gray-400"
+                  className="w-full rounded-xl bg-[var(--brand-accent)] py-3.5 font-bold text-white disabled:bg-gray-400"
                 >
                   {variant ? 'Beli langsung' : 'Varian tidak tersedia'}
                 </button>
@@ -282,13 +291,13 @@ export default function ProductDetailClient({
                   href={whatsappLink(store, `Halo ${store.name}, saya ingin bertanya tentang ${product.name}${variant?.sku ? ` (SKU ${variant.sku})` : ''}, warna ${variant?.color}, ukuran ${variant?.size}.`)}
                   target="_blank"
                   rel="noreferrer"
-                  className="mt-2 flex w-full justify-center rounded-xl border border-[#276344] py-3 text-sm font-bold text-[#24593d]"
+                  className="mt-2 flex w-full justify-center rounded-xl border border-[var(--brand-mid)] py-3 text-sm font-bold text-[var(--brand-mid-2)]"
                 >
                   Tanya produk via WhatsApp
                 </a>
               )}
               {message && (
-                <p className="mt-3 rounded-xl bg-[#edf6ef] p-3 text-xs font-semibold text-[#24593d]">
+                <p className="mt-3 rounded-xl bg-[#edf6ef] p-3 text-xs font-semibold text-[var(--brand-mid-2)]">
                   {message}
                 </p>
               )}
@@ -350,7 +359,7 @@ export default function ProductDetailClient({
                   />
                   <div className="p-3">
                     <b className="text-sm">{item.name}</b>
-                    <p className="mt-1 text-sm font-bold text-[#b4512d]">
+                    <p className="mt-1 text-sm font-bold text-[var(--brand-accent-2)]">
                       {rupiah(item.variants[0]?.price || 0)}
                     </p>
                   </div>

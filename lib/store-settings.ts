@@ -12,6 +12,11 @@
  */
 import { getD1 } from '@/db';
 import { decryptSecret, encryptSecret } from '@/lib/secrets';
+import {
+  getStoreAppearance,
+  publicAppearance,
+  type PublicAppearance,
+} from '@/lib/store-appearance';
 import { DEFAULT_STORE_ID, type Store } from '@/lib/tenant';
 
 export type SocialLink = { label: string; url: string };
@@ -397,6 +402,7 @@ export type PublicStoreConfig = {
     midtrans: boolean;
     recommended: PaymentMethod | null;
   };
+  appearance: PublicAppearance;
 };
 
 export async function getPublicStoreConfig(
@@ -424,5 +430,6 @@ export async function getPublicStoreConfig(
     checkoutNoticeTitle: settings.checkoutNoticeTitle,
     checkoutNotice: settings.checkoutNotice,
     payments: { manual, midtrans, recommended },
+    appearance: publicAppearance(await getStoreAppearance(store)),
   };
 }

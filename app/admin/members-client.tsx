@@ -288,6 +288,8 @@ const ACTION_LABELS: Record<string, string> = {
   'shipping.courier': 'Mengatur ekspedisi',
   'settings.update': 'Mengubah pengaturan toko',
   'payments.update': 'Mengubah pembayaran & integrasi',
+  'appearance.update': 'Mengubah tampilan toko',
+  'appearance.image': 'Mengubah gambar toko',
 };
 
 const STATUS_LABELS: Record<string, string> = {

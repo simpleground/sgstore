@@ -243,6 +243,12 @@ rekening transfer manual dan kunci Midtrans/Biteship (**hanya Pemilik**). Kunci 
 di dashboard Midtrans toko tersebut, set *Payment Notification URL* ke
 `https://<domain-toko>/api/payments/midtrans/notification`.
 
+**Tampilan per toko** (Admin → Tampilan, Pemilik & Admin): logo, ikon tab, warna utama & aksen, gaya huruf,
+pengumuman, slide beranda, bagian "Tentang", ulasan & newsletter (tampil/sembunyi), slogan, serta judul &
+deskripsi SEO dan gambar saat dibagikan. Semua toko memakai kode dan tata letak yang sama; yang berbeda hanya
+pengaturannya. Toko tanpa warna sendiri memakai warna Simple Ground. Gambar diunggah sebagai PNG/JPG/WebP
+(SVG ditolak) dan disimpan di folder toko itu sendiri.
+
 Belum ada panel untuk membuat toko. Untuk mencoba toko kedua (mis. di lokal):
 
 ```sql

@@ -189,6 +189,8 @@ const cleanLabel = (value: string) => {
 export default function Home() {
   const store = useStoreConfig();
   const manualPayment = store.payments.manual;
+  const look = store.appearance;
+  const brandName = store.name.toLowerCase();
   const [category, setCategory] = useState('Semua');
   const [subcategory, setSubcategory] = useState('Semua');
   const [products, setProducts] = useState<Product[]>([]);
@@ -242,69 +244,32 @@ export default function Home() {
   const [heroIndex, setHeroIndex] = useState(0);
   const [heroPaused, setHeroPaused] = useState(false);
   const heroSlides = useMemo(() => {
-    const chef = products.find((product) =>
-      product.category.toLowerCase().includes('chef'),
-    );
-    const professional = products.find((product) =>
-      product.category.toLowerCase().includes('professional'),
-    );
-    const daily = products.find((product) =>
-      product.category.toLowerCase().includes('daily'),
-    );
     const newest = [...products].sort((a, b) =>
       String(b.created_at || '').localeCompare(String(a.created_at || '')),
     )[0];
     const popular = [...products].sort(
       (a, b) => (b.sold_count || 0) - (a.sold_count || 0),
     )[0];
-    return [
-      {
-        eyebrow: 'SIMPLE GROUND ESSENTIALS',
-        title: 'Seragam kerja yang terasa senyaman pakaian sehari-hari.',
-        body: 'Potongan fungsional, karakter tenang, dan pilihan produk untuk mendampingi rutinitas setiap hari.',
-        category: 'Semua',
-        image: products[0],
-        tone: 'bg-[#dce8df]',
-        label: 'Semua koleksi',
-      },
-      {
-        eyebrow: 'CHEF & KITCHEN WEAR',
-        title: 'Dirancang untuk ritme dapur yang bergerak cepat.',
-        body: 'Baju chef, apron, dan perlengkapan kerja dengan tampilan rapi serta pilihan varian yang mudah disesuaikan.',
-        category: 'Chef & Kitchen Wear',
-        image: chef || products[1] || products[0],
-        tone: 'bg-[#d9d2c3]',
-        label: 'Koleksi dapur',
-      },
-      {
-        eyebrow: 'PROFESSIONAL WORKWEAR',
-        title: 'Tampil profesional tanpa kehilangan kenyamanan.',
-        body: 'Seragam kerja dengan siluet bersih untuk tim, usaha, dan kebutuhan profesional sehari-hari.',
-        category: 'Professional Workwear',
-        image: professional || products[2] || products[0],
-        tone: 'bg-[#dce2dc]',
-        label: 'Workwear pilihan',
-      },
-      {
-        eyebrow: 'DAILY BASIC',
-        title: 'Pilihan sederhana yang mudah dipakai berulang kali.',
-        body: 'Kaos, kemeja, dan celana dengan warna serbaguna untuk membangun pakaian harian yang praktis.',
-        category: 'Daily Basic',
-        image: daily || products[3] || products[0],
-        tone: 'bg-[#e7dfd1]',
-        label: 'Daily essentials',
-      },
-      {
-        eyebrow: 'PILIHAN SIMPLE GROUND',
-        title: 'Temukan produk terbaru dan yang paling banyak dipilih.',
-        body: 'Jelajahi seluruh katalog, bandingkan warna dan ukuran, lalu pilih yang paling sesuai untukmu.',
-        category: 'Semua',
-        image: popular || newest || products[4] || products[0],
-        tone: 'bg-[#d8e0d5]',
-        label: 'Produk pilihan',
-      },
-    ];
-  }, [products]);
+    // Background tones cycle through the original palette.
+    const tones = ['bg-[#dce8df]', 'bg-[#d9d2c3]', 'bg-[#dce2dc]', 'bg-[#e7dfd1]', 'bg-[#d8e0d5]'];
+    const slides = look.content.heroSlides.length
+      ? look.content.heroSlides
+      : [{ eyebrow: '', title: store.name, body: '', category: 'Semua', label: 'Semua koleksi' }];
+    const firstAll = slides.findIndex((slide) => slide.category === 'Semua');
+    return slides.map((slide, index) => {
+      // First "Semua" slide shows the first product, later ones the most popular;
+      // category slides show the first product of that category.
+      const image =
+        slide.category === 'Semua'
+          ? index === firstAll
+            ? products[0]
+            : popular || newest || products[index]
+          : products.find(
+              (product) => product.category.toLowerCase() === slide.category.toLowerCase(),
+            ) || products[index];
+      return { ...slide, image: image || products[0], tone: tones[index % tones.length] };
+    });
+  }, [products, look.content.heroSlides, store.name]);
   useEffect(() => {
     if (
       heroPaused ||
@@ -312,11 +277,11 @@ export default function Home() {
     )
       return;
     const timer = window.setInterval(
-      () => setHeroIndex((index) => (index + 1) % 5),
+      () => setHeroIndex((index) => (index + 1) % heroSlides.length),
       5500,
     );
     return () => window.clearInterval(timer);
-  }, [heroPaused]);
+  }, [heroPaused, heroSlides.length]);
   useEffect(() => {
     heroSlides.forEach((slide) => {
       const src = slide.image?.images?.[0] ?? slide.image?.image;
@@ -653,27 +618,41 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f5f6f4] text-[#17251c]">
-      <div className="bg-[#173c2b] px-4 py-2 text-center text-[11px] font-semibold text-white sm:text-xs">
-        Belanja online · Bayar VA / QRIS · WhatsApp untuk konsultasi
-      </div>
+    <main className="min-h-screen bg-[#f5f6f4] text-[var(--brand-ink)]">
+      {look.content.announcement && (
+        <div className="bg-[var(--brand)] px-4 py-2 text-center text-[11px] font-semibold text-white sm:text-xs">
+          {look.content.announcement}
+        </div>
+      )}
       <header className="sticky top-0 z-30 border-b bg-white/95 shadow-sm backdrop-blur">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-4 py-3 sm:flex-nowrap sm:px-8">
           <a
             href="#home"
             className="shrink-0 font-serif text-xl font-bold tracking-[-.04em] sm:text-2xl"
           >
-            simple ground<span className="text-[#c0693c]">.</span>
+            {look.logoUrl ? (
+              // oxlint-disable-next-line nextjs/no-img-element -- uploaded store logo served by /api/product-image
+              <img
+                src={look.logoUrl}
+                alt={store.name}
+                className="h-8 w-auto max-w-[180px] object-contain sm:h-9"
+              />
+            ) : (
+              <>
+                {brandName}
+                <span className="text-[var(--brand-accent)]">.</span>
+              </>
+            )}
           </a>
-          <label className="order-last flex w-full min-w-0 items-center gap-2 rounded-xl border-2 border-[#276344]/25 bg-[#f7faf7] px-3 py-2.5 focus-within:border-[#276344] sm:order-none sm:w-auto sm:flex-1">
-            <Search size={18} className="shrink-0 text-[#587064]" />
+          <label className="order-last flex w-full min-w-0 items-center gap-2 rounded-xl border-2 border-[var(--brand-mid)]/25 bg-[#f7faf7] px-3 py-2.5 focus-within:border-[var(--brand-mid)] sm:order-none sm:w-auto sm:flex-1">
+            <Search size={18} className="shrink-0 text-[var(--brand-soft-2)]" />
             <input
-              aria-label="Cari produk Simple Ground"
+              aria-label={`Cari produk ${store.name}`}
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="min-w-0 flex-1 bg-transparent text-sm outline-none"
-              placeholder="Cari kaos, kemeja, baju chef..."
+              placeholder={look.content.searchPlaceholder}
             />
           </label>
           <a href="#koleksi" className="hidden text-sm font-semibold lg:block">
@@ -708,14 +687,14 @@ export default function Home() {
           <button
             onClick={() => setCartOpen(true)}
             aria-label={`Buka keranjang, ${count} barang`}
-            className="relative flex h-11 shrink-0 items-center gap-2 rounded-xl bg-[#173c2b] px-3 text-white sm:px-4"
+            className="relative flex h-11 shrink-0 items-center gap-2 rounded-xl bg-[var(--brand)] px-3 text-white sm:px-4"
           >
             <ShoppingBag size={19} />
             <span className="hidden text-sm font-semibold sm:inline">
               Keranjang
             </span>
             {count > 0 && (
-              <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#e07a47] px-1 text-[10px] font-bold">
+              <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[var(--brand-accent-bright)] px-1 text-[10px] font-bold">
                 {count}
               </span>
             )}
@@ -732,7 +711,7 @@ export default function Home() {
                   .querySelector('#koleksi')
                   ?.scrollIntoView({ behavior: 'smooth' });
               }}
-              className={`whitespace-nowrap rounded-lg px-4 py-2 text-xs font-semibold ${category === item ? 'bg-[#e5efe8] text-[#17442f]' : 'bg-[#f3f4f2] text-[#58645c]'}`}
+              className={`whitespace-nowrap rounded-lg px-4 py-2 text-xs font-semibold ${category === item ? 'bg-[#e5efe8] text-[var(--brand-2)]' : 'bg-[#f3f4f2] text-[#58645c]'}`}
             >
               {item === 'Semua' ? 'Semua Produk' : item}
             </button>
@@ -753,7 +732,7 @@ export default function Home() {
                       .querySelector('#koleksi')
                       ?.scrollIntoView({ behavior: 'smooth' });
                   }}
-                  className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold ${subcategory === item ? 'bg-[#173c2b] text-white' : 'border bg-white'}`}
+                  className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold ${subcategory === item ? 'bg-[var(--brand)] text-white' : 'border bg-white'}`}
                 >
                   {item === 'Semua' ? `Semua ${category}` : item}
                 </button>
@@ -772,10 +751,10 @@ export default function Home() {
           onMouseEnter={() => setHeroPaused(true)}
           onMouseLeave={() => setHeroPaused(false)}
           aria-roledescription="carousel"
-          aria-label="Koleksi pilihan Simple Ground"
+          aria-label={`Koleksi pilihan ${store.name}`}
         >
           <div className="relative z-10 flex flex-col justify-center px-6 py-10 sm:px-10 sm:py-14 lg:px-14">
-            <span className="inline-flex rounded-md bg-white/80 px-3 py-1 text-xs font-bold text-[#9a4a28]">
+            <span className="inline-flex rounded-md bg-white/80 px-3 py-1 text-xs font-bold text-[var(--brand-accent-deeper)]">
               {heroSlides[heroIndex].eyebrow}
             </span>
             <h1
@@ -784,7 +763,7 @@ export default function Home() {
             >
               {heroSlides[heroIndex].title}
             </h1>
-            <p className="mt-3 max-w-lg text-sm leading-6 text-[#4e6255] sm:text-base">
+            <p className="mt-3 max-w-lg text-sm leading-6 text-[var(--brand-soft)] sm:text-base">
               {heroSlides[heroIndex].body}
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -796,19 +775,21 @@ export default function Home() {
                     .querySelector('#koleksi')
                     ?.scrollIntoView({ behavior: 'smooth' });
                 }}
-                className="inline-flex items-center gap-2 rounded-xl bg-[#173c2b] px-5 py-3 text-sm font-bold text-white"
+                className="inline-flex items-center gap-2 rounded-xl bg-[var(--brand)] px-5 py-3 text-sm font-bold text-white"
               >
                 Lihat koleksi <ArrowRight size={17} />
               </button>
-              <a
-                href="#cerita"
-                className="rounded-xl border border-[#173c2b]/25 px-5 py-3 text-sm font-bold text-[#173c2b]"
-              >
-                Cerita kami
-              </a>
+              {look.content.about.enabled && (
+                <a
+                  href="#cerita"
+                  className="rounded-xl border border-[var(--brand)]/25 px-5 py-3 text-sm font-bold text-[var(--brand)]"
+                >
+                  Cerita kami
+                </a>
+              )}
             </div>
-            <p className="mt-6 text-xs font-semibold text-[#4e6255]">
-              Pilih produk · Cek ongkir · Bayar VA / QRIS
+            <p className="mt-6 text-xs font-semibold text-[var(--brand-soft)]">
+              {`Pilih produk · Cek ongkir · ${store.payments.midtrans ? 'Bayar VA / QRIS' : manualPayment ? `Transfer ${manualPayment.bankName}` : 'Pesan online'}`}
             </p>
             <div
               className="mt-6 flex items-center gap-2"
@@ -820,7 +801,7 @@ export default function Home() {
                   onClick={() => setHeroIndex(index)}
                   aria-label={`Banner ${index + 1}: ${slide.eyebrow}`}
                   aria-current={heroIndex === index}
-                  className={`h-2.5 rounded-full transition-all ${heroIndex === index ? 'w-8 bg-[#173c2b]' : 'w-2.5 bg-[#173c2b]/30 hover:bg-[#173c2b]/60'}`}
+                  className={`h-2.5 rounded-full transition-all ${heroIndex === index ? 'w-8 bg-[var(--brand)]' : 'w-2.5 bg-[var(--brand)]/30 hover:bg-[var(--brand)]/60'}`}
                 />
               ))}
             </div>
@@ -834,7 +815,7 @@ export default function Home() {
                   heroSlides[heroIndex].image?.image
                 }
                 alt={
-                  heroSlides[heroIndex].image?.name || 'Produk Simple Ground'
+                  heroSlides[heroIndex].image?.name || `Produk ${store.name}`
                 }
                 loading="eager"
                 fetchPriority="high"
@@ -844,36 +825,40 @@ export default function Home() {
             ) : (
               <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-[#d9d2c3] via-[#e9e4da] to-[#c7d1c6]" />
             )}
-            <div className="absolute inset-0 bg-gradient-to-t from-[#173c2b]/30 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[var(--brand)]/30 to-transparent" />
             <button
-              onClick={() => setHeroIndex((heroIndex - 1 + 5) % 5)}
+              onClick={() => setHeroIndex((heroIndex - 1 + heroSlides.length) % heroSlides.length)}
               aria-label="Banner sebelumnya"
-              className="absolute left-4 top-1/2 grid -translate-y-1/2 place-items-center rounded-full bg-white/85 p-2 text-[#173c2b] shadow"
+              className="absolute left-4 top-1/2 grid -translate-y-1/2 place-items-center rounded-full bg-white/85 p-2 text-[var(--brand)] shadow"
             >
               <ChevronLeft size={19} />
             </button>
             <button
-              onClick={() => setHeroIndex((heroIndex + 1) % 5)}
+              onClick={() => setHeroIndex((heroIndex + 1) % heroSlides.length)}
               aria-label="Banner berikutnya"
-              className="absolute right-4 top-1/2 grid -translate-y-1/2 place-items-center rounded-full bg-white/85 p-2 text-[#173c2b] shadow"
+              className="absolute right-4 top-1/2 grid -translate-y-1/2 place-items-center rounded-full bg-white/85 p-2 text-[var(--brand)] shadow"
             >
               <ChevronRight size={19} />
             </button>
-            <span className="absolute bottom-5 left-5 rounded-full bg-white/90 px-4 py-2 text-xs font-bold text-[#173c2b] backdrop-blur">
+            <span className="absolute bottom-5 left-5 rounded-full bg-white/90 px-4 py-2 text-xs font-bold text-[var(--brand)] backdrop-blur">
               {heroSlides[heroIndex].label}
             </span>
           </div>
         </div>
         <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-4">
           <div className="flex items-center gap-2 rounded-xl bg-white p-3 text-xs font-semibold sm:text-sm">
-            <ShieldCheck className="shrink-0 text-[#2e704d]" size={20} />{' '}
-            Pembayaran VA / QRIS
+            <ShieldCheck className="shrink-0 text-[var(--brand-mid-3)]" size={20} />{' '}
+            {store.payments.midtrans
+              ? 'Pembayaran VA / QRIS'
+              : manualPayment
+                ? `Transfer ${manualPayment.bankName}`
+                : 'Pesan online'}
           </div>
           <div className="flex items-center gap-2 rounded-xl bg-white p-3 text-xs font-semibold sm:text-sm">
-            <Truck className="shrink-0 text-[#2e704d]" size={20} /> Siap dikirim
+            <Truck className="shrink-0 text-[var(--brand-mid-3)]" size={20} /> Siap dikirim
           </div>
           <div className="flex items-center gap-2 rounded-xl bg-white p-3 text-xs font-semibold sm:text-sm">
-            <Store className="shrink-0 text-[#2e704d]" size={20} /> Produk
+            <Store className="shrink-0 text-[var(--brand-mid-3)]" size={20} /> Produk
             pilihan
           </div>
         </div>
@@ -900,13 +885,13 @@ export default function Home() {
                   setSubcategory('Semua');
                   setPriceLimit(500000);
                 }}
-                className="text-sm font-semibold text-[#276344]"
+                className="text-sm font-semibold text-[var(--brand-mid)]"
               >
                 Hapus filter
               </button>
             )}
           </div>
-          <div className="mt-6 grid gap-3 rounded-2xl border border-[#173c2b]/10 bg-white p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+          <div className="mt-6 grid gap-3 rounded-2xl border border-[var(--brand)]/10 bg-white p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
             <label className="text-xs font-bold text-[#526158]">
               HARGA MAKSIMAL
               <input
@@ -916,7 +901,7 @@ export default function Home() {
                 step="25000"
                 value={priceLimit}
                 onChange={(event) => setPriceLimit(Number(event.target.value))}
-                className="mt-2 block w-full accent-[#276344]"
+                className="mt-2 block w-full accent-[var(--brand-mid)]"
               />
               <span className="mt-1 block font-normal text-[#6d786f]">
                 Sampai {rupiah(priceLimit)}
@@ -936,7 +921,7 @@ export default function Home() {
                 <option value="termahal">Tertinggi</option>
               </select>
             </label>
-            <div className="rounded-xl bg-[#edf4ee] px-4 py-3 text-sm font-bold text-[#24593d]">
+            <div className="rounded-xl bg-[#edf4ee] px-4 py-3 text-sm font-bold text-[var(--brand-mid-2)]">
               {wishlist.length} wishlist
             </div>
           </div>
@@ -1015,8 +1000,8 @@ export default function Home() {
                         fill={wishlist.includes(p.id) ? 'currentColor' : 'none'}
                         className={
                           wishlist.includes(p.id)
-                            ? 'text-[#b4512d]'
-                            : 'text-[#34483b]'
+                            ? 'text-[var(--brand-accent-2)]'
+                            : 'text-[var(--brand-muted)]'
                         }
                       />
                     </button>
@@ -1028,7 +1013,7 @@ export default function Home() {
                         {cleanLabel(p.name)}
                       </a>
                       <div className="mt-2">
-                        <p className="text-base font-extrabold text-[#b4512d] sm:text-lg">
+                        <p className="text-base font-extrabold text-[var(--brand-accent-2)] sm:text-lg">
                           {rupiah(variant.price)}
                         </p>
                         {(variant.normalPrice ?? variant.price) >
@@ -1037,7 +1022,7 @@ export default function Home() {
                             <span className="text-[#899188] line-through">
                               {rupiah(variant.normalPrice!)}
                             </span>
-                            <span className="ml-2 rounded bg-[#fee8df] px-1.5 py-0.5 font-bold text-[#b4512d]">
+                            <span className="ml-2 rounded bg-[var(--brand-accent-tint)] px-1.5 py-0.5 font-bold text-[var(--brand-accent-2)]">
                               -
                               {Math.round(
                                 (1 - variant.price / variant.normalPrice!) *
@@ -1068,7 +1053,7 @@ export default function Home() {
             <div className="mt-8 text-center">
               <button
                 onClick={() => setVisibleCount((count) => count + 16)}
-                className="rounded-xl border border-[#276344] bg-white px-6 py-3 text-sm font-bold text-[#24593d]"
+                className="rounded-xl border border-[var(--brand-mid)] bg-white px-6 py-3 text-sm font-bold text-[var(--brand-mid-2)]"
               >
                 Muat produk lainnya ({filtered.length - visibleCount})
               </button>
@@ -1086,7 +1071,7 @@ export default function Home() {
                   setCategory('Semua');
                   setSubcategory('Semua');
                 }}
-                className="mt-2 text-sm font-semibold text-[#276344]"
+                className="mt-2 text-sm font-semibold text-[var(--brand-mid)]"
               >
                 Lihat semua produk
               </button>
@@ -1095,58 +1080,57 @@ export default function Home() {
         </div>
       </section>
 
-      <section
-        id="cerita"
-        className="mx-auto grid max-w-7xl gap-8 px-5 py-20 sm:px-8 lg:grid-cols-2 lg:items-center"
-      >
-        <div className="overflow-hidden rounded-[2rem]">
-          <img
-            src="/simple-ground-building.png"
-            alt="Gedung dengan identitas Simple Ground di tengah lanskap hijau"
-            width={1536}
-            height={1024}
-            loading="lazy"
-            decoding="async"
-            className="h-auto w-full bg-[#e8e4db] object-contain"
-          />
-        </div>
-        <div className="lg:pl-14">
-          <p className="text-xs font-bold uppercase tracking-[.22em] text-[#a34f2c]">
-            Tentang Simple Ground
-          </p>
-          <h2 className="mt-4 font-serif text-4xl leading-tight tracking-[-.04em]">
-            Lebih sedikit, lebih dekat dengan yang penting.
-          </h2>
-          <p className="mt-6 leading-7 text-[#566158]">
-            Kami percaya benda yang baik tidak perlu berteriak. Setiap koleksi
-            dirancang dalam jumlah terbatas, mengutamakan bahan nyaman dan
-            siluet yang mudah dipakai berulang kali.
-          </p>
-          <div className="mt-8 grid grid-cols-3 gap-4 border-t border-[#263e2e]/15 pt-6">
-            <div>
-              <b className="font-serif text-2xl sm:text-3xl">Mudah</b>
-              <p className="mt-1 text-xs text-[#68736b]">pilih varian</p>
+      {look.content.about.enabled && (
+        <section
+          id="cerita"
+          className="mx-auto grid max-w-7xl gap-8 px-5 py-20 sm:px-8 lg:grid-cols-2 lg:items-center"
+        >
+          {look.aboutImageUrl && (
+            <div className="overflow-hidden rounded-[2rem]">
+              <img
+                src={look.aboutImageUrl}
+                alt={look.content.about.imageAlt}
+                width={1536}
+                height={1024}
+                loading="lazy"
+                decoding="async"
+                className="h-auto w-full bg-[#e8e4db] object-contain"
+              />
             </div>
-            <div>
-              <b className="font-serif text-2xl sm:text-3xl">Cepat</b>
-              <p className="mt-1 text-xs text-[#68736b]">bantuan WhatsApp</p>
-            </div>
-            <div>
-              <b className="font-serif text-2xl sm:text-3xl">Jelas</b>
-              <p className="mt-1 text-xs text-[#68736b]">harga & stok</p>
-            </div>
+          )}
+          <div className="lg:pl-14">
+            <p className="text-xs font-bold uppercase tracking-[.22em] text-[var(--brand-accent-deep)]">
+              {look.content.about.eyebrow}
+            </p>
+            <h2 className="mt-4 font-serif text-4xl leading-tight tracking-[-.04em]">
+              {look.content.about.title}
+            </h2>
+            <p className="mt-6 whitespace-pre-line leading-7 text-[#566158]">
+              {look.content.about.body}
+            </p>
+            {look.content.about.highlights.length > 0 && (
+              <div className="mt-8 grid grid-cols-3 gap-4 border-t border-[var(--brand-deep-2)]/15 pt-6">
+                {look.content.about.highlights.map((item) => (
+                  <div key={item.title + item.caption}>
+                    <b className="font-serif text-2xl sm:text-3xl">{item.title}</b>
+                    <p className="mt-1 text-xs text-[#68736b]">{item.caption}</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
-      <section className="bg-[#173c2b] px-5 py-16 text-white sm:px-8">
+      {look.content.showReviews && (
+      <section className="bg-[var(--brand)] px-5 py-16 text-white sm:px-8">
         <div className="mx-auto max-w-7xl">
           <div className="max-w-2xl">
             <p className="text-xs font-bold uppercase tracking-[.22em] text-[#d9b796]">
               Ulasan pelanggan
             </p>
             <h2 className="mt-3 font-serif text-3xl sm:text-4xl">
-              Pengalaman asli dari pembeli Simple Ground.
+              {`Pengalaman asli dari pembeli ${store.name}.`}
             </h2>
           </div>
           <div className="mt-8 grid gap-4 md:grid-cols-3">
@@ -1175,19 +1159,20 @@ export default function Home() {
           </div>
         </div>
       </section>
+      )}
 
+      {look.content.newsletter.enabled && (
       <section className="px-5 py-16 sm:px-8">
         <div className="mx-auto grid max-w-7xl gap-8 overflow-hidden rounded-[2rem] bg-[#efe7d8] p-7 sm:p-10 lg:grid-cols-[1fr_auto] lg:items-center">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[.2em] text-[#a34f2c]">
-              Ground Notes
+            <p className="text-xs font-bold uppercase tracking-[.2em] text-[var(--brand-accent-deep)]">
+              {look.content.newsletter.eyebrow}
             </p>
             <h2 className="mt-3 font-serif text-3xl">
-              Koleksi baru, cerita bahan, dan penawaran khusus.
+              {look.content.newsletter.title}
             </h2>
             <p className="mt-2 text-sm text-[#657066]">
-              Kami mengirim seperlunya. Tidak ada pesan yang memenuhi kotak
-              masuk.
+              {look.content.newsletter.body}
             </p>
           </div>
           <form
@@ -1206,7 +1191,7 @@ export default function Home() {
                 className="min-w-0 flex-1 bg-transparent text-sm outline-none"
               />
             </label>
-            <button className="min-h-11 rounded-xl bg-[#173c2b] px-5 text-sm font-bold text-white">
+            <button className="min-h-11 rounded-xl bg-[var(--brand)] px-5 text-sm font-bold text-white">
               Daftar
             </button>
             {newsletterMessage && (
@@ -1217,18 +1202,20 @@ export default function Home() {
           </form>
         </div>
       </section>
+      )}
 
       <footer
         id="footer"
-        className="bg-[#243b2c] px-5 py-14 text-[#f4efdf] sm:px-8"
+        className="bg-[var(--brand-deep)] px-5 py-14 text-[#f4efdf] sm:px-8"
       >
         <div className="mx-auto grid max-w-7xl gap-10 md:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1.15fr]">
           <div>
-            <p className="font-serif text-3xl font-bold">simple ground.</p>
-            <p className="mt-4 max-w-sm text-sm leading-6 text-[#c6d0c6]">
-              Daily wear dan kitchen wear yang sederhana, nyaman, dan tahan
-              lama.
-            </p>
+            <p className="font-serif text-3xl font-bold">{`${brandName}.`}</p>
+            {look.content.tagline && (
+              <p className="mt-4 max-w-sm text-sm leading-6 text-[#c6d0c6]">
+                {look.content.tagline}
+              </p>
+            )}
           </div>
           <div>
             <p className="text-xs font-bold uppercase tracking-[.18em]">
@@ -1281,7 +1268,7 @@ export default function Home() {
           </div>
         </div>
         <p className="mx-auto mt-12 max-w-7xl border-t border-white/15 pt-5 text-xs text-[#9eae9f]">
-          © 2026 Simple Ground. Dibuat dengan perhatian.
+          {`© ${new Date().getFullYear()} ${store.name}. Dibuat dengan perhatian.`}
         </p>
       </footer>
 
@@ -1301,10 +1288,10 @@ export default function Home() {
               <X />
             </button>
             <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[#e7efe9]">
-              <UserRound className="text-[#24593d]" />
+              <UserRound className="text-[var(--brand-mid-2)]" />
             </div>
             <h2 className="mt-4 font-serif text-2xl font-bold">
-              Masuk ke Simple Ground
+              {`Masuk ke ${store.name}`}
             </h2>
             <p className="mt-2 text-sm leading-6 text-[#657168]">
               Gunakan akun Google untuk memberi rating dan mengelola ulasan
@@ -1318,8 +1305,7 @@ export default function Home() {
               <p className="mt-3 text-xs text-red-700">{reviewMessage}</p>
             )}
             <p className="mt-4 text-[11px] leading-5 text-[#7a857d]">
-              Simple Ground hanya menerima nama dan email dari Google. Kami
-              tidak menerima kata sandi Anda.
+              {`${store.name} hanya menerima nama dan email dari Google. Kami tidak menerima kata sandi Anda.`}
             </p>
           </div>
         </div>
@@ -1410,7 +1396,7 @@ export default function Home() {
                               type="button"
                               onClick={() => moveImage(-1)}
                               aria-label="Foto sebelumnya"
-                              className="absolute left-3 top-1/2 grid -translate-y-1/2 place-items-center rounded-full bg-white/85 p-2 text-[#243b2c] shadow-md backdrop-blur transition hover:bg-white"
+                              className="absolute left-3 top-1/2 grid -translate-y-1/2 place-items-center rounded-full bg-white/85 p-2 text-[var(--brand-deep)] shadow-md backdrop-blur transition hover:bg-white"
                             >
                               <ChevronLeft size={20} />
                             </button>
@@ -1418,7 +1404,7 @@ export default function Home() {
                               type="button"
                               onClick={() => moveImage(1)}
                               aria-label="Foto berikutnya"
-                              className="absolute right-3 top-1/2 grid -translate-y-1/2 place-items-center rounded-full bg-white/85 p-2 text-[#243b2c] shadow-md backdrop-blur transition hover:bg-white"
+                              className="absolute right-3 top-1/2 grid -translate-y-1/2 place-items-center rounded-full bg-white/85 p-2 text-[var(--brand-deep)] shadow-md backdrop-blur transition hover:bg-white"
                             >
                               <ChevronRight size={20} />
                             </button>
@@ -1439,7 +1425,7 @@ export default function Home() {
                                   [p.id]: index,
                                 }))
                               }
-                              className={`shrink-0 snap-start overflow-hidden rounded-lg border-2 transition ${imageIndex === index ? 'border-[#276344] opacity-100' : 'border-white opacity-65 hover:opacity-100'}`}
+                              className={`shrink-0 snap-start overflow-hidden rounded-lg border-2 transition ${imageIndex === index ? 'border-[var(--brand-mid)] opacity-100' : 'border-white opacity-65 hover:opacity-100'}`}
                               aria-label={`Foto ${index + 1}`}
                             >
                               <img
@@ -1467,7 +1453,7 @@ export default function Home() {
                         {cleanLabel(p.name)}
                       </h2>
                       <div className="mt-3">
-                        <p className="text-2xl font-extrabold text-[#b4512d]">
+                        <p className="text-2xl font-extrabold text-[var(--brand-accent-2)]">
                           {rupiah(variant.price)}
                         </p>
                         {(variant.normalPrice ?? variant.price) >
@@ -1476,7 +1462,7 @@ export default function Home() {
                             <span className="text-[#899188] line-through">
                               {rupiah(variant.normalPrice!)}
                             </span>
-                            <span className="ml-2 rounded bg-[#fee8df] px-2 py-1 font-bold text-[#b4512d]">
+                            <span className="ml-2 rounded bg-[var(--brand-accent-tint)] px-2 py-1 font-bold text-[var(--brand-accent-2)]">
                               Diskon{' '}
                               {Math.round(
                                 (1 - variant.price / variant.normalPrice!) *
@@ -1507,7 +1493,7 @@ export default function Home() {
                               [p.id]: Number(e.target.value),
                             }))
                           }
-                          className="mt-2 w-full rounded-xl border bg-white px-4 py-3 text-sm outline-none focus:border-[#276344]"
+                          className="mt-2 w-full rounded-xl border bg-white px-4 py-3 text-sm outline-none focus:border-[var(--brand-mid)]"
                         >
                           {p.variants.map((v, index) => (
                             <option
@@ -1540,13 +1526,13 @@ export default function Home() {
                                   [p.id]: index,
                                 }))
                               }
-                              className={`rounded-lg border p-2 text-left ${variantIndex === index ? 'border-[#276344] bg-[#edf6ef]' : 'bg-white'}`}
+                              className={`rounded-lg border p-2 text-left ${variantIndex === index ? 'border-[var(--brand-mid)] bg-[#edf6ef]' : 'bg-white'}`}
                             >
                               <b>
                                 {item.color} · {item.size}
                               </b>
                               <span
-                                className={`mt-1 block ${item.stock > 0 ? 'text-[#276344]' : 'text-red-700'}`}
+                                className={`mt-1 block ${item.stock > 0 ? 'text-[var(--brand-mid)]' : 'text-red-700'}`}
                               >
                                 {item.stock > 0
                                   ? `${item.stock} tersedia`
@@ -1603,14 +1589,14 @@ export default function Home() {
                             setCartOpen(true);
                           }}
                           disabled={quantityLimit(p,variant) < 1}
-                          className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#173c2b] py-3.5 font-bold text-[#173c2b] disabled:border-gray-300 disabled:text-gray-400"
+                          className="flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--brand)] py-3.5 font-bold text-[var(--brand)] disabled:border-gray-300 disabled:text-gray-400"
                         >
                           <ShoppingBag size={18} /> Tambah ke keranjang
                         </button>
                         <button
                           onClick={() => buyNow(p.id, variantIndex)}
                           disabled={quantityLimit(p,variant) < 1}
-                          className="w-full rounded-xl bg-[#c0693c] py-3.5 font-bold text-white disabled:bg-gray-400"
+                          className="w-full rounded-xl bg-[var(--brand-accent)] py-3.5 font-bold text-white disabled:bg-gray-400"
                         >
                           Beli langsung
                         </button>
@@ -1620,7 +1606,7 @@ export default function Home() {
                           href={whatsappLink(store, `Halo ${store.name}, saya ingin bertanya tentang ${cleanLabel(p.name)}${variant.sku ? ` (SKU ${variant.sku})` : ''}, warna ${variant.color}, ukuran ${variant.size}.`)}
                           target="_blank"
                           rel="noreferrer"
-                          className="mt-2 flex w-full items-center justify-center rounded-xl border border-[#276344] py-3 text-sm font-bold text-[#24593d]"
+                          className="mt-2 flex w-full items-center justify-center rounded-xl border border-[var(--brand-mid)] py-3 text-sm font-bold text-[var(--brand-mid-2)]"
                         >
                           Tanya produk via WhatsApp
                         </a>
@@ -1706,7 +1692,7 @@ export default function Home() {
                               disabled={
                                 !reviewBody.trim() || !reviewCity.trim()
                               }
-                              className="mt-2 rounded-lg bg-[#173c2b] px-4 py-2 text-sm font-bold text-white disabled:opacity-40"
+                              className="mt-2 rounded-lg bg-[var(--brand)] px-4 py-2 text-sm font-bold text-white disabled:opacity-40"
                             >
                               Kirim ulasan
                             </button>
@@ -1717,7 +1703,7 @@ export default function Home() {
                         ) : (
                           <button
                             onClick={() => setLoginOpen(true)}
-                            className="mt-4 block rounded-xl border border-[#276344] p-3 text-center text-sm font-bold text-[#24593d]"
+                            className="mt-4 block rounded-xl border border-[var(--brand-mid)] p-3 text-center text-sm font-bold text-[var(--brand-mid-2)]"
                           >
                             Daftar / masuk untuk memberi ulasan
                           </button>
@@ -1773,7 +1759,7 @@ export default function Home() {
           }}
         >
           <aside className="ml-auto flex h-full w-full max-w-md flex-col bg-[#fffdf8] shadow-2xl">
-            <div className="flex items-center justify-between border-b border-[#263e2e]/10 p-5">
+            <div className="flex items-center justify-between border-b border-[var(--brand-deep-2)]/10 p-5">
               <div>
                 {checkout && (
                   <button
@@ -1888,7 +1874,7 @@ export default function Home() {
                     </p>
                     <button
                       onClick={() => window.location.assign('/checkout')}
-                      className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-[#243b2c] py-3.5 font-semibold text-white"
+                      className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-[var(--brand-deep)] py-3.5 font-semibold text-white"
                     >
                       Lanjut checkout <ArrowRight size={17} />
                     </button>
@@ -1897,7 +1883,7 @@ export default function Home() {
               </>
             ) : ordered ? (
               <div className="grid flex-1 place-content-center overflow-auto p-8 text-center">
-                <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#dce8dc] text-[#243b2c]">
+                <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#dce8dc] text-[var(--brand-deep)]">
                   <Check size={28} />
                 </span>
                 <h3 className="mt-5 font-serif text-3xl">Pesanan tersimpan!</h3>
@@ -1915,18 +1901,18 @@ export default function Home() {
                         {manualPayment.accountNumber}
                       </p>
                       <p className="text-xs">a.n. {manualPayment.accountHolder}</p>
-                      <div className="my-4 border-t border-[#263e2e]/10" />
+                      <div className="my-4 border-t border-[var(--brand-deep-2)]/10" />
                     </>
                   )}
                   <p className="text-xs text-[#758078]">Total transfer</p>
-                  <p className="mt-1 text-lg font-bold text-[#a34f2c]">
+                  <p className="mt-1 text-lg font-bold text-[var(--brand-accent-deep)]">
                     {rupiah(subtotal + shipping)}
                   </p>
                 </div>
                 {store.whatsapp && (
                   <a
                     href={whatsappLink(store, `Halo ${store.name}, saya ingin konfirmasi pembayaran pesanan ${orderNumber} sebesar ${rupiah(subtotal + shipping)}.`)}
-                    className="mt-4 rounded-full bg-[#243b2c] px-5 py-3 text-sm font-semibold text-white"
+                    className="mt-4 rounded-full bg-[var(--brand-deep)] px-5 py-3 text-sm font-semibold text-white"
                   >
                     Konfirmasi via WhatsApp
                   </a>
@@ -1995,7 +1981,7 @@ export default function Home() {
                       disabled={
                         shippingBusy || destinationPostalCode.length !== 5
                       }
-                      className="rounded-xl bg-[#173c2b] px-4 text-sm font-bold text-white disabled:opacity-50"
+                      className="rounded-xl bg-[var(--brand)] px-4 text-sm font-bold text-white disabled:opacity-50"
                     >
                       {shippingBusy ? 'Memeriksa…' : 'Cek ongkir'}
                     </button>
@@ -2019,7 +2005,7 @@ export default function Home() {
                         return (
                           <label
                             key={key}
-                            className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-3 ${selected ? 'border-[#243b2c] bg-[#edf1e9]' : 'bg-white'}`}
+                            className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-3 ${selected ? 'border-[var(--brand-deep)] bg-[#edf1e9]' : 'bg-white'}`}
                           >
                             <span className="flex items-center gap-3">
                               <input
@@ -2027,7 +2013,7 @@ export default function Home() {
                                 name="shipping"
                                 checked={selected}
                                 onChange={() => setSelectedShipping(option)}
-                                className="accent-[#243b2c]"
+                                className="accent-[var(--brand-deep)]"
                               />
                               <span>
                                 <b className="block text-sm">
@@ -2055,7 +2041,7 @@ export default function Home() {
                   <div className="mt-2 space-y-2">
                     {store.payments.midtrans && (
                       <label
-                        className={`block cursor-pointer rounded-2xl border p-4 transition ${paymentMethod === 'midtrans' ? 'border-[#243b2c] bg-[#edf1e9]' : 'bg-white'}`}
+                        className={`block cursor-pointer rounded-2xl border p-4 transition ${paymentMethod === 'midtrans' ? 'border-[var(--brand-deep)] bg-[#edf1e9]' : 'bg-white'}`}
                       >
                         <span className="flex items-start gap-3">
                           <input
@@ -2063,7 +2049,7 @@ export default function Home() {
                             name="payment"
                             checked={paymentMethod === 'midtrans'}
                             onChange={() => setPaymentMethod('midtrans')}
-                            className="mt-1 accent-[#243b2c]"
+                            className="mt-1 accent-[var(--brand-deep)]"
                           />
                           <span>
                             <b>QRIS & Virtual Account</b>
@@ -2072,7 +2058,7 @@ export default function Home() {
                               pesanan diperbarui otomatis.
                             </span>
                             {store.payments.recommended === 'midtrans' && (
-                              <span className="mt-2 inline-block rounded-full bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[#24593d]">
+                              <span className="mt-2 inline-block rounded-full bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[var(--brand-mid-2)]">
                                 Direkomendasikan
                               </span>
                             )}
@@ -2082,7 +2068,7 @@ export default function Home() {
                     )}
                     {manualPayment && (
                       <label
-                        className={`block cursor-pointer rounded-2xl border p-4 transition ${paymentMethod === 'manual' ? 'border-[#243b2c] bg-[#edf1e9]' : 'bg-white'}`}
+                        className={`block cursor-pointer rounded-2xl border p-4 transition ${paymentMethod === 'manual' ? 'border-[var(--brand-deep)] bg-[#edf1e9]' : 'bg-white'}`}
                       >
                         <span className="flex items-start gap-3">
                           <input
@@ -2090,7 +2076,7 @@ export default function Home() {
                             name="payment"
                             checked={paymentMethod === 'manual'}
                             onChange={() => setPaymentMethod('manual')}
-                            className="mt-1 accent-[#243b2c]"
+                            className="mt-1 accent-[var(--brand-deep)]"
                           />
                           <span>
                             <b>Transfer manual {manualPayment.bankName}</b>
@@ -2100,7 +2086,7 @@ export default function Home() {
                                 : 'Informasi rekening muncul setelah pesanan dibuat.'}
                             </span>
                             {store.payments.recommended === 'manual' && (
-                              <span className="mt-2 inline-block rounded-full bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[#24593d]">
+                              <span className="mt-2 inline-block rounded-full bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[var(--brand-mid-2)]">
                                 Direkomendasikan
                               </span>
                             )}
@@ -2140,7 +2126,7 @@ export default function Home() {
                     shippingAddress.trim().length < 10 ||
                     !selectedShipping
                   }
-                  className="mt-5 w-full rounded-full bg-[#c0693c] py-3.5 font-semibold text-white disabled:opacity-60"
+                  className="mt-5 w-full rounded-full bg-[var(--brand-accent)] py-3.5 font-semibold text-white disabled:opacity-60"
                 >
                   {orderBusy
                     ? 'Menyiapkan pembayaran…'
@@ -2154,8 +2140,7 @@ export default function Home() {
                   </p>
                 )}
                 <p className="mt-3 text-center text-[11px] leading-4 text-[#758078]">
-                  Pembayaran otomatis diproses aman oleh Midtrans. Simple Ground
-                  tidak menyimpan data kartu atau PIN pembayaran Anda.
+                  {`Pembayaran otomatis diproses aman oleh Midtrans. ${store.name} tidak menyimpan data kartu atau PIN pembayaran Anda.`}
                 </p>
               </div>
             )}

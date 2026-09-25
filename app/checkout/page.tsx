@@ -153,13 +153,15 @@ export default function Checkout(){
     }
   }
 
- return <main className="min-h-screen bg-[#f5f6f4] text-[#17251c]"><header className="border-b bg-white"><div className="mx-auto max-w-5xl px-5 py-5 font-serif text-2xl font-bold">simple ground. <span className="ml-3 font-sans text-base font-medium">Pembayaran</span></div></header>
+ return <main className="min-h-screen bg-[#f5f6f4] text-[var(--brand-ink)]"><header className="border-b bg-white"><div className="mx-auto max-w-5xl px-5 py-5 font-serif text-2xl font-bold">{store.appearance.logoUrl?(
+  // oxlint-disable-next-line nextjs/no-img-element -- uploaded store logo served by /api/product-image
+  <img src={store.appearance.logoUrl} alt={store.name} className="inline-block h-8 w-auto max-w-[180px] object-contain align-middle"/>):`${store.name.toLowerCase()}.`} <span className="ml-3 font-sans text-base font-medium">Pembayaran</span></div></header>
  <div className="mx-auto max-w-5xl px-4 py-6 sm:py-10">
  {(store.checkoutNoticeTitle||store.checkoutNotice)&&<section role="status" aria-labelledby="checkout-notice-title" className="mb-6 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950 sm:p-5">
   {store.checkoutNoticeTitle&&<h2 id="checkout-notice-title" className="text-base font-semibold">{store.checkoutNoticeTitle}</h2>}
   {store.checkoutNotice&&<p className="mt-2 text-sm leading-6 sm:text-base">{store.checkoutNotice}</p>}
  </section>}
- {loading?<p role="status">Memuat pembayaran…</p>:pending?<section className="mx-auto max-w-xl rounded-2xl border bg-white p-6 sm:p-8"><h1 className="text-2xl font-semibold">Pesanan {pending.orderNumber}</h1><p role="status" className="mt-4 leading-7">{status}</p><p className="mt-5 text-2xl font-bold">{rupiah(pending.total)}</p>{pending.method==='manual'?<div className="mt-5 rounded-xl bg-slate-50 p-5">{manualPayment&&<><p>Transfer {manualPayment.bankName}</p><b className="my-2 block text-xl">{manualPayment.accountNumber}</b><p>a.n. {manualPayment.accountHolder}</p></>}<p className="mt-3 text-sm">Pembayaran manual menunggu konfirmasi admin.</p></div>:!cancelled&&pending.redirectUrl&&<a className="mt-5 block rounded-xl bg-[#173c2b] p-4 text-center font-semibold text-white" href={pending.redirectUrl}>Lanjutkan pembayaran</a>}{store.whatsapp&&<a className="mt-5 block text-sm underline" href={whatsappLink(store,'Halo, mohon bantu cek pembayaran pesanan '+pending.orderNumber)}>Konfirmasi / bantuan WhatsApp</a>}{cancelled&&<button className="mt-5 rounded-xl border p-3" onClick={()=>{sessionStorage.removeItem('sg_pending_payment');location.replace('/checkout');}}>Ulangi checkout</button>}</section>:!cartRows.length?<section className="rounded-2xl border bg-white p-6"><p>{orderError||'Belum ada produk untuk dibayar.'}</p><a href="/#koleksi" className="mt-4 inline-block underline">Kembali ke katalog</a></section>:<><a href="/#koleksi" className="mb-5 inline-block text-sm underline">← Kembali belanja</a><div className="grid items-start gap-6 md:grid-cols-[1fr_1.35fr]"><section className="rounded-2xl border bg-white p-5"><h1 className="mb-5 text-xl font-semibold">Ringkasan pesanan</h1><div className="space-y-5">{cartRows.map(row=><div key={row.key} className="flex gap-3"><img src={row.product.images?.[0]||row.product.image||'/placeholder-product.svg'} alt="" className="h-20 w-16 rounded-lg object-cover"/><div><b>{row.product.name}</b><p className="mt-1 text-sm">{row.variant.color} · {row.variant.size} × {row.quantity}</p><p className="mt-1 text-sm text-[#276344]">{preorderLabel(row.product,row.variant)}</p><p className="mt-2 font-semibold">{rupiah(row.variant.price*row.quantity)}</p></div></div>)}</div><p className="mt-5 text-sm text-slate-500">Pesanan campuran dikirim bersama setelah seluruh produk siap. Waktu pre-order belum termasuk pengiriman kurir.</p></section><section className="rounded-2xl border bg-white">              <div className="flex-1 overflow-auto p-5">
+ {loading?<p role="status">Memuat pembayaran…</p>:pending?<section className="mx-auto max-w-xl rounded-2xl border bg-white p-6 sm:p-8"><h1 className="text-2xl font-semibold">Pesanan {pending.orderNumber}</h1><p role="status" className="mt-4 leading-7">{status}</p><p className="mt-5 text-2xl font-bold">{rupiah(pending.total)}</p>{pending.method==='manual'?<div className="mt-5 rounded-xl bg-slate-50 p-5">{manualPayment&&<><p>Transfer {manualPayment.bankName}</p><b className="my-2 block text-xl">{manualPayment.accountNumber}</b><p>a.n. {manualPayment.accountHolder}</p></>}<p className="mt-3 text-sm">Pembayaran manual menunggu konfirmasi admin.</p></div>:!cancelled&&pending.redirectUrl&&<a className="mt-5 block rounded-xl bg-[var(--brand)] p-4 text-center font-semibold text-white" href={pending.redirectUrl}>Lanjutkan pembayaran</a>}{store.whatsapp&&<a className="mt-5 block text-sm underline" href={whatsappLink(store,'Halo, mohon bantu cek pembayaran pesanan '+pending.orderNumber)}>Konfirmasi / bantuan WhatsApp</a>}{cancelled&&<button className="mt-5 rounded-xl border p-3" onClick={()=>{sessionStorage.removeItem('sg_pending_payment');location.replace('/checkout');}}>Ulangi checkout</button>}</section>:!cartRows.length?<section className="rounded-2xl border bg-white p-6"><p>{orderError||'Belum ada produk untuk dibayar.'}</p><a href="/#koleksi" className="mt-4 inline-block underline">Kembali ke katalog</a></section>:<><a href="/#koleksi" className="mb-5 inline-block text-sm underline">← Kembali belanja</a><div className="grid items-start gap-6 md:grid-cols-[1fr_1.35fr]"><section className="rounded-2xl border bg-white p-5"><h1 className="mb-5 text-xl font-semibold">Ringkasan pesanan</h1><div className="space-y-5">{cartRows.map(row=><div key={row.key} className="flex gap-3"><img src={row.product.images?.[0]||row.product.image||'/placeholder-product.svg'} alt="" className="h-20 w-16 rounded-lg object-cover"/><div><b>{row.product.name}</b><p className="mt-1 text-sm">{row.variant.color} · {row.variant.size} × {row.quantity}</p><p className="mt-1 text-sm text-[var(--brand-mid)]">{preorderLabel(row.product,row.variant)}</p><p className="mt-2 font-semibold">{rupiah(row.variant.price*row.quantity)}</p></div></div>)}</div><p className="mt-5 text-sm text-slate-500">Pesanan campuran dikirim bersama setelah seluruh produk siap. Waktu pre-order belum termasuk pengiriman kurir.</p></section><section className="rounded-2xl border bg-white">              <div className="flex-1 overflow-auto p-5">
                 <div>
                   <label className="text-xs font-bold uppercase tracking-wider">
                     Nama lengkap
@@ -218,7 +220,7 @@ export default function Checkout(){
                       disabled={
                         shippingBusy || destinationPostalCode.length !== 5
                       }
-                      className="rounded-xl bg-[#173c2b] px-4 text-sm font-bold text-white disabled:opacity-50"
+                      className="rounded-xl bg-[var(--brand)] px-4 text-sm font-bold text-white disabled:opacity-50"
                     >
                       {shippingBusy ? 'Memeriksa…' : 'Cek ongkir'}
                     </button>
@@ -242,7 +244,7 @@ export default function Checkout(){
                         return (
                           <label
                             key={key}
-                            className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-3 ${selected ? 'border-[#243b2c] bg-[#edf1e9]' : 'bg-white'}`}
+                            className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-3 ${selected ? 'border-[var(--brand-deep)] bg-[#edf1e9]' : 'bg-white'}`}
                           >
                             <span className="flex items-center gap-3">
                               <input
@@ -250,7 +252,7 @@ export default function Checkout(){
                                 name="shipping"
                                 checked={selected}
                                 onChange={() => setSelectedShipping(option)}
-                                className="accent-[#243b2c]"
+                                className="accent-[var(--brand-deep)]"
                               />
                               <span>
                                 <b className="block text-sm">
@@ -278,7 +280,7 @@ export default function Checkout(){
                   <div className="mt-2 space-y-2">
                     {store.payments.midtrans && (
                       <label
-                        className={`block cursor-pointer rounded-2xl border p-4 transition ${paymentMethod === 'midtrans' ? 'border-[#243b2c] bg-[#edf1e9]' : 'bg-white'}`}
+                        className={`block cursor-pointer rounded-2xl border p-4 transition ${paymentMethod === 'midtrans' ? 'border-[var(--brand-deep)] bg-[#edf1e9]' : 'bg-white'}`}
                       >
                         <span className="flex items-start gap-3">
                           <input
@@ -286,7 +288,7 @@ export default function Checkout(){
                             name="payment"
                             checked={paymentMethod === 'midtrans'}
                             onChange={() => setPaymentMethod('midtrans')}
-                            className="mt-1 accent-[#243b2c]"
+                            className="mt-1 accent-[var(--brand-deep)]"
                           />
                           <span>
                             <b>
@@ -302,7 +304,7 @@ export default function Checkout(){
                     )}
                     {manualPayment && (
                       <label
-                        className={`block cursor-pointer rounded-2xl border p-4 transition ${paymentMethod === 'manual' ? 'border-[#243b2c] bg-[#edf1e9]' : 'bg-white'}`}
+                        className={`block cursor-pointer rounded-2xl border p-4 transition ${paymentMethod === 'manual' ? 'border-[var(--brand-deep)] bg-[#edf1e9]' : 'bg-white'}`}
                       >
                         <span className="flex items-start gap-3">
                           <input
@@ -310,7 +312,7 @@ export default function Checkout(){
                             name="payment"
                             checked={paymentMethod === 'manual'}
                             onChange={() => setPaymentMethod('manual')}
-                            className="mt-1 accent-[#243b2c]"
+                            className="mt-1 accent-[var(--brand-deep)]"
                           />
                           <span>
                             <b>
@@ -357,7 +359,7 @@ export default function Checkout(){
                     shippingAddress.trim().length < 10 ||
                     !selectedShipping
                   }
-                  className="mt-5 w-full rounded-full bg-[#c0693c] py-3.5 font-semibold text-white disabled:opacity-60"
+                  className="mt-5 w-full rounded-full bg-[var(--brand-accent)] py-3.5 font-semibold text-white disabled:opacity-60"
                 >
                   {orderBusy
                     ? 'Menyiapkan pembayaran…'
@@ -371,8 +373,7 @@ export default function Checkout(){
                   </p>
                 )}
                 <p className="mt-3 text-center text-[11px] leading-4 text-[#758078]">
-                  Pembayaran otomatis diproses aman oleh Midtrans. Simple Ground
-                  tidak menyimpan data kartu atau PIN pembayaran Anda.
+                  {`Pembayaran otomatis diproses aman oleh Midtrans. ${store.name} tidak menyimpan data kartu atau PIN pembayaran Anda.`}
                 </p>
               </div></section></div></>}</div></main>;
 }

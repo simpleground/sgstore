@@ -3,8 +3,7 @@ import { notFound } from 'next/navigation';
 import { getD1 } from '@/db';
 import { productImageUrl } from '@/lib/product-editor';
 import { productSlug } from '@/lib/product-slug';
-import { siteUrl } from '@/lib/site';
-import { getCurrentStore } from '@/lib/tenant';
+import { getCurrentStore, storeBaseUrl } from '@/lib/tenant';
 import ProductDetailClient, {
   type DetailProduct,
 } from './product-detail-client';
@@ -50,15 +49,18 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
+  const store = await getCurrentStore();
   const product = await findProduct(slug);
-  if (!product) return { title: 'Produk tidak ditemukan | Simple Ground' };
-  const description = (product.description || `Lihat ${product.name} dari Simple Ground. Temukan pilihan warna, ukuran, harga, dan ketersediaan produk.`).slice(0, 155);
+  const storeName = store?.name ?? '';
+  if (!store || !product) return { title: `Produk tidak ditemukan | ${storeName}` };
+  const baseUrl = await storeBaseUrl(store);
+  const description = (product.description || `Lihat ${product.name} dari ${storeName}. Temukan pilihan warna, ukuran, harga, dan ketersediaan produk.`).slice(0, 155);
   const image = product.image.startsWith('http')
     ? product.image
-    : `${siteUrl()}${product.image}`;
+    : `${baseUrl}${product.image}`;
   return {
-    title: `${product.name} | Simple Ground`,
-    alternates: { canonical: `${siteUrl()}/produk/${productSlug(product.name)}` },
+    title: `${product.name} | ${storeName}`,
+    alternates: { canonical: `${baseUrl}/produk/${productSlug(product.name)}` },
     description,
     openGraph: { title: product.name, description, images: [image] },
     twitter: {

@@ -17,6 +17,27 @@ const EMPTY: PublicStoreConfig = {
   checkoutNoticeTitle: '',
   checkoutNotice: '',
   payments: { manual: null, midtrans: false, recommended: null },
+  appearance: {
+    theme: { primaryColor: '', accentColor: '', font: 'classic' },
+    content: {
+      announcement: '',
+      searchPlaceholder: 'Cari produk...',
+      tagline: '',
+      heroSlides: [],
+      about: {
+        enabled: false,
+        eyebrow: '',
+        title: '',
+        body: '',
+        imageAlt: '',
+        highlights: [],
+      },
+      showReviews: true,
+      newsletter: { enabled: false, eyebrow: '', title: '', body: '' },
+    },
+    logoUrl: '',
+    aboutImageUrl: '',
+  },
 };
 
 const StoreConfigContext = createContext<PublicStoreConfig>(EMPTY);

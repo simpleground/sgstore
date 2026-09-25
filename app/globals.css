@@ -155,10 +155,62 @@ body {
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/*
+ * Storefront brand colours (multi-toko). Defaults are the original Simple
+ * Ground colours, so a store without its own colours looks exactly as before.
+ * app/layout.tsx sets --brand-primary / --brand-accent-base plus
+ * data-brand-primary / data-brand-accent on <html> for stores with their own
+ * colours; the shades below are then derived from those two colours.
+ */
+:root {
+  --brand-ink: #17251c;
+  --brand: #173c2b;
+  --brand-2: #17442f;
+  --brand-deep: #243b2c;
+  --brand-deep-2: #263e2e;
+  --brand-muted: #34483b;
+  --brand-mid: #276344;
+  --brand-mid-2: #24593d;
+  --brand-mid-3: #2e704d;
+  --brand-soft: #4e6255;
+  --brand-soft-2: #587064;
+  --brand-accent: #c0693c;
+  --brand-accent-2: #b4512d;
+  --brand-accent-deep: #a34f2c;
+  --brand-accent-deeper: #9a4a28;
+  --brand-accent-bright: #e07a47;
+  --brand-accent-tint: #fee8df;
+}
+:root[data-brand-primary] {
+  --brand-ink: color-mix(in oklab, var(--brand-primary) 55%, black);
+  --brand: var(--brand-primary);
+  --brand-2: color-mix(in oklab, var(--brand-primary) 92%, white);
+  --brand-deep: color-mix(in oklab, var(--brand-primary) 88%, black);
+  --brand-deep-2: color-mix(in oklab, var(--brand-primary) 85%, black);
+  --brand-muted: color-mix(in oklab, var(--brand-primary) 80%, gray);
+  --brand-mid: color-mix(in oklab, var(--brand-primary) 78%, white);
+  --brand-mid-2: color-mix(in oklab, var(--brand-primary) 84%, white);
+  --brand-mid-3: color-mix(in oklab, var(--brand-primary) 72%, white);
+  --brand-soft: color-mix(in oklab, var(--brand-primary) 60%, gray);
+  --brand-soft-2: color-mix(in oklab, var(--brand-primary) 55%, gray);
+}
+:root[data-brand-accent] {
+  --brand-accent: var(--brand-accent-base);
+  --brand-accent-2: color-mix(in oklab, var(--brand-accent-base) 90%, black);
+  --brand-accent-deep: color-mix(in oklab, var(--brand-accent-base) 82%, black);
+  --brand-accent-deeper: color-mix(in oklab, var(--brand-accent-base) 75%, black);
+  --brand-accent-bright: color-mix(in oklab, var(--brand-accent-base) 82%, white);
+  --brand-accent-tint: color-mix(in oklab, var(--brand-accent-base) 14%, white);
+}
+/* Font preset "modern": headings use the body font instead of the serif. */
+body[data-font='modern'] {
+  --font-serif-custom: var(--font-sans-custom);
+}
+
 @layer base {
   [id] { scroll-margin-top: 11rem; }
   button, a, input, select { -webkit-tap-highlight-color: transparent; }
-  :focus-visible { outline: 2px solid #c0693c; outline-offset: 4px; }
+  :focus-visible { outline: 2px solid var(--brand-accent); outline-offset: 4px; }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
   }
