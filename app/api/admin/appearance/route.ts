@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getFiles } from '@/db';
 import { authorizeStore } from '@/lib/admin-auth';
 import { audit } from '@/lib/audit';
 import {
@@ -39,10 +40,21 @@ export async function PATCH(request: Request) {
       await request.json().catch(() => ({})),
       current,
     );
-    const changed = (['theme', 'content', 'seo'] as const).filter(
+    const changed = (['theme', 'layout', 'content', 'seo'] as const).filter(
       (key) => JSON.stringify(next[key]) !== JSON.stringify(current[key]),
     );
     await saveStoreAppearance(admin.store.id, next);
+    // Banner images of slides that were removed are no longer used.
+    const kept = new Set(next.content.heroSlides.map((slide) => slide.image));
+    for (const { image } of current.content.heroSlides)
+      if (
+        image &&
+        !kept.has(image) &&
+        image.startsWith(`stores/${admin.store.id}/branding/`)
+      )
+        await getFiles()
+          .delete(image)
+          .catch(() => {});
     if (changed.length)
       await audit(admin, {
         storeId: admin.store.id,

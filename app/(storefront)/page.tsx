@@ -2,7 +2,7 @@
 import { formatWhatsapp, useStoreConfig, whatsappLink } from '@/app/store-config';
 import { quantityLimit, preorderLabel } from '@/lib/preorder';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   ArrowRight,
   Check,
@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { productPath } from '@/lib/product-slug';
 import { availableSizes } from '@/lib/product-sizes';
+import type { HomeSection } from '@/lib/store-appearance';
 
 type Variant = {
   sku?: string;
@@ -95,6 +96,31 @@ export default function Home() {
   const store = useStoreConfig();
   const manualPayment = store.payments.manual;
   const look = store.appearance;
+  const layout = look.layout;
+  const productColumns =
+    layout.productColumns === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-4';
+  const card = {
+    classic: {
+      article:
+        'group relative overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg',
+      image:
+        'relative block aspect-square w-full overflow-hidden bg-[#ebe5d9] text-left',
+      body: 'p-3 sm:p-4',
+    },
+    framed: {
+      article:
+        'group relative overflow-hidden rounded-2xl border-2 border-[var(--brand)]/15 bg-white p-2 transition hover:border-[var(--brand)]/45',
+      image:
+        'relative block aspect-[4/5] w-full overflow-hidden rounded-xl bg-[#ebe5d9] text-left',
+      body: 'px-1.5 pb-2 pt-3 text-center sm:px-2 [&>a]:text-center',
+    },
+    minimal: {
+      article: 'group relative',
+      image:
+        'relative block aspect-[4/5] w-full overflow-hidden rounded-2xl bg-[#ebe5d9] text-left',
+      body: 'px-0.5 pt-3',
+    },
+  }[layout.productCard];
   const brandName = store.name.toLowerCase();
   const [category, setCategory] = useState('Semua');
   const [subcategory, setSubcategory] = useState('Semua');
@@ -172,9 +198,18 @@ export default function Home() {
           : products.find(
               (product) => product.category.toLowerCase() === slide.category.toLowerCase(),
             ) || products[index];
-      return { ...slide, image: image || products[0], tone: tones[index % tones.length] };
+      const product = image || products[0];
+      // An uploaded banner image (Admin → Tampilan) replaces the product photo.
+      const upload = look.slideImageUrls[index] || '';
+      return {
+        ...slide,
+        image: product,
+        src: upload || product?.images?.[0] || product?.image || '',
+        alt: upload ? slide.title : product?.name || `Produk ${store.name}`,
+        tone: tones[index % tones.length],
+      };
     });
-  }, [products, look.content.heroSlides, store.name]);
+  }, [products, look.content.heroSlides, look.slideImageUrls, store.name]);
   useEffect(() => {
     if (
       heroPaused ||
@@ -189,10 +224,9 @@ export default function Home() {
   }, [heroPaused, heroSlides.length]);
   useEffect(() => {
     heroSlides.forEach((slide) => {
-      const src = slide.image?.images?.[0] ?? slide.image?.image;
-      if (src) {
+      if (slide.src) {
         const preload = new Image();
-        preload.src = src;
+        preload.src = slide.src;
       }
     });
   }, [heroSlides]);
@@ -521,253 +555,161 @@ export default function Home() {
     }
   }
 
-  return (
-    <main className="min-h-screen bg-[#f5f6f4] text-[var(--brand-ink)]">
-      {look.content.announcement && (
-        <div className="bg-[var(--brand)] px-4 py-2 text-center text-[11px] font-semibold text-white sm:text-xs">
-          {look.content.announcement}
-        </div>
+  const brandHeader = layout.header === 'brand';
+  const logo = (className: string) => (
+    <a href="#home" className={className}>
+      {look.logoUrl ? (
+        // oxlint-disable-next-line nextjs/no-img-element -- uploaded store logo served by /api/product-image
+        <img
+          src={look.logoUrl}
+          alt={store.name}
+          className="h-8 w-auto max-w-[180px] object-contain sm:h-9"
+        />
+      ) : (
+        <>
+          {brandName}
+          <span className="text-[var(--brand-accent)]">.</span>
+        </>
       )}
-      <header className="sticky top-0 z-30 border-b bg-white/95 shadow-sm backdrop-blur">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-4 py-3 sm:flex-nowrap sm:px-8">
-          <a
-            href="#home"
-            className="shrink-0 font-serif text-xl font-bold tracking-[-.04em] sm:text-2xl"
-          >
-            {look.logoUrl ? (
-              // oxlint-disable-next-line nextjs/no-img-element -- uploaded store logo served by /api/product-image
-              <img
-                src={look.logoUrl}
-                alt={store.name}
-                className="h-8 w-auto max-w-[180px] object-contain sm:h-9"
-              />
-            ) : (
-              <>
-                {brandName}
-                <span className="text-[var(--brand-accent)]">.</span>
-              </>
-            )}
-          </a>
-          <label className="order-last flex w-full min-w-0 items-center gap-2 rounded-xl border-2 border-[var(--brand-mid)]/25 bg-[#f7faf7] px-3 py-2.5 focus-within:border-[var(--brand-mid)] sm:order-none sm:w-auto sm:flex-1">
-            <Search size={18} className="shrink-0 text-[var(--brand-soft-2)]" />
-            <input
-              aria-label={`Cari produk ${store.name}`}
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="min-w-0 flex-1 bg-transparent text-sm outline-none"
-              placeholder={look.content.searchPlaceholder}
-            />
-          </label>
-          <a href="#koleksi" className="hidden text-sm font-semibold lg:block">
-            Produk
-          </a>
-          <a href="#footer" className="hidden text-sm font-semibold lg:block">
-            Bantuan
-          </a>
-          {account ? (
-            <div className="flex items-center gap-2">
-              <UserRound size={18} />
-              <div className="hidden max-w-28 sm:block">
-                <p className="truncate text-xs font-bold">{account.name}</p>
-                <button
-                  onClick={logoutCustomer}
-                  className="text-[10px] text-[#66736a] underline"
-                >
-                  Keluar
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button
-              onClick={() => setLoginOpen(true)}
-              aria-label="Daftar atau masuk"
-              className="flex h-10 items-center gap-1 rounded-xl border px-2 text-xs font-bold sm:px-3"
-            >
-              <UserRound size={17} />
-              <span className="hidden sm:inline">Daftar / Masuk</span>
-            </button>
-          )}
+    </a>
+  );
+
+  const slide = heroSlides[heroIndex];
+  const openSlide = () => {
+    setCategory(slide.category);
+    setSubcategory('Semua');
+    document.querySelector('#koleksi')?.scrollIntoView({ behavior: 'smooth' });
+  };
+  const heroDots = (center: boolean) => (
+    <div
+      className={`mt-7 flex items-center gap-2 ${center ? 'justify-center' : ''}`}
+      aria-label="Pilih banner"
+    >
+      {heroSlides.map((item, index) => (
+        <button
+          key={`${index}-${item.eyebrow}`}
+          onClick={() => setHeroIndex(index)}
+          aria-label={`Banner ${index + 1}: ${item.eyebrow || item.title}`}
+          aria-current={heroIndex === index}
+          className={`h-2.5 rounded-full transition-all ${heroIndex === index ? 'w-8 bg-white' : 'w-2.5 bg-white/40 hover:bg-white/70'}`}
+        />
+      ))}
+    </div>
+  );
+  const heroButtons = (center: boolean) => (
+    <div className={`mt-7 flex flex-wrap items-center gap-3 ${center ? 'justify-center' : ''}`}>
+      <button
+        onClick={openSlide}
+        className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-bold text-[var(--brand)]"
+      >
+        {slide.label || 'Lihat koleksi'} <ArrowRight size={17} />
+      </button>
+      {look.content.about.enabled && (
+        <a
+          href="#cerita"
+          className="rounded-xl border border-white/45 px-5 py-3 text-sm font-bold text-white"
+        >
+          Cerita kami
+        </a>
+      )}
+    </div>
+  );
+  const carouselProps = {
+    onMouseEnter: () => setHeroPaused(true),
+    onMouseLeave: () => setHeroPaused(false),
+    'aria-roledescription': 'carousel',
+    'aria-label': `Koleksi pilihan ${store.name}`,
+  };
+  // Full-width photo with the text on top.
+  const bannerHero = (
+    <div
+      className="relative overflow-hidden rounded-[1.75rem] bg-[var(--brand)]"
+      {...carouselProps}
+    >
+      {slide.src && (
+        // oxlint-disable-next-line nextjs/no-img-element -- same as the other hero image (product or uploaded banner)
+        <img
+          key={`banner-${heroIndex}`}
+          src={slide.src}
+          alt={slide.alt}
+          loading="eager"
+          fetchPriority="high"
+          decoding="async"
+          className="absolute inset-0 h-full w-full animate-in fade-in object-cover duration-700"
+        />
+      )}
+      <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/45 to-black/10" />
+      <div className="relative z-10 flex min-h-[460px] max-w-2xl flex-col justify-center px-6 py-12 text-white sm:px-12 lg:min-h-[520px] lg:px-16">
+        {slide.eyebrow && (
+          <span className="self-start rounded-md bg-white/15 px-3 py-1 text-xs font-bold backdrop-blur">
+            {slide.eyebrow}
+          </span>
+        )}
+        <h1
+          key={`banner-title-${heroIndex}`}
+          className="mt-4 animate-in fade-in slide-in-from-left-3 font-serif text-4xl font-bold leading-tight duration-500 sm:text-6xl"
+        >
+          {slide.title}
+        </h1>
+        {slide.body && (
+          <p className="mt-4 max-w-lg text-sm leading-6 text-white/85 sm:text-base">
+            {slide.body}
+          </p>
+        )}
+        {heroButtons(false)}
+        {heroSlides.length > 1 && heroDots(false)}
+      </div>
+      {heroSlides.length > 1 && (
+        <div className="absolute bottom-5 right-5 z-10 flex gap-2">
           <button
-            onClick={() => setCartOpen(true)}
-            aria-label={`Buka keranjang, ${count} barang`}
-            className="relative flex h-11 shrink-0 items-center gap-2 rounded-xl bg-[var(--brand)] px-3 text-white sm:px-4"
+            onClick={() => setHeroIndex((heroIndex - 1 + heroSlides.length) % heroSlides.length)}
+            aria-label="Banner sebelumnya"
+            className="grid place-items-center rounded-full bg-white/85 p-2 text-[var(--brand)] shadow"
           >
-            <ShoppingBag size={19} />
-            <span className="hidden text-sm font-semibold sm:inline">
-              Keranjang
-            </span>
-            {count > 0 && (
-              <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[var(--brand-accent-bright)] px-1 text-[10px] font-bold">
-                {count}
-              </span>
-            )}
+            <ChevronLeft size={19} />
+          </button>
+          <button
+            onClick={() => setHeroIndex((heroIndex + 1) % heroSlides.length)}
+            aria-label="Banner berikutnya"
+            className="grid place-items-center rounded-full bg-white/85 p-2 text-[var(--brand)] shadow"
+          >
+            <ChevronRight size={19} />
           </button>
         </div>
-        <div className="mx-auto flex max-w-7xl gap-2 overflow-x-auto px-4 pb-3 sm:px-8">
-          {['Semua', ...Object.keys(catalog)].map((item) => (
-            <button
-              key={item}
-              onClick={() => {
-                setCategory(item);
-                setSubcategory('Semua');
-                document
-                  .querySelector('#koleksi')
-                  ?.scrollIntoView({ behavior: 'smooth' });
-              }}
-              className={`whitespace-nowrap rounded-lg px-4 py-2 text-xs font-semibold ${category === item ? 'bg-[#e5efe8] text-[var(--brand-2)]' : 'bg-[#f3f4f2] text-[#58645c]'}`}
-            >
-              {item === 'Semua' ? 'Semua Produk' : item}
-            </button>
-          ))}
-        </div>
-        {category !== 'Semua' && (
-          <div className="border-t bg-[#fafbf9]">
-            <div className="mx-auto flex max-w-7xl gap-2 overflow-x-auto px-4 py-2.5 sm:px-8">
-              <span className="my-auto mr-1 shrink-0 text-[11px] font-bold text-[#6a756d]">
-                SUBKATEGORI
-              </span>
-              {['Semua', ...(catalog[category] ?? [])].map((item) => (
-                <button
-                  key={item}
-                  onClick={() => {
-                    setSubcategory(item);
-                    document
-                      .querySelector('#koleksi')
-                      ?.scrollIntoView({ behavior: 'smooth' });
-                  }}
-                  className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold ${subcategory === item ? 'bg-[var(--brand)] text-white' : 'border bg-white'}`}
-                >
-                  {item === 'Semua' ? `Semua ${category}` : item}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </header>
-
-      <section
-        id="home"
-        className="mx-auto max-w-7xl px-4 pt-5 sm:px-8 sm:pt-7"
+      )}
+    </div>
+  );
+  // Text only, centred on the brand colour.
+  const simpleHero = (
+    <div
+      className="relative overflow-hidden rounded-[1.75rem] bg-[var(--brand)] px-6 py-16 text-center text-white sm:px-12 sm:py-20"
+      {...carouselProps}
+    >
+      {slide.eyebrow && (
+        <p className="text-xs font-bold uppercase tracking-[.22em] text-white/70">
+          {slide.eyebrow}
+        </p>
+      )}
+      <h1
+        key={`simple-title-${heroIndex}`}
+        className="mx-auto mt-4 max-w-3xl animate-in fade-in font-serif text-4xl font-bold leading-tight duration-500 sm:text-6xl"
       >
-        <div
-          className={`relative grid min-h-[520px] overflow-hidden rounded-[1.75rem] transition-colors duration-700 lg:min-h-[430px] lg:grid-cols-[1.05fr_.95fr] ${heroSlides[heroIndex].tone}`}
-          onMouseEnter={() => setHeroPaused(true)}
-          onMouseLeave={() => setHeroPaused(false)}
-          aria-roledescription="carousel"
-          aria-label={`Koleksi pilihan ${store.name}`}
-        >
-          <div className="relative z-10 flex flex-col justify-center px-6 py-10 sm:px-10 sm:py-14 lg:px-14">
-            <span className="inline-flex rounded-md bg-white/80 px-3 py-1 text-xs font-bold text-[var(--brand-accent-deeper)]">
-              {heroSlides[heroIndex].eyebrow}
-            </span>
-            <h1
-              key={`title-${heroIndex}`}
-              className="mt-4 animate-in fade-in slide-in-from-left-3 font-serif text-3xl font-bold leading-tight duration-500 sm:text-5xl"
-            >
-              {heroSlides[heroIndex].title}
-            </h1>
-            <p className="mt-3 max-w-lg text-sm leading-6 text-[var(--brand-soft)] sm:text-base">
-              {heroSlides[heroIndex].body}
-            </p>
-            <div className="mt-6 flex flex-wrap items-center gap-3">
-              <button
-                onClick={() => {
-                  setCategory(heroSlides[heroIndex].category);
-                  setSubcategory('Semua');
-                  document
-                    .querySelector('#koleksi')
-                    ?.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className="inline-flex items-center gap-2 rounded-xl bg-[var(--brand)] px-5 py-3 text-sm font-bold text-white"
-              >
-                Lihat koleksi <ArrowRight size={17} />
-              </button>
-              {look.content.about.enabled && (
-                <a
-                  href="#cerita"
-                  className="rounded-xl border border-[var(--brand)]/25 px-5 py-3 text-sm font-bold text-[var(--brand)]"
-                >
-                  Cerita kami
-                </a>
-              )}
-            </div>
-            <p className="mt-6 text-xs font-semibold text-[var(--brand-soft)]">
-              {`Pilih produk · Cek ongkir · ${store.payments.midtrans ? 'Bayar VA / QRIS' : manualPayment ? `Transfer ${manualPayment.bankName}` : 'Pesan online'}`}
-            </p>
-            <div
-              className="mt-6 flex items-center gap-2"
-              aria-label="Pilih banner"
-            >
-              {heroSlides.map((slide, index) => (
-                <button
-                  key={slide.eyebrow}
-                  onClick={() => setHeroIndex(index)}
-                  aria-label={`Banner ${index + 1}: ${slide.eyebrow}`}
-                  aria-current={heroIndex === index}
-                  className={`h-2.5 rounded-full transition-all ${heroIndex === index ? 'w-8 bg-[var(--brand)]' : 'w-2.5 bg-[var(--brand)]/30 hover:bg-[var(--brand)]/60'}`}
-                />
-              ))}
-            </div>
-          </div>
-          <div className="relative min-h-72 lg:min-h-[430px]">
-            {heroSlides[heroIndex].image ? (
-              <img
-                key={`hero-image-${heroIndex}`}
-                src={
-                  heroSlides[heroIndex].image?.images?.[0] ??
-                  heroSlides[heroIndex].image?.image
-                }
-                alt={
-                  heroSlides[heroIndex].image?.name || `Produk ${store.name}`
-                }
-                loading="eager"
-                fetchPriority="high"
-                decoding="async"
-                className="absolute inset-0 h-full w-full animate-in fade-in object-cover duration-700"
-              />
-            ) : (
-              <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-[#d9d2c3] via-[#e9e4da] to-[#c7d1c6]" />
-            )}
-            <div className="absolute inset-0 bg-gradient-to-t from-[var(--brand)]/30 to-transparent" />
-            <button
-              onClick={() => setHeroIndex((heroIndex - 1 + heroSlides.length) % heroSlides.length)}
-              aria-label="Banner sebelumnya"
-              className="absolute left-4 top-1/2 grid -translate-y-1/2 place-items-center rounded-full bg-white/85 p-2 text-[var(--brand)] shadow"
-            >
-              <ChevronLeft size={19} />
-            </button>
-            <button
-              onClick={() => setHeroIndex((heroIndex + 1) % heroSlides.length)}
-              aria-label="Banner berikutnya"
-              className="absolute right-4 top-1/2 grid -translate-y-1/2 place-items-center rounded-full bg-white/85 p-2 text-[var(--brand)] shadow"
-            >
-              <ChevronRight size={19} />
-            </button>
-            <span className="absolute bottom-5 left-5 rounded-full bg-white/90 px-4 py-2 text-xs font-bold text-[var(--brand)] backdrop-blur">
-              {heroSlides[heroIndex].label}
-            </span>
-          </div>
-        </div>
-        <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-4">
-          <div className="flex items-center gap-2 rounded-xl bg-white p-3 text-xs font-semibold sm:text-sm">
-            <ShieldCheck className="shrink-0 text-[var(--brand-mid-3)]" size={20} />{' '}
-            {store.payments.midtrans
-              ? 'Pembayaran VA / QRIS'
-              : manualPayment
-                ? `Transfer ${manualPayment.bankName}`
-                : 'Pesan online'}
-          </div>
-          <div className="flex items-center gap-2 rounded-xl bg-white p-3 text-xs font-semibold sm:text-sm">
-            <Truck className="shrink-0 text-[var(--brand-mid-3)]" size={20} /> Siap dikirim
-          </div>
-          <div className="flex items-center gap-2 rounded-xl bg-white p-3 text-xs font-semibold sm:text-sm">
-            <Store className="shrink-0 text-[var(--brand-mid-3)]" size={20} /> Produk
-            pilihan
-          </div>
-        </div>
-      </section>
+        {slide.title}
+      </h1>
+      {slide.body && (
+        <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-white/80 sm:text-base">
+          {slide.body}
+        </p>
+      )}
+      {heroButtons(true)}
+      {heroSlides.length > 1 && heroDots(true)}
+    </div>
+  );
 
+  // Homepage sections below the banner, in the order chosen in Admin → Tampilan.
+  const homeSections: Record<HomeSection, ReactNode> = {
+    catalog: (
+      <>
       <section id="koleksi" className="px-4 py-10 sm:px-8 sm:py-14">
         <div className="mx-auto max-w-7xl">
           <div className="flex items-end justify-between gap-4">
@@ -832,7 +774,7 @@ export default function Home() {
           {productsLoading && (
             <div
               aria-label="Memuat produk"
-              className="mt-6 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4"
+              className={`mt-6 grid grid-cols-2 gap-3 sm:gap-5 ${productColumns}`}
             >
               {Array.from({ length: 8 }).map((_, index) => (
                 <div
@@ -850,7 +792,7 @@ export default function Home() {
             </div>
           )}
           {!productsLoading && (
-            <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
+            <div className={`mt-6 grid grid-cols-2 gap-3 sm:gap-5 ${productColumns}`}>
               {filtered.slice(0, visibleCount).map((p, productIndex) => {
                 const variantIndex = selectedVariants[p.id] ?? 0;
                 const productImages = p.images?.length ? p.images : [p.image];
@@ -871,11 +813,11 @@ export default function Home() {
                 return (
                   <article
                     key={p.id}
-                    className="group relative overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"
+                    className={card.article}
                   >
                     <a
                       href={productPath(p.name)}
-                      className="relative block aspect-square w-full overflow-hidden bg-[#ebe5d9] text-left"
+                      className={card.image}
                     >
                       <img
                         src={productImages[imageIndex] ?? productImages[0]}
@@ -909,7 +851,7 @@ export default function Home() {
                         }
                       />
                     </button>
-                    <div className="p-3 sm:p-4">
+                    <div className={card.body}>
                       <a
                         href={productPath(p.name)}
                         className="line-clamp-2 min-h-10 text-left text-sm font-semibold leading-5 sm:text-base"
@@ -983,7 +925,10 @@ export default function Home() {
           )}
         </div>
       </section>
-
+      </>
+    ),
+    about: (
+      <>
       {look.content.about.enabled && (
         <section
           id="cerita"
@@ -1025,7 +970,10 @@ export default function Home() {
           </div>
         </section>
       )}
-
+      </>
+    ),
+    reviews: (
+      <>
       {look.content.showReviews && (
       <section className="bg-[var(--brand)] px-5 py-16 text-white sm:px-8">
         <div className="mx-auto max-w-7xl">
@@ -1064,7 +1012,10 @@ export default function Home() {
         </div>
       </section>
       )}
-
+      </>
+    ),
+    newsletter: (
+      <>
       {look.content.newsletter.enabled && (
       <section className="px-5 py-16 sm:px-8">
         <div className="mx-auto grid max-w-7xl gap-8 overflow-hidden rounded-[2rem] bg-[#efe7d8] p-7 sm:p-10 lg:grid-cols-[1fr_auto] lg:items-center">
@@ -1107,10 +1058,291 @@ export default function Home() {
         </div>
       </section>
       )}
+      </>
+    ),
+  };
+
+  return (
+    <main className="min-h-screen bg-[#f5f6f4] text-[var(--brand-ink)]">
+      {look.content.announcement && (
+        <div className="bg-[var(--brand)] px-4 py-2 text-center text-[11px] font-semibold text-white sm:text-xs">
+          {look.content.announcement}
+        </div>
+      )}
+      <header
+        className={
+          brandHeader
+            ? 'sticky top-0 z-30 bg-[var(--brand)] text-white shadow-sm'
+            : 'sticky top-0 z-30 border-b bg-white/95 shadow-sm backdrop-blur'
+        }
+      >
+        {layout.header === 'centered' && (
+          <div className="border-b px-4 py-4 text-center sm:py-5">
+            {logo(
+              'inline-block font-serif text-2xl font-bold tracking-[-.04em] sm:text-4xl [&_img]:mx-auto [&_img]:h-10 sm:[&_img]:h-12',
+            )}
+          </div>
+        )}
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-4 py-3 sm:flex-nowrap sm:px-8">
+          {layout.header !== 'centered' && logo('shrink-0 font-serif text-xl font-bold tracking-[-.04em] sm:text-2xl')}
+          <label
+            className={
+              brandHeader
+                ? 'order-last flex w-full min-w-0 items-center gap-2 rounded-xl border-2 border-white/25 bg-white/10 px-3 py-2.5 focus-within:border-white/70 sm:order-none sm:w-auto sm:flex-1 [&_input]:placeholder:text-white/70'
+                : 'order-last flex w-full min-w-0 items-center gap-2 rounded-xl border-2 border-[var(--brand-mid)]/25 bg-[#f7faf7] px-3 py-2.5 focus-within:border-[var(--brand-mid)] sm:order-none sm:w-auto sm:flex-1'
+            }
+          >
+            <Search
+              size={18}
+              className={
+                brandHeader ? 'shrink-0 text-white/75' : 'shrink-0 text-[var(--brand-soft-2)]'
+              }
+            />
+            <input
+              aria-label={`Cari produk ${store.name}`}
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+              placeholder={look.content.searchPlaceholder}
+            />
+          </label>
+          <a href="#koleksi" className="hidden text-sm font-semibold lg:block">
+            Produk
+          </a>
+          <a href="#footer" className="hidden text-sm font-semibold lg:block">
+            Bantuan
+          </a>
+          {account ? (
+            <div className="flex items-center gap-2">
+              <UserRound size={18} />
+              <div className="hidden max-w-28 sm:block">
+                <p className="truncate text-xs font-bold">{account.name}</p>
+                <button
+                  onClick={logoutCustomer}
+                  className={`text-[10px] underline ${brandHeader ? 'text-white/75' : 'text-[#66736a]'}`}
+                >
+                  Keluar
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setLoginOpen(true)}
+              aria-label="Daftar atau masuk"
+              className={`flex h-10 items-center gap-1 rounded-xl border px-2 text-xs font-bold sm:px-3 ${brandHeader ? 'border-white/30' : ''}`}
+            >
+              <UserRound size={17} />
+              <span className="hidden sm:inline">Daftar / Masuk</span>
+            </button>
+          )}
+          <button
+            onClick={() => setCartOpen(true)}
+            aria-label={`Buka keranjang, ${count} barang`}
+            className={
+              brandHeader
+                ? 'relative flex h-11 shrink-0 items-center gap-2 rounded-xl bg-white px-3 text-[var(--brand)] sm:px-4'
+                : 'relative flex h-11 shrink-0 items-center gap-2 rounded-xl bg-[var(--brand)] px-3 text-white sm:px-4'
+            }
+          >
+            <ShoppingBag size={19} />
+            <span className="hidden text-sm font-semibold sm:inline">
+              Keranjang
+            </span>
+            {count > 0 && (
+              <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[var(--brand-accent-bright)] px-1 text-[10px] font-bold text-white">
+                {count}
+              </span>
+            )}
+          </button>
+        </div>
+        <div
+          className={`mx-auto flex max-w-7xl gap-2 overflow-x-auto px-4 pb-3 sm:px-8 ${layout.header === 'centered' ? 'lg:justify-center' : ''}`}
+        >
+          {['Semua', ...Object.keys(catalog)].map((item) => (
+            <button
+              key={item}
+              onClick={() => {
+                setCategory(item);
+                setSubcategory('Semua');
+                document
+                  .querySelector('#koleksi')
+                  ?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className={`whitespace-nowrap rounded-lg px-4 py-2 text-xs font-semibold ${
+                brandHeader
+                  ? category === item
+                    ? 'bg-white text-[var(--brand)]'
+                    : 'bg-white/10 text-white'
+                  : category === item
+                    ? 'bg-[#e5efe8] text-[var(--brand-2)]'
+                    : 'bg-[#f3f4f2] text-[#58645c]'
+              }`}
+            >
+              {item === 'Semua' ? 'Semua Produk' : item}
+            </button>
+          ))}
+        </div>
+        {category !== 'Semua' && (
+          <div className="border-t bg-[#fafbf9] text-[var(--brand-ink)]">
+            <div className="mx-auto flex max-w-7xl gap-2 overflow-x-auto px-4 py-2.5 sm:px-8">
+              <span className="my-auto mr-1 shrink-0 text-[11px] font-bold text-[#6a756d]">
+                SUBKATEGORI
+              </span>
+              {['Semua', ...(catalog[category] ?? [])].map((item) => (
+                <button
+                  key={item}
+                  onClick={() => {
+                    setSubcategory(item);
+                    document
+                      .querySelector('#koleksi')
+                      ?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold ${subcategory === item ? 'bg-[var(--brand)] text-white' : 'border bg-white'}`}
+                >
+                  {item === 'Semua' ? `Semua ${category}` : item}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </header>
+
+      <section
+        id="home"
+        className="mx-auto max-w-7xl px-4 pt-5 sm:px-8 sm:pt-7"
+      >
+        {layout.hero === 'split' && (
+        <div
+          className={`relative grid min-h-[520px] overflow-hidden rounded-[1.75rem] transition-colors duration-700 lg:min-h-[430px] lg:grid-cols-[1.05fr_.95fr] ${heroSlides[heroIndex].tone}`}
+          onMouseEnter={() => setHeroPaused(true)}
+          onMouseLeave={() => setHeroPaused(false)}
+          aria-roledescription="carousel"
+          aria-label={`Koleksi pilihan ${store.name}`}
+        >
+          <div className="relative z-10 flex flex-col justify-center px-6 py-10 sm:px-10 sm:py-14 lg:px-14">
+            <span className="inline-flex rounded-md bg-white/80 px-3 py-1 text-xs font-bold text-[var(--brand-accent-deeper)]">
+              {heroSlides[heroIndex].eyebrow}
+            </span>
+            <h1
+              key={`title-${heroIndex}`}
+              className="mt-4 animate-in fade-in slide-in-from-left-3 font-serif text-3xl font-bold leading-tight duration-500 sm:text-5xl"
+            >
+              {heroSlides[heroIndex].title}
+            </h1>
+            <p className="mt-3 max-w-lg text-sm leading-6 text-[var(--brand-soft)] sm:text-base">
+              {heroSlides[heroIndex].body}
+            </p>
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <button
+                onClick={() => {
+                  setCategory(heroSlides[heroIndex].category);
+                  setSubcategory('Semua');
+                  document
+                    .querySelector('#koleksi')
+                    ?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="inline-flex items-center gap-2 rounded-xl bg-[var(--brand)] px-5 py-3 text-sm font-bold text-white"
+              >
+                Lihat koleksi <ArrowRight size={17} />
+              </button>
+              {look.content.about.enabled && (
+                <a
+                  href="#cerita"
+                  className="rounded-xl border border-[var(--brand)]/25 px-5 py-3 text-sm font-bold text-[var(--brand)]"
+                >
+                  Cerita kami
+                </a>
+              )}
+            </div>
+            <p className="mt-6 text-xs font-semibold text-[var(--brand-soft)]">
+              {`Pilih produk · Cek ongkir · ${store.payments.midtrans ? 'Bayar VA / QRIS' : manualPayment ? `Transfer ${manualPayment.bankName}` : 'Pesan online'}`}
+            </p>
+            <div
+              className="mt-6 flex items-center gap-2"
+              aria-label="Pilih banner"
+            >
+              {heroSlides.map((slide, index) => (
+                <button
+                  key={slide.eyebrow}
+                  onClick={() => setHeroIndex(index)}
+                  aria-label={`Banner ${index + 1}: ${slide.eyebrow}`}
+                  aria-current={heroIndex === index}
+                  className={`h-2.5 rounded-full transition-all ${heroIndex === index ? 'w-8 bg-[var(--brand)]' : 'w-2.5 bg-[var(--brand)]/30 hover:bg-[var(--brand)]/60'}`}
+                />
+              ))}
+            </div>
+          </div>
+          <div className="relative min-h-72 lg:min-h-[430px]">
+            {heroSlides[heroIndex].src ? (
+              <img
+                key={`hero-image-${heroIndex}`}
+                src={heroSlides[heroIndex].src}
+                alt={heroSlides[heroIndex].alt}
+                loading="eager"
+                fetchPriority="high"
+                decoding="async"
+                className="absolute inset-0 h-full w-full animate-in fade-in object-cover duration-700"
+              />
+            ) : (
+              <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-[#d9d2c3] via-[#e9e4da] to-[#c7d1c6]" />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-[var(--brand)]/30 to-transparent" />
+            <button
+              onClick={() => setHeroIndex((heroIndex - 1 + heroSlides.length) % heroSlides.length)}
+              aria-label="Banner sebelumnya"
+              className="absolute left-4 top-1/2 grid -translate-y-1/2 place-items-center rounded-full bg-white/85 p-2 text-[var(--brand)] shadow"
+            >
+              <ChevronLeft size={19} />
+            </button>
+            <button
+              onClick={() => setHeroIndex((heroIndex + 1) % heroSlides.length)}
+              aria-label="Banner berikutnya"
+              className="absolute right-4 top-1/2 grid -translate-y-1/2 place-items-center rounded-full bg-white/85 p-2 text-[var(--brand)] shadow"
+            >
+              <ChevronRight size={19} />
+            </button>
+            <span className="absolute bottom-5 left-5 rounded-full bg-white/90 px-4 py-2 text-xs font-bold text-[var(--brand)] backdrop-blur">
+              {heroSlides[heroIndex].label}
+            </span>
+          </div>
+        </div>
+        )}
+        {layout.hero === 'banner' && bannerHero}
+        {layout.hero === 'simple' && simpleHero}
+        {layout.showTrustBar && (
+        <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-4">
+          <div className="flex items-center gap-2 rounded-xl bg-white p-3 text-xs font-semibold sm:text-sm">
+            <ShieldCheck className="shrink-0 text-[var(--brand-mid-3)]" size={20} />{' '}
+            {store.payments.midtrans
+              ? 'Pembayaran VA / QRIS'
+              : manualPayment
+                ? `Transfer ${manualPayment.bankName}`
+                : 'Pesan online'}
+          </div>
+          <div className="flex items-center gap-2 rounded-xl bg-white p-3 text-xs font-semibold sm:text-sm">
+            <Truck className="shrink-0 text-[var(--brand-mid-3)]" size={20} /> Siap dikirim
+          </div>
+          <div className="flex items-center gap-2 rounded-xl bg-white p-3 text-xs font-semibold sm:text-sm">
+            <Store className="shrink-0 text-[var(--brand-mid-3)]" size={20} /> Produk
+            pilihan
+          </div>
+        </div>
+        )}
+      </section>
+
+      {layout.sections.map((key) => (
+        <Fragment key={key}>{homeSections[key]}</Fragment>
+      ))}
 
       <footer
         id="footer"
-        className="bg-[var(--brand-deep)] px-5 py-14 text-[#f4efdf] sm:px-8"
+        data-variant={layout.footer === 'light' ? 'light' : undefined}
+        className={
+          layout.footer === 'light'
+            ? 'border-t bg-white px-5 py-14 text-[var(--brand-ink)] sm:px-8'
+            : 'bg-[var(--brand-deep)] px-5 py-14 text-[#f4efdf] sm:px-8'
+        }
       >
         <div className="mx-auto grid max-w-7xl gap-10 md:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1.15fr]">
           <div>

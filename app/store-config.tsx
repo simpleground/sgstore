@@ -19,6 +19,17 @@ const EMPTY: PublicStoreConfig = {
   payments: { manual: null, midtrans: false, recommended: null },
   appearance: {
     theme: { primaryColor: '', accentColor: '', font: 'classic' },
+    layout: {
+      header: 'classic',
+      hero: 'split',
+      productCard: 'classic',
+      corners: 'rounded',
+      background: 'neutral',
+      footer: 'dark',
+      productColumns: 4,
+      sections: ['catalog', 'about', 'reviews', 'newsletter'],
+      showTrustBar: true,
+    },
     content: {
       announcement: '',
       searchPlaceholder: 'Cari produk...',
@@ -39,6 +50,7 @@ const EMPTY: PublicStoreConfig = {
       newsletter: { enabled: false, eyebrow: '', title: '', body: '' },
     },
     logoUrl: '',
+    slideImageUrls: [],
     aboutImageUrl: '',
   },
 };

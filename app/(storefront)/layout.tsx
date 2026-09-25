@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { getStoreAppearance } from '@/lib/store-appearance';
 import { getCurrentStore } from '@/lib/tenant';
 
 /**
@@ -13,7 +14,27 @@ export default async function StorefrontLayout({
 }) {
   const store = await getCurrentStore();
   if (!store) notFound();
-  if (store.status === 'active') return children;
+  if (store.status === 'active') {
+    const { theme, layout } = await getStoreAppearance(store);
+    // Store-wide look (fonts, corners, page background); see app/globals.css.
+    // Attributes are left out for the defaults so the original look is unchanged.
+    return (
+      <div
+        className="contents"
+        data-sf-font={
+          theme.font === 'classic' || theme.font === 'modern'
+            ? undefined
+            : theme.font
+        }
+        data-corners={layout.corners === 'rounded' ? undefined : layout.corners}
+        data-background={
+          layout.background === 'neutral' ? undefined : layout.background
+        }
+      >
+        {children}
+      </div>
+    );
+  }
   return (
     <main className="grid min-h-screen place-items-center bg-[#f5f6f4] px-5 text-center text-[var(--brand-ink)]">
       <div className="max-w-md">

@@ -28,7 +28,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Pengaturan toko: `lib/store-settings.ts` (kontak, rekening, Midtrans/Biteship efektif per toko; kunci rahasia
   terenkripsi via `lib/secrets.ts`). Komponen client membaca pengaturan publik lewat `useStoreConfig()`
   (`app/store-config.tsx`). Jangan menulis nomor rekening/WA/kunci toko di kode.
-- Tampilan toko: `lib/store-appearance.ts` (tema, konten beranda, SEO, gambar). Di storefront pakai warna brand
+- Tampilan toko: `lib/store-appearance.ts` (tema, tata letak `layout`, konten beranda, SEO, gambar). Di storefront pakai warna brand
   lewat token CSS (`bg-[var(--brand)]`, `text-[var(--brand-accent)]`, lihat `app/globals.css`), bukan hex
   hijau/terakota langsung, dan teks/nama toko dari `useStoreConfig()` — jangan tulis "Simple Ground" di kode.
 - Platform (super admin): panel `/platform`, API `/api/platform/*` dengan `requireSuperAdmin()`, logika di

@@ -247,8 +247,13 @@ di dashboard Midtrans toko tersebut, set *Payment Notification URL* ke
 
 **Tampilan per toko** (Admin → Tampilan, Pemilik & Admin): logo, ikon tab, warna utama & aksen, gaya huruf,
 pengumuman, slide beranda, bagian "Tentang", ulasan & newsletter (tampil/sembunyi), slogan, serta judul &
-deskripsi SEO dan gambar saat dibagikan. Semua toko memakai kode dan tata letak yang sama; yang berbeda hanya
-pengaturannya. Toko tanpa warna sendiri memakai warna Simple Ground. Gambar diunggah sebagai PNG/JPG/WebP
+deskripsi SEO dan gambar saat dibagikan. Semua toko memakai kode yang sama; yang berbeda hanya pengaturannya.
+**Tata letak** per toko: header (klasik / logo di tengah / berwarna), banner beranda (terbelah / foto penuh /
+teks saja) dengan gambar banner per slide (opsional), kartu produk (klasik / berbingkai / minimal), 3 atau 4
+kolom produk, sudut (membulat / sedikit / tajam), latar halaman, footer gelap/terang, kotak info di bawah
+banner, dan urutan bagian beranda. Gaya huruf: Klasik, Modern, Elegan (Playfair), Editorial (Fraunces), Ramah
+(Nunito), Tegas (Space Grotesk) — semua self-hosted. Pilihan awal = tampilan Simple Ground.
+Toko tanpa warna sendiri memakai warna Simple Ground. Gambar diunggah sebagai PNG/JPG/WebP
 (SVG ditolak) dan disimpan di folder toko itu sendiri.
 
 **Membuat toko baru** — panel platform di `/platform` (hanya akun `ADMIN_EMAIL`/super admin):

@@ -38,6 +38,36 @@ const serif = localFont({
   weight: '400 700',
   display: 'swap',
 });
+// Extra font presets for stores (Admin → Tampilan). Not preloaded: a browser
+// only downloads a font when the store's preset actually uses it.
+const playfair = localFont({
+  variable: '--font-playfair',
+  src: '../node_modules/@fontsource-variable/playfair-display/files/playfair-display-latin-wght-normal.woff2',
+  weight: '400 900',
+  display: 'swap',
+  preload: false,
+});
+const fraunces = localFont({
+  variable: '--font-fraunces',
+  src: '../node_modules/@fontsource-variable/fraunces/files/fraunces-latin-wght-normal.woff2',
+  weight: '100 900',
+  display: 'swap',
+  preload: false,
+});
+const nunito = localFont({
+  variable: '--font-nunito',
+  src: '../node_modules/@fontsource-variable/nunito/files/nunito-latin-wght-normal.woff2',
+  weight: '200 1000',
+  display: 'swap',
+  preload: false,
+});
+const space_grotesk = localFont({
+  variable: '--font-space-grotesk',
+  src: '../node_modules/@fontsource-variable/space-grotesk/files/space-grotesk-latin-wght-normal.woff2',
+  weight: '300 700',
+  display: 'swap',
+  preload: false,
+});
 // Title, description, icon and share image come from the store's appearance
 // settings (Admin → Tampilan); Simple Ground's original values are its defaults.
 export async function generateMetadata(): Promise<Metadata> {
@@ -55,7 +85,9 @@ export async function generateMetadata(): Promise<Metadata> {
     title,
     description: seo.description,
     // Suspended or closed stores should not be indexed while their shop is hidden.
-    ...(store.status === 'active' ? {} : { robots: { index: false, follow: false } }),
+    ...(store.status === 'active'
+      ? {}
+      : { robots: { index: false, follow: false } }),
     openGraph: {
       title,
       description: shareDescription,
@@ -89,7 +121,7 @@ export default async function RootLayout({
       style={colors}
     >
       <body
-        className={`${sans.variable} ${serif.variable} antialiased`}
+        className={`${sans.variable} ${serif.variable} ${playfair.variable} ${fraunces.variable} ${nunito.variable} ${space_grotesk.variable} antialiased`}
         data-font={theme?.font === 'modern' ? 'modern' : undefined}
       >
         <StoreConfigProvider config={config}>{children}</StoreConfigProvider>
