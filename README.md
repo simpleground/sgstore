@@ -58,6 +58,31 @@ Buka **http://localhost:3000**. Panel admin: **http://localhost:3000/admin**
 | `npm run db:seed-demo` | Menambah produk demo bila tabel produk kosong |
 | `npm run admin:create -- email "password" "Nama"` | Membuat admin / reset password admin |
 | `npm run typecheck` · `npm run lint` · `npm test` | Pemeriksaan kode |
+| `npm run test:integration` | Tes integrasi dengan PostgreSQL sungguhan (lihat bawah) |
+
+### Tes integrasi
+
+Menjalankan aplikasi sungguhan (`next dev`) terhadap PostgreSQL dan menguji alur utama
+(admin, katalog, keranjang, ongkir, pesanan, pembayaran Midtrans, ulasan) serta fondasi multi-toko.
+
+```bash
+TEST_DATABASE_URL=postgres://sgstore:sgstore@localhost:5432/sgstore npm run test:integration
+```
+
+Aman untuk database yang sudah berisi data: setiap run membuat **schema sementara** sendiri
+(`sg_it_…`), menjalankan migrasi di sana, lalu menghapus schema itu lagi. Tabel yang ada tidak disentuh.
+Biteship diganti server tiruan lokal; tidak ada panggilan ke Midtrans/Biteship sungguhan.
+
+### Menjalankan dengan Docker
+
+```bash
+docker compose --profile app up -d --build   # PostgreSQL + aplikasi di http://localhost:3000
+```
+
+Aplikasi membaca `.env` bila ada; `DATABASE_URL` otomatis diarahkan ke container PostgreSQL dan
+migrasi dijalankan setiap kali container menyala. Foto produk disimpan di volume `sgstore-storage`.
+Image juga bisa dibangun sendiri: `docker build -t sgstore --build-arg SITE_URL=https://domain-anda .`
+(`SITE_URL` dan `NEXT_PUBLIC_GOOGLE_CLIENT_ID` dibaca saat build; variabel lain saat container dijalankan).
 
 ---
 
@@ -154,6 +179,8 @@ Cara paling praktis:
 | Nama | Wajib | Keterangan |
 |---|---|---|
 | `SITE_URL` | ✔ | URL website, mis. `https://simpleground.online` (dipakai untuk SEO & callback Midtrans). Ubah **sebelum** `npm run build`. |
+| `DEFAULT_STORE_SLUG` | | Toko untuk domain yang tidak terdaftar (bawaan: toko awal `simple-ground`) |
+| `PLATFORM_ROOT_DOMAIN` | | Domain platform untuk subdomain toko, mis. `platform.id` → `tokoa.platform.id` |
 | `DATABASE_URL` | ✔ | Koneksi PostgreSQL `postgres://user:pass@host:5432/db` |
 | `DATABASE_SSL` | | `require` untuk database cloud yang mewajibkan SSL |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | ✔ | Akun admin utama; dibuat otomatis saat login pertama, password ikut diperbarui bila diubah |
@@ -179,8 +206,9 @@ app/                 Halaman & API (Next.js App Router)
   api/               Endpoint API (produk, pesanan, pembayaran, ongkir, admin)
 db/index.ts          Koneksi PostgreSQL (API bergaya D1: prepare/bind/first/all/run/batch)
 db/migrations/       File SQL skema database — tambah file baru untuk perubahan skema
-lib/                 Logika bersama (auth admin, storage, Biteship, dll.)
-scripts/             migrate, create-admin, seed-demo
+lib/                 Logika bersama (auth admin, storage, Biteship, toko aktif, dll.)
+scripts/             migrate, create-admin, seed-demo, test-integration
+tests/integration/   Tes integrasi (PostgreSQL + server Next.js)
 deploy/              Skrip VPS (setup, update, backup), Nginx, konfigurasi Cloudflare
 ```
 

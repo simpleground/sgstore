@@ -1,6 +1,10 @@
 # PostgreSQL untuk development lokal (opsional — butuh Docker Desktop).
 # Jalankan:  docker compose up -d
 # Lalu di .env: DATABASE_URL=postgres://sgstore:sgstore@localhost:5432/sgstore
+#
+# Aplikasi juga bisa dijalankan di Docker (database + aplikasi sekaligus):
+#   docker compose --profile app up -d --build
+# Aplikasi membaca .env (bila ada); DATABASE_URL otomatis diarahkan ke service postgres.
 services:
   postgres:
     image: postgres:16-alpine
@@ -13,6 +17,37 @@ services:
       - '5432:5432'
     volumes:
       - sgstore-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U sgstore -d sgstore']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  app:
+    profiles: ['app']
+    build:
+      context: .
+      args:
+        SITE_URL: ${SITE_URL:-http://localhost:3000}
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}
+    restart: unless-stopped
+    init: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgres://sgstore:sgstore@postgres:5432/sgstore
+      DATABASE_SSL: ''
+      STORAGE_LOCAL_DIR: /app/storage
+      MIGRATE_ON_START: 'true'
+    ports:
+      - '3000:3000'
+    volumes:
+      - sgstore-storage:/app/storage
 
 volumes:
   sgstore-pg:
+  sgstore-storage:

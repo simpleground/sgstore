@@ -18,4 +18,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Perubahan skema: tambah file baru di `db/migrations/NNNN_nama.sql` lalu `npm run db:migrate`. Jangan ubah file migrasi lama.
 - Foto produk: `getFiles()` / `lib/storage.ts` (driver `local` atau `s3`). URL publik: `/api/product-image/<key>`.
 - Auth admin: `lib/admin-auth.ts` (`isAdmin()` untuk API, `requireAdmin()` untuk halaman). Auth pelanggan: `app/customer-auth.ts`.
+- Multi-toko (sedang bertahap): toko aktif ditentukan dari header Host lewat `getCurrentStore()` di `lib/tenant.ts`
+  — jangan pernah dari body/query browser. Tabel data toko punya kolom `store_id` (sementara `DEFAULT 'default'`);
+  query baru pada tabel tersebut wajib memfilter `store_id`. Data lama milik toko `default` (slug `simple-ground`).
+- Tes integrasi: `TEST_DATABASE_URL=... npm run test:integration` (schema sementara, aman untuk DB berisi data).
 - Konfigurasi hanya lewat variabel lingkungan (`.env`, lihat `.env.example`). Jangan menulis URL/kunci langsung di kode.

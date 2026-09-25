@@ -4,6 +4,7 @@
  */
 export type OrderRow = {
   id: number;
+  store_id: string;
   order_number: string;
   customer_name: string;
   customer_phone: string;
@@ -21,6 +22,7 @@ export type OrderRow = {
 
 export type ProductRow = {
   id: string;
+  store_id: string;
   name: string;
   category: string;
   subcategory: string;
@@ -51,6 +53,36 @@ export type AdminUserRow = {
   email: string;
   name: string;
   password_hash: string | null;
+  platform_role: 'super_admin' | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type StoreRow = {
+  id: string;
+  slug: string;
+  name: string;
+  status: 'active' | 'suspended' | 'closed';
+  email: string;
+  phone: string;
+  address: string;
+  timezone: string;
+  currency: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type StoreDomainRow = {
+  host: string;
+  store_id: string;
+  is_primary: number;
+  created_at: string;
+};
+
+export type StoreMembershipRow = {
+  store_id: string;
+  user_id: string;
+  role: 'store_owner' | 'store_admin' | 'store_staff';
   created_at: string;
   updated_at: string;
 };

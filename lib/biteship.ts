@@ -33,7 +33,8 @@ export async function retrieveShippingRates(
 ): Promise<ShippingOption[]> {
   const apiKey = process.env.BITESHIP_API_KEY;
   if (!apiKey) throw new Error('Biteship belum dikonfigurasi.');
-  const response = await fetch('https://api.biteship.com/v1/rates/couriers', {
+  const baseUrl = (process.env.BITESHIP_API_URL || 'https://api.biteship.com').replace(/\/+$/, '');
+  const response = await fetch(`${baseUrl}/v1/rates/couriers`, {
     method: 'POST',
     headers: {
       authorization: `Bearer ${apiKey}`,
