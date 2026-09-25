@@ -28,6 +28,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { printLabel } from '../admin/admin-client';
+import { openStoreAdmin } from './open-admin';
 
 type Order = {
   storeId: string;
@@ -223,7 +224,6 @@ export function PlatformOrders({ stores }: { stores: OrderStore[] }) {
     }
   }
 
-  const storeUrl = (id: string) => stores.find((store) => store.id === id)?.url;
   const counts = result?.statusCounts ?? {};
   const countAll = Object.values(counts).reduce((sum, count) => sum + count, 0);
   const select = 'h-10 rounded-lg border bg-white px-3 text-sm';
@@ -554,16 +554,17 @@ export function PlatformOrders({ stores }: { stores: OrderStore[] }) {
               >
                 <Printer size={16} /> Cetak label pengiriman A6
               </Button>
-              {storeUrl(selected.storeId) && (
-                <a
-                  href={`${storeUrl(selected.storeId)}/admin?section=orders`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center justify-center gap-2 text-sm font-semibold text-blue-600"
-                >
-                  Buka di admin {selected.storeName} <ExternalLink size={15} />
-                </a>
-              )}
+              <button
+                type="button"
+                onClick={() =>
+                  void openStoreAdmin(selected.storeId).then(
+                    (error) => error && setMessage(error),
+                  )
+                }
+                className="flex w-full items-center justify-center gap-2 text-sm font-semibold text-blue-600"
+              >
+                Kelola di admin {selected.storeName} <ExternalLink size={15} />
+              </button>
             </div>
           )}
         </SheetContent>

@@ -269,6 +269,10 @@ email tersebut. Di panel yang sama: tambah/lepas domain, pilih domain utama, tam
 
 Data toko tidak pernah dihapus dari panel.
 
+**Kelola tanpa login ulang** — tombol *Kelola* di `/platform` (juga di detail pesanan) membuka admin toko di
+domainnya sendiri dan langsung masuk sebagai super admin, lewat tautan sekali pakai yang berlaku 60 detik (hanya
+hash token yang disimpan, tabel `admin_handoff_tokens`). Tercatat di Aktivitas toko sebagai masuk "platform".
+
 **Pusat pesanan** — tab *Pesanan* di `/platform` (`/platform?tab=pesanan`): pesanan semua toko dalam satu
 daftar, bisa difilter per website (atau semua), status, tanggal (WIB), dan dicari lewat nomor pesanan/nama/telepon.
 Super admin bisa membuka detail, mengubah status, menghubungi pembeli via WA, dan mencetak label (pengirim =

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { SalesReport } from '../admin/reports-client';
+import { openStoreAdmin } from './open-admin';
 import { PlatformOrders } from './orders-client';
 
 type Status = 'active' | 'suspended' | 'closed';
@@ -321,16 +322,20 @@ export function PlatformConsole({
                         >
                           Buka toko
                         </a>
-                        <a
-                          href={`${storeUrl(store)}/admin`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="rounded-lg border px-3 py-1.5 text-sm"
-                        >
-                          Admin toko
-                        </a>
                       </>
                     )}
+                    <button
+                      type="button"
+                      title="Masuk ke admin toko ini tanpa login ulang"
+                      onClick={() =>
+                        void openStoreAdmin(store.id).then(
+                          (error) => error && setMessage(error),
+                        )
+                      }
+                      className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white"
+                    >
+                      Kelola
+                    </button>
                     <select
                       aria-label={`Status ${store.name}`}
                       disabled={busy}
