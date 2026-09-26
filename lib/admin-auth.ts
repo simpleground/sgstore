@@ -21,7 +21,8 @@ import { redirect } from 'next/navigation';
 import { NextResponse } from 'next/server';
 import { getD1 } from '@/db';
 import { hashPassword, verifyPassword } from '@/lib/password';
-import { roleCan, type Permission, type StoreRole } from '@/lib/permissions';
+import { permissionsFor, type Permission, type StoreRole } from '@/lib/permissions';
+import { membershipAccess } from '@/lib/roles';
 import { secureCookies } from '@/lib/site';
 import { getCurrentStore, getDefaultStore, type Store } from '@/lib/tenant';
 
@@ -43,6 +44,12 @@ export type StoreAdmin = AdminUser & {
   store: Store;
   /** Membership role; null for a super_admin who is not a member of this store. */
   role: StoreRole | null;
+  /** Custom role (Admin → Peran & izin), or null for a built-in role. */
+  customRoleId: string | null;
+  /** Name shown in the admin panel, e.g. "Pemilik" or a custom role's name. */
+  roleName: string;
+  /** What this admin may do in the store (every permission for a super_admin). */
+  permissions: Permission[];
 };
 
 async function sha256(value: string) {
@@ -88,9 +95,17 @@ export async function getStoreAdmin(): Promise<StoreAdmin | null> {
   if (!admin || !store) return null;
   // A closed store is managed only by the platform (suspended stores keep their admins).
   if (store.status === 'closed' && admin.platformRole !== 'super_admin') return null;
-  const role = await membershipRole(store.id, admin.userId);
-  if (!role && admin.platformRole !== 'super_admin') return null;
-  return { ...admin, store, role };
+  const access = await membershipAccess(store.id, admin.userId);
+  const superAdmin = admin.platformRole === 'super_admin';
+  if (!access && !superAdmin) return null;
+  return {
+    ...admin,
+    store,
+    role: access?.role ?? null,
+    customRoleId: access?.customRoleId ?? null,
+    roleName: superAdmin ? 'Admin platform' : access!.roleName,
+    permissions: superAdmin ? permissionsFor(null) : access!.permissions,
+  };
 }
 
 /**
@@ -102,7 +117,7 @@ export function effectiveRole(admin: StoreAdmin): StoreRole | null {
 }
 
 export function adminCan(admin: StoreAdmin, permission: Permission) {
-  return roleCan(effectiveRole(admin), permission);
+  return admin.permissions.includes(permission);
 }
 
 export function forbiddenForRole() {
@@ -172,13 +187,18 @@ export async function findAdminByEmail(email: string) {
 }
 
 /** Add the admin to a store (no change when already a member). */
-export async function addStoreMember(storeId: string, userId: string, role: StoreRole) {
+export async function addStoreMember(
+  storeId: string,
+  userId: string,
+  role: StoreRole,
+  customRoleId: string | null = null,
+) {
   const now = new Date().toISOString();
   await getD1()
     .prepare(
-      'INSERT INTO store_memberships (store_id,user_id,role,created_at,updated_at) VALUES (?,?,?,?,?) ON CONFLICT (store_id,user_id) DO NOTHING',
+      'INSERT INTO store_memberships (store_id,user_id,role,custom_role_id,created_at,updated_at) VALUES (?,?,?,?,?,?) ON CONFLICT (store_id,user_id) DO NOTHING',
     )
-    .bind(storeId, userId, role, now, now)
+    .bind(storeId, userId, role, customRoleId, now, now)
     .run();
 }
 

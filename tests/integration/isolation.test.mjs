@@ -571,3 +571,48 @@ describe('pembayaran & konsistensi data', () => {
     assert.deepEqual(rows[0], { carts: 0, reviews: 0, sessions: 0 });
   });
 });
+
+describe('daftar pesanan & laporan admin toko', () => {
+  it('GET /api/admin/orders hanya berisi pesanan toko sendiri; ?store= diabaikan', async () => {
+    for (const query of [
+      '',
+      `?store=${STORE_B}`,
+      `?q=${s.orderB.orderNumber}`,
+    ]) {
+      const response = await call(`/api/admin/orders${query}`, {
+        cookie: s.cookieA,
+      });
+      assert.equal(response.status, 200, query);
+      assert.ok(
+        response.body.orders.every((order) => order.storeId === 'default'),
+        query,
+      );
+      assert.ok(
+        !response.body.orders.some(
+          (order) => order.orderNumber === s.orderB.orderNumber,
+        ),
+        query,
+      );
+    }
+  });
+
+  it('laporan penjualan produk & stok toko A tidak memuat produk toko B', async () => {
+    const products = await call(
+      `/api/admin/reports?report=products&store=${STORE_B}`,
+      { cookie: s.cookieA },
+    );
+    assert.ok(products.body.products.every((row) => row.storeId === 'default'));
+    const stock = await call(
+      `/api/admin/reports?report=inventory&store=${STORE_B}`,
+      { cookie: s.cookieA },
+    );
+    assert.ok(stock.body.lines.length > 0);
+    assert.ok(stock.body.lines.every((line) => line.storeId === 'default'));
+    assert.ok(!stock.body.lines.some((line) => line.productId === s.productB));
+  });
+
+  it('admin toko A tidak bisa memakai laporan atau pesanan platform', async () => {
+    for (const path of ['/api/platform/orders', '/api/platform/reports'])
+      assert.equal((await call(path, { cookie: s.cookieA })).status, 403, path);
+  });
+});

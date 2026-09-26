@@ -23,6 +23,66 @@ type StoreSales = {
   revenue: number;
   itemsSold: number;
 };
+type ProductSales = {
+  summary: { products: number; quantity: number; revenue: number };
+  products: {
+    storeId: string;
+    storeName: string;
+    productId: string;
+    name: string;
+    category: string;
+    quantity: number;
+    revenue: number;
+    orders: number;
+  }[];
+  categories: { category: string; quantity: number; revenue: number }[];
+};
+type Inventory = {
+  summary: {
+    products: number;
+    variants: number;
+    units: number;
+    value: number;
+    outOfStock: number;
+    lowStock: number;
+    lowStockLimit: number;
+  };
+  lines: {
+    storeId: string;
+    storeName: string;
+    productId: string;
+    name: string;
+    category: string;
+    variant: string;
+    sku: string;
+    price: number;
+    stock: number;
+    value: number;
+    soldCount: number;
+    preorder: boolean;
+    active: boolean;
+    status: 'habis' | 'menipis' | 'aman';
+  }[];
+};
+type Tab = 'finance' | 'products' | 'inventory';
+const TABS: { key: Tab; label: string; note: string }[] = [
+  {
+    key: 'finance',
+    label: 'Keuangan',
+    note: 'Omzet, pembayaran, dan status pesanan.',
+  },
+  {
+    key: 'products',
+    label: 'Penjualan produk',
+    note: 'Produk & kategori yang terjual di periode ini.',
+  },
+  {
+    key: 'inventory',
+    label: 'Stok inventori',
+    note: 'Stok saat ini per varian (tidak bergantung periode).',
+  },
+];
+
 type Report = {
   period: { from: string; to: string; unit: 'day' | 'month' };
   summary: Summary;
@@ -34,6 +94,16 @@ type Report = {
     revenue: number;
   }[];
   statuses: Record<string, number>;
+  finance: {
+    byPayment: {
+      method: string;
+      label: string;
+      orders: number;
+      revenue: number;
+    }[];
+    pendingValue: number;
+    cancelledValue: number;
+  };
   topProducts: {
     storeId: string;
     storeName: string;
@@ -221,10 +291,11 @@ function TrendChart({ report }: { report: Report }) {
 }
 
 /**
- * Sales report. `stores` given (platform) = a website filter and a comparison
- * of the websites; without it the endpoint reports only the current store.
+ * Reports: finance, product sales and inventory. `stores` given (platform
+ * super_admin) = a website filter and a comparison of the websites; without
+ * it the endpoint reports only the current store.
  */
-export function SalesReport({
+export function ReportsCenter({
   endpoint,
   stores,
 }: {
@@ -237,12 +308,17 @@ export function SalesReport({
     wibDay(),
   ]);
   const [storeId, setStoreId] = useState('');
+  const [tab, setTab] = useState<Tab>('finance');
   const [reloads, setReloads] = useState(0);
-  const [report, setReport] = useState<Report | null>(null);
+  const [data, setData] = useState<{ tab: Tab; value: unknown } | null>(null);
   const [error, setError] = useState('');
   const [loaded, setLoaded] = useState('');
 
-  const params = new URLSearchParams({ from: range[0], to: range[1] });
+  const params = new URLSearchParams({
+    report: tab,
+    from: range[0],
+    to: range[1],
+  });
   if (storeId) params.set('store', storeId);
   const request = `${params}#${reloads}`;
   const loading = loaded !== request;
@@ -251,11 +327,14 @@ export function SalesReport({
     const [query] = request.split('#');
     fetch(`${endpoint}?${query}`)
       .then(async (response) => {
-        const data = (await response.json()) as Report & { error?: string };
+        const value = (await response.json()) as { error?: string };
         if (!response.ok)
-          throw new Error(data.error || 'Laporan gagal dimuat.');
+          throw new Error(value.error || 'Laporan gagal dimuat.');
         if (current) {
-          setReport(data);
+          setData({
+            tab: new URLSearchParams(query).get('report') as Tab,
+            value,
+          });
           setError('');
         }
       })
@@ -279,6 +358,11 @@ export function SalesReport({
     if (found) setRange(found.range());
   };
   const allStores = Boolean(stores) && !storeId;
+  const report = data?.tab === 'finance' ? (data.value as Report) : null;
+  const productSales =
+    data?.tab === 'products' ? (data.value as ProductSales) : null;
+  const inventory =
+    data?.tab === 'inventory' ? (data.value as Inventory) : null;
   const summary = report?.summary;
   const maxStoreRevenue = Math.max(
     1,
@@ -292,6 +376,25 @@ export function SalesReport({
 
   return (
     <section className="space-y-6">
+      <div>
+        <div role="tablist" className="flex flex-wrap gap-1 border-b">
+          {TABS.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              role="tab"
+              aria-selected={tab === item.key}
+              onClick={() => setTab(item.key)}
+              className={`-mb-px border-b-2 px-4 py-2 text-sm font-semibold ${tab === item.key ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500'}`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-2 text-sm text-slate-500">
+          {TABS.find((item) => item.key === tab)?.note}
+        </p>
+      </div>
       <div className="flex flex-wrap items-end gap-3 rounded-xl border bg-white p-4">
         {stores && (
           <label className="text-xs font-semibold text-slate-500">
@@ -311,49 +414,53 @@ export function SalesReport({
             </select>
           </label>
         )}
-        <div className="text-xs font-semibold text-slate-500">
-          Periode
-          <div className="mt-1 flex flex-wrap gap-1">
-            {PRESETS.map((item) => (
-              <button
-                key={item.key}
-                type="button"
-                onClick={() => choosePreset(item.key)}
-                className={`h-10 rounded-lg border px-3 text-sm font-medium ${preset === item.key ? 'border-blue-600 bg-blue-600 text-white' : 'bg-white text-slate-700'}`}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <label className="text-xs font-semibold text-slate-500">
-          Dari
-          <input
-            type="date"
-            className={`${field} mt-1 block`}
-            value={range[0]}
-            max={range[1]}
-            onChange={(event) => {
-              if (!event.target.value) return;
-              setPreset('');
-              setRange([event.target.value, range[1]]);
-            }}
-          />
-        </label>
-        <label className="text-xs font-semibold text-slate-500">
-          Sampai
-          <input
-            type="date"
-            className={`${field} mt-1 block`}
-            value={range[1]}
-            min={range[0]}
-            onChange={(event) => {
-              if (!event.target.value) return;
-              setPreset('');
-              setRange([range[0], event.target.value]);
-            }}
-          />
-        </label>
+        {tab !== 'inventory' && (
+          <>
+            <div className="text-xs font-semibold text-slate-500">
+              Periode
+              <div className="mt-1 flex flex-wrap gap-1">
+                {PRESETS.map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => choosePreset(item.key)}
+                    className={`h-10 rounded-lg border px-3 text-sm font-medium ${preset === item.key ? 'border-blue-600 bg-blue-600 text-white' : 'bg-white text-slate-700'}`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <label className="text-xs font-semibold text-slate-500">
+              Dari
+              <input
+                type="date"
+                className={`${field} mt-1 block`}
+                value={range[0]}
+                max={range[1]}
+                onChange={(event) => {
+                  if (!event.target.value) return;
+                  setPreset('');
+                  setRange([event.target.value, range[1]]);
+                }}
+              />
+            </label>
+            <label className="text-xs font-semibold text-slate-500">
+              Sampai
+              <input
+                type="date"
+                className={`${field} mt-1 block`}
+                value={range[1]}
+                min={range[0]}
+                onChange={(event) => {
+                  if (!event.target.value) return;
+                  setPreset('');
+                  setRange([range[0], event.target.value]);
+                }}
+              />
+            </label>
+          </>
+        )}
         <div className="ml-auto flex gap-2">
           <Button
             variant="outline"
@@ -410,6 +517,8 @@ export function SalesReport({
           </div>
 
           <TrendChart report={report} />
+
+          <FinanceDetails report={report} />
 
           <div
             className={`grid gap-6 ${allStores ? 'xl:grid-cols-2' : 'xl:grid-cols-[1.6fr_1fr]'}`}
@@ -550,7 +659,17 @@ export function SalesReport({
           )}
         </div>
       )}
-      {!report && !error && (
+      {productSales && (
+        <div className={loading ? 'opacity-60' : undefined}>
+          <ProductSalesView data={productSales} showStore={allStores} />
+        </div>
+      )}
+      {inventory && (
+        <div className={loading ? 'opacity-60' : undefined}>
+          <InventoryView data={inventory} showStore={allStores} />
+        </div>
+      )}
+      {data?.tab !== tab && !error && (
         <p className="text-sm text-slate-500">Memuat laporan…</p>
       )}
     </section>
@@ -583,6 +702,402 @@ function StatusList({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function Card({
+  title,
+  note,
+  children,
+}: {
+  title: string;
+  note?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-xl border bg-white p-5">
+      <h2 className="text-base">{title}</h2>
+      {note && <p className="mt-1 text-xs text-slate-500">{note}</p>}
+      {children}
+    </div>
+  );
+}
+
+/** Money by payment method, plus the value of unpaid and cancelled orders. */
+function FinanceDetails({ report }: { report: Report }) {
+  const { byPayment, pendingValue, cancelledValue } = report.finance;
+  return (
+    <div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
+      <Card
+        title="Pemasukan per metode pembayaran"
+        note="Pesanan dibayar, termasuk ongkir."
+      >
+        {byPayment.length ? (
+          <table className="mt-4 w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs text-slate-500">
+                <th className="pb-2 font-medium">Metode</th>
+                <th className="pb-2 pl-3 text-right font-medium">Pesanan</th>
+                <th className="pb-2 pl-3 text-right font-medium">Jumlah</th>
+                <th className="pb-2 pl-3 text-right font-medium">Porsi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {byPayment.map((row) => (
+                <tr key={row.method} className="border-t">
+                  <td className="py-2.5 pr-3 font-medium">{row.label}</td>
+                  <td className="py-2.5 text-right">{number(row.orders)}</td>
+                  <td className="py-2.5 text-right">{money(row.revenue)}</td>
+                  <td className="py-2.5 text-right text-slate-500">
+                    {report.summary.revenue
+                      ? `${Math.round((row.revenue / report.summary.revenue) * 100)}%`
+                      : '-'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p className="mt-4 text-sm text-slate-500">
+            Belum ada pembayaran di periode ini.
+          </p>
+        )}
+      </Card>
+      <Card title="Belum menjadi pemasukan">
+        <dl className="mt-4 space-y-3 text-sm">
+          <div className="flex justify-between">
+            <dt className="text-slate-600">
+              Menunggu pembayaran ({number(report.summary.pending)})
+            </dt>
+            <dd className="font-semibold">{money(pendingValue)}</dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-slate-600">
+              Dibatalkan ({number(report.summary.cancelled)})
+            </dt>
+            <dd className="font-semibold">{money(cancelledValue)}</dd>
+          </div>
+          <div className="flex justify-between border-t pt-3">
+            <dt className="text-slate-600">Ongkir yang ditagihkan</dt>
+            <dd className="font-semibold">{money(report.summary.shipping)}</dd>
+          </div>
+        </dl>
+      </Card>
+    </div>
+  );
+}
+
+const PAGE = 20;
+
+function Pager({
+  page,
+  total,
+  onPage,
+}: {
+  page: number;
+  total: number;
+  onPage: (page: number) => void;
+}) {
+  const pages = Math.max(1, Math.ceil(total / PAGE));
+  if (pages <= 1) return null;
+  return (
+    <div className="mt-4 flex items-center justify-between text-sm text-slate-500">
+      <span>
+        Halaman {page}/{pages}
+      </span>
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={page <= 1}
+          onClick={() => onPage(page - 1)}
+        >
+          Sebelumnya
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={page >= pages}
+          onClick={() => onPage(page + 1)}
+        >
+          Berikutnya
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function ProductSalesView({
+  data,
+  showStore,
+}: {
+  data: ProductSales;
+  showStore: boolean;
+}) {
+  const [page, setPage] = useState(1);
+  const [query, setQuery] = useState('');
+  const rows = data.products.filter((row) =>
+    `${row.name} ${row.category} ${row.storeName}`
+      .toLowerCase()
+      .includes(query.toLowerCase()),
+  );
+  const current = Math.min(page, Math.max(1, Math.ceil(rows.length / PAGE)));
+  const maxCategory = Math.max(1, ...data.categories.map((row) => row.revenue));
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Tile
+          label="Penjualan produk"
+          value={money(data.summary.revenue)}
+          note="Tanpa ongkir, pesanan dibayar"
+        />
+        <Tile
+          label="Barang terjual"
+          value={number(data.summary.quantity)}
+          note="Jumlah unit"
+        />
+        <Tile
+          label="Produk terjual"
+          value={number(data.summary.products)}
+          note="Produk berbeda yang laku"
+        />
+      </div>
+      <div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
+        <Card title="Semua produk terjual">
+          <input
+            aria-label="Cari produk"
+            placeholder="Cari produk atau kategori…"
+            className="mt-3 h-10 w-full rounded-lg border bg-white px-3 text-sm"
+            value={query}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setPage(1);
+            }}
+          />
+          {rows.length ? (
+            <table className="mt-3 w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs text-slate-500">
+                  <th className="pb-2 font-medium">Produk</th>
+                  <th className="pb-2 pl-3 text-right font-medium">Terjual</th>
+                  <th className="pb-2 pl-3 text-right font-medium">Pesanan</th>
+                  <th className="pb-2 pl-3 text-right font-medium">
+                    Penjualan
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.slice((current - 1) * PAGE, current * PAGE).map((row) => (
+                  <tr
+                    key={`${row.storeId}:${row.productId}:${row.name}`}
+                    className="border-t"
+                  >
+                    <td className="py-2.5 pr-3">
+                      <span className="font-medium text-slate-900">
+                        {row.name || '(tanpa nama)'}
+                      </span>
+                      <span className="block text-xs text-slate-500">
+                        {[
+                          row.category || 'Tanpa kategori',
+                          showStore ? row.storeName : '',
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </span>
+                    </td>
+                    <td className="py-2.5 text-right">
+                      {number(row.quantity)}
+                    </td>
+                    <td className="py-2.5 text-right">{number(row.orders)}</td>
+                    <td className="py-2.5 text-right">{money(row.revenue)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="mt-4 text-sm text-slate-500">
+              Belum ada produk terjual di periode ini.
+            </p>
+          )}
+          <Pager page={current} total={rows.length} onPage={setPage} />
+        </Card>
+        <Card title="Per kategori">
+          <div className="mt-4 space-y-4">
+            {data.categories.map((row) => (
+              <div key={row.category}>
+                <span className="mb-1.5 flex justify-between gap-3 text-sm">
+                  <span className="text-slate-700">{row.category}</span>
+                  <b className="text-slate-900">{money(row.revenue)}</b>
+                </span>
+                <span className="block h-1.5 overflow-hidden rounded-full bg-slate-100">
+                  <span
+                    className="block h-full rounded-full bg-blue-600"
+                    style={{ width: `${(row.revenue / maxCategory) * 100}%` }}
+                  />
+                </span>
+                <span className="mt-1 block text-xs text-slate-500">
+                  {number(row.quantity)} barang
+                </span>
+              </div>
+            ))}
+            {!data.categories.length && (
+              <p className="text-sm text-slate-500">Belum ada data.</p>
+            )}
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+const STOCK_STYLE = {
+  habis: 'bg-red-50 text-red-700',
+  menipis: 'bg-amber-50 text-amber-800',
+  aman: 'bg-emerald-50 text-emerald-700',
+};
+const STOCK_LABEL = { habis: 'Habis', menipis: 'Menipis', aman: 'Aman' };
+
+function InventoryView({
+  data,
+  showStore,
+}: {
+  data: Inventory;
+  showStore: boolean;
+}) {
+  const [page, setPage] = useState(1);
+  const [status, setStatus] = useState<'' | 'habis' | 'menipis' | 'aman'>('');
+  const [query, setQuery] = useState('');
+  const rows = data.lines.filter(
+    (line) =>
+      (!status || (line.status === status && !line.preorder)) &&
+      `${line.name} ${line.variant} ${line.sku} ${line.category} ${line.storeName}`
+        .toLowerCase()
+        .includes(query.toLowerCase()),
+  );
+  const current = Math.min(page, Math.max(1, Math.ceil(rows.length / PAGE)));
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Tile
+          label="Nilai stok"
+          value={money(data.summary.value)}
+          note="Harga jual × stok"
+        />
+        <Tile
+          label="Unit tersedia"
+          value={number(data.summary.units)}
+          note={`${number(data.summary.variants)} varian dari ${number(data.summary.products)} produk`}
+        />
+        <Tile
+          label="Stok habis"
+          value={number(data.summary.outOfStock)}
+          note="Varian produk aktif"
+        />
+        <Tile
+          label="Stok menipis"
+          value={number(data.summary.lowStock)}
+          note={`Sisa ${data.summary.lowStockLimit} atau kurang`}
+        />
+      </div>
+      <Card title="Stok per varian">
+        <div className="mt-3 flex flex-wrap gap-2">
+          <input
+            aria-label="Cari stok"
+            placeholder="Cari produk, varian, atau SKU…"
+            className="h-10 min-w-56 flex-1 rounded-lg border bg-white px-3 text-sm"
+            value={query}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setPage(1);
+            }}
+          />
+          <select
+            aria-label="Filter status stok"
+            className="h-10 rounded-lg border bg-white px-3 text-sm"
+            value={status}
+            onChange={(event) => {
+              setStatus(event.target.value as typeof status);
+              setPage(1);
+            }}
+          >
+            <option value="">Semua status</option>
+            <option value="habis">Habis</option>
+            <option value="menipis">Menipis</option>
+            <option value="aman">Aman</option>
+          </select>
+        </div>
+        {rows.length ? (
+          <div className="overflow-x-auto">
+            <table className="mt-3 w-full min-w-[640px] text-sm">
+              <thead>
+                <tr className="text-left text-xs text-slate-500">
+                  <th className="pb-2 font-medium">Produk</th>
+                  <th className="pb-2 font-medium">Varian</th>
+                  <th className="pb-2 pl-3 text-right font-medium">Stok</th>
+                  <th className="pb-2 pl-3 text-right font-medium">Nilai</th>
+                  <th className="pb-2 pl-3 text-right font-medium">Terjual</th>
+                  <th className="pb-2 pl-3 font-medium">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows
+                  .slice((current - 1) * PAGE, current * PAGE)
+                  .map((line, index) => (
+                    <tr
+                      key={`${line.productId}:${line.variant}:${line.sku}:${index}`}
+                      className="border-t"
+                    >
+                      <td className="py-2.5 pr-3">
+                        <span className="font-medium text-slate-900">
+                          {line.name}
+                        </span>
+                        <span className="block text-xs text-slate-500">
+                          {[
+                            line.category,
+                            showStore ? line.storeName : '',
+                            line.active ? '' : 'Nonaktif',
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </span>
+                      </td>
+                      <td className="py-2.5 pr-3 text-slate-600">
+                        {line.variant || '-'}
+                        {line.sku && (
+                          <span className="block text-xs text-slate-400">
+                            {line.sku}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2.5 text-right font-semibold">
+                        {number(line.stock)}
+                      </td>
+                      <td className="py-2.5 text-right">{money(line.value)}</td>
+                      <td className="py-2.5 text-right">
+                        {number(line.soldCount)}
+                      </td>
+                      <td className="py-2.5 pl-3">
+                        <span
+                          className={`rounded-md px-2 py-0.5 text-xs font-medium ${line.preorder ? 'bg-blue-50 text-blue-700' : STOCK_STYLE[line.status]}`}
+                        >
+                          {line.preorder
+                            ? 'Pre-order'
+                            : STOCK_LABEL[line.status]}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="mt-4 text-sm text-slate-500">
+            Tidak ada produk yang sesuai.
+          </p>
+        )}
+        <Pager page={current} total={rows.length} onPage={setPage} />
+      </Card>
     </div>
   );
 }

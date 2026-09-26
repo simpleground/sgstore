@@ -5,7 +5,6 @@ import {
   canChangeMember,
   isStoreRole,
   ROLE_LABELS,
-  STORE_ROLES,
   type StoreRole,
 } from '@/lib/permissions';
 
@@ -14,8 +13,13 @@ type Member = {
   email: string;
   name: string;
   role: StoreRole;
+  /** 'store_owner' | 'store_admin' | 'store_staff' | 'custom:<id>' */
+  roleKey: string;
+  customRoleName: string | null;
   createdAt: string;
 };
+/** A role that can be chosen; custom roles have a base level for the hierarchy. */
+type RoleOption = { key: string; name: string; baseRole: StoreRole };
 
 const ROLE_HELP: Record<StoreRole, string> = {
   store_owner: 'Semua akses, termasuk mengatur pemilik dan admin lain.',
@@ -39,6 +43,7 @@ async function fetchMembers() {
   const response = await fetch('/api/admin/members', { cache: 'no-store' });
   const data = (await response.json()) as {
     members?: Member[];
+    roles?: RoleOption[];
     me?: string;
     myRole?: StoreRole | null;
     error?: string;
@@ -46,6 +51,7 @@ async function fetchMembers() {
   if (!response.ok || !data.members) throw new Error(data.error);
   return {
     members: data.members,
+    roles: data.roles ?? [],
     me: data.me ?? '',
     myRole: data.myRole ?? null,
   };
@@ -53,11 +59,12 @@ async function fetchMembers() {
 
 export function MembersManager({ canManage }: { canManage: boolean }) {
   const [members, setMembers] = useState<Member[]>([]);
+  const [roles, setRoles] = useState<RoleOption[]>([]);
   const [me, setMe] = useState('');
   const [myRole, setMyRole] = useState<StoreRole | null>(null);
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
-  const [role, setRole] = useState<StoreRole>('store_staff');
+  const [role, setRole] = useState('store_staff');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -66,6 +73,7 @@ export function MembersManager({ canManage }: { canManage: boolean }) {
       fetchMembers()
         .then((data) => {
           setMembers(data.members);
+          setRoles(data.roles);
           setMe(data.me);
           setMyRole(data.myRole);
         })
@@ -96,9 +104,13 @@ export function MembersManager({ canManage }: { canManage: boolean }) {
     }
   }
 
-  const assignable = STORE_ROLES.filter((option) =>
-    canChangeMember(myRole, null, option),
+  const assignable = roles.filter((option) =>
+    canChangeMember(myRole, null, option.baseRole),
   );
+  const chosen = roles.find((option) => option.key === role);
+  const help = isStoreRole(role)
+    ? ROLE_HELP[role]
+    : `Peran kustom (tingkat ${chosen ? ROLE_LABELS[chosen.baseRole] : '-'}); izinnya diatur admin platform.`;
 
   return (
     <section>
@@ -147,12 +159,12 @@ export function MembersManager({ canManage }: { canManage: boolean }) {
             Peran
             <select
               value={role}
-              onChange={(event) => setRole(event.target.value as StoreRole)}
+              onChange={(event) => setRole(event.target.value)}
               className="mt-1 w-full rounded-xl border bg-white px-3 py-2 font-normal"
             >
               {assignable.map((option) => (
-                <option key={option} value={option}>
-                  {ROLE_LABELS[option]}
+                <option key={option.key} value={option.key}>
+                  {option.name}
                 </option>
               ))}
             </select>
@@ -164,7 +176,7 @@ export function MembersManager({ canManage }: { canManage: boolean }) {
             Tambah anggota
           </button>
           <p className="text-xs leading-5 text-[#7b847c] sm:col-span-4">
-            {ROLE_HELP[role]} Anggota baru masuk dengan akun Google yang memakai
+            {help} Anggota baru masuk dengan akun Google yang memakai
             email ini.
           </p>
         </form>
@@ -173,10 +185,10 @@ export function MembersManager({ canManage }: { canManage: boolean }) {
       <div className="mt-5 divide-y rounded-2xl border bg-white">
         {members.map((member) => {
           const self = member.userId === me;
-          const options = STORE_ROLES.filter(
+          const options = roles.filter(
             (option) =>
-              option === member.role ||
-              canChangeMember(myRole, member.role, option),
+              option.key === member.roleKey ||
+              canChangeMember(myRole, member.role, option.baseRole),
           );
           const editable = canManage && !self && options.length > 1;
           const removable =
@@ -197,7 +209,7 @@ export function MembersManager({ canManage }: { canManage: boolean }) {
                 <select
                   aria-label={`Peran ${member.email}`}
                   disabled={busy}
-                  value={member.role}
+                  value={member.roleKey}
                   onChange={(event) =>
                     void run(
                       () =>
@@ -211,14 +223,14 @@ export function MembersManager({ canManage }: { canManage: boolean }) {
                   className="rounded-xl border bg-white px-3 py-2 text-sm"
                 >
                   {options.map((option) => (
-                    <option key={option} value={option}>
-                      {ROLE_LABELS[option]}
+                    <option key={option.key} value={option.key}>
+                      {option.name}
                     </option>
                   ))}
                 </select>
               ) : (
                 <span className="rounded-lg bg-[#efe7d8] px-3 py-1.5 text-sm">
-                  {ROLE_LABELS[member.role]}
+                  {member.customRoleName || ROLE_LABELS[member.role]}
                 </span>
               )}
               {removable && (

@@ -253,9 +253,128 @@ describe('laporan di admin toko', () => {
     assert.equal((await call(`/api/platform/reports?${PERIOD}`)).status, 403);
   });
 
-  it('tab Laporan tersedia di panel platform', async () => {
+  it('tautan lama panel platform membuka menu Laporan di dashboard admin', async () => {
     const page = await call('/platform?tab=laporan', { cookie: s.superCookie });
-    assert.equal(page.status, 200);
-    assert.ok(page.text.includes('Laporan penjualan'));
+    assert.equal(page.headers.get('location'), '/admin?section=reports');
+  });
+});
+
+describe('laporan keuangan, penjualan produk, dan stok', () => {
+  before(async () => {
+    const variants = [
+      { sku: 'K-S', color: 'Hitam', size: 'S', price: 50000, stock: 0 },
+      { sku: 'K-M', color: 'Hitam', size: 'M', price: 50000, stock: 3 },
+      { sku: 'K-L', color: 'Hitam', size: 'L', price: 55000, stock: 10 },
+    ];
+    await db.query(
+      `INSERT INTO products (store_id,id,name,category,tone,price,stock,variants_json,sold_count,created_at,updated_at)
+       VALUES ($1,'p1','Kaos','Kaos','Hitam',50000,13,$2,7,'t','t'),
+              ($1,'p-hapus','Produk terhapus','Kaos','Hitam',1,99,'[]',0,'t','t')`,
+      [STORE, JSON.stringify(variants)],
+    );
+    await db.query(
+      "UPDATE products SET deleted_at='t' WHERE store_id=$1 AND id='p-hapus'",
+      [STORE],
+    );
+  });
+
+  it('keuangan: per metode pembayaran, nilai menunggu & batal', async () => {
+    const { body } = await platform(`store=${STORE}&${PERIOD}&report=finance`);
+    assert.deepEqual(body.finance, {
+      byPayment: [
+        {
+          method: 'manual',
+          orders: 2,
+          revenue: 175000,
+          label: 'Transfer manual',
+        },
+      ],
+      pendingValue: 50000,
+      cancelledValue: 20000,
+    });
+  });
+
+  it('penjualan produk: semua produk & per kategori', async () => {
+    const { body } = await platform(`store=${STORE}&${PERIOD}&report=products`);
+    assert.deepEqual(body.summary, {
+      products: 2,
+      quantity: 5,
+      revenue: 160000,
+    });
+    assert.deepEqual(
+      body.products.map((row) => [
+        row.name,
+        row.category,
+        row.quantity,
+        row.orders,
+      ]),
+      [
+        ['Topi', '', 3, 1],
+        ['Kaos', 'Kaos', 2, 1],
+      ],
+    );
+    assert.deepEqual(
+      body.categories.map((row) => [row.category, row.revenue]),
+      [
+        ['Kaos', 100000],
+        ['Tanpa kategori', 60000],
+      ],
+    );
+  });
+
+  it('stok inventori per varian (produk terhapus tidak dihitung)', async () => {
+    const { body } = await platform(`store=${STORE}&report=inventory`);
+    assert.deepEqual(body.summary, {
+      products: 1,
+      variants: 3,
+      units: 13,
+      value: 3 * 50000 + 10 * 55000,
+      outOfStock: 1,
+      lowStock: 1,
+      lowStockLimit: 5,
+    });
+    assert.deepEqual(
+      body.lines.map((line) => [line.variant, line.stock, line.status]),
+      [
+        ['Hitam / S', 0, 'habis'],
+        ['Hitam / M', 3, 'menipis'],
+        ['Hitam / L', 10, 'aman'],
+      ],
+    );
+  });
+
+  it('admin toko hanya melihat stok tokonya sendiri', async () => {
+    const response = await call(
+      `/api/admin/reports?report=inventory&store=default`,
+      {
+        host: HOST,
+        cookie: s.store_owner,
+      },
+    );
+    assert.equal(response.status, 200);
+    assert.ok(response.body.lines.every((line) => line.storeId === STORE));
+  });
+
+  it('ekspor CSV penjualan produk & stok', async () => {
+    const products = await platform(
+      `store=${STORE}&${PERIOD}&report=products&format=csv`,
+    );
+    assert.match(
+      products.headers.get('content-disposition'),
+      /laporan-penjualan-produk-toko-2025-02-01-sd-2025-02-03\.csv/,
+    );
+    assert.ok(products.text.includes('Toko Laporan;Topi;;3;60000;1'));
+    const stock = await platform(`store=${STORE}&report=inventory&format=csv`);
+    assert.ok(stock.text.startsWith('﻿Website;Produk;Kategori;Varian;SKU'));
+    assert.ok(
+      stock.text.includes(
+        'Toko Laporan;Kaos;Kaos;Hitam / S;K-S;50000;0;0;7;Habis;Ya',
+      ),
+    );
+    assert.ok(!stock.text.includes('Produk terhapus'));
+  });
+
+  it('jenis laporan tidak dikenal ditolak', async () => {
+    assert.equal((await platform(`report=rahasia`)).status, 400);
   });
 });

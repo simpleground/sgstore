@@ -215,9 +215,8 @@ describe('memproses pesanan', () => {
 });
 
 describe('halaman', () => {
-  it('tab Pesanan tersedia di panel platform', async () => {
+  it('tautan lama panel platform membuka menu Pesanan di dashboard admin', async () => {
     const page = await call('/platform?tab=pesanan', { cookie: s.superCookie });
-    assert.equal(page.status, 200);
-    assert.ok(page.text.includes('Semua pesanan'));
+    assert.equal(page.headers.get('location'), '/admin?section=orders');
   });
 });

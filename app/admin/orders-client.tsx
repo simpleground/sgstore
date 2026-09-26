@@ -27,7 +27,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { printLabel } from '../admin/admin-client';
+import { printLabel } from './admin-client';
 import { openStoreAdmin } from './open-admin';
 
 type Order = {
@@ -119,9 +119,26 @@ function Status({ value }: { value: string }) {
 
 const EMPTY_FILTER = { store: '', status: '', q: '', from: '', to: '' };
 
-/** All orders of every store in one list, filterable per store. */
-export function PlatformOrders({ stores }: { stores: OrderStore[] }) {
-  const [filter, setFilter] = useState(EMPTY_FILTER);
+/**
+ * Orders with filters, paged on the server. With `stores` (platform
+ * super_admin) it lists every website with a website filter; without it only
+ * the current store (the server decides which store, never the browser).
+ */
+export function OrdersCenter({
+  stores,
+  canUpdate,
+  initialStatus = '',
+}: {
+  stores?: OrderStore[];
+  canUpdate: boolean;
+  initialStatus?: string;
+}) {
+  const platform = Boolean(stores);
+  const endpoint = platform ? '/api/platform/orders' : '/api/admin/orders';
+  const [filter, setFilter] = useState({
+    ...EMPTY_FILTER,
+    status: initialStatus,
+  });
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
   const [result, setResult] = useState<Result | null>(null);
@@ -151,7 +168,7 @@ export function PlatformOrders({ stores }: { stores: OrderStore[] }) {
   useEffect(() => {
     let current = true;
     const [query] = request.split('#');
-    fetch(`/api/platform/orders?${query}`)
+    fetch(`${endpoint}?${query}`)
       .then(async (response) => {
         const data = (await response.json()) as Result & { error?: string };
         if (!response.ok)
@@ -173,7 +190,7 @@ export function PlatformOrders({ stores }: { stores: OrderStore[] }) {
     return () => {
       current = false;
     };
-  }, [request]);
+  }, [endpoint, request]);
 
   const change = (key: keyof typeof EMPTY_FILTER, value: string) => {
     setFilter((current) => ({ ...current, [key]: value }));
@@ -184,14 +201,14 @@ export function PlatformOrders({ stores }: { stores: OrderStore[] }) {
     setBusy(true);
     setMessage('');
     try {
-      const response = await fetch('/api/platform/orders', {
+      const response = await fetch(endpoint, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          storeId: order.storeId,
-          orderNumber: order.orderNumber,
-          status,
-        }),
+        body: JSON.stringify(
+          platform
+            ? { storeId: order.storeId, orderNumber: order.orderNumber, status }
+            : { orderNumber: order.orderNumber, status },
+        ),
       });
       const data = (await response.json()) as { error?: string };
       if (!response.ok) throw new Error(data.error || 'Status gagal disimpan.');
@@ -251,22 +268,24 @@ export function PlatformOrders({ stores }: { stores: OrderStore[] }) {
 
       <div className="mt-4 rounded-xl border bg-white">
         <div className="flex flex-wrap items-end gap-3 border-b p-4">
-          <label className="text-xs font-semibold text-slate-500">
-            Website
-            <select
-              aria-label="Filter website"
-              className={`${select} mt-1 block min-w-48`}
-              value={filter.store}
-              onChange={(event) => change('store', event.target.value)}
-            >
-              <option value="">Semua website</option>
-              {stores.map((store) => (
-                <option key={store.id} value={store.id}>
-                  {store.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          {stores && (
+            <label className="text-xs font-semibold text-slate-500">
+              Website
+              <select
+                aria-label="Filter website"
+                className={`${select} mt-1 block min-w-48`}
+                value={filter.store}
+                onChange={(event) => change('store', event.target.value)}
+              >
+                <option value="">Semua website</option>
+                {stores.map((store) => (
+                  <option key={store.id} value={store.id}>
+                    {store.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <label className="text-xs font-semibold text-slate-500">
             Dari
             <input
@@ -327,7 +346,7 @@ export function PlatformOrders({ stores }: { stores: OrderStore[] }) {
             <TableHeader>
               <TableRow className="bg-slate-50/80">
                 <TableHead className="pl-5">Pesanan</TableHead>
-                <TableHead>Website</TableHead>
+                {platform && <TableHead>Website</TableHead>}
                 <TableHead>Pelanggan</TableHead>
                 <TableHead>Tanggal</TableHead>
                 <TableHead>Status</TableHead>
@@ -350,11 +369,13 @@ export function PlatformOrders({ stores }: { stores: OrderStore[] }) {
                         {order.orderNumber}
                       </button>
                     </TableCell>
-                    <TableCell>
-                      <span className="rounded bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
-                        {order.storeName}
-                      </span>
-                    </TableCell>
+                    {platform && (
+                      <TableCell>
+                        <span className="rounded bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
+                          {order.storeName}
+                        </span>
+                      </TableCell>
+                    )}
                     <TableCell>
                       <span className="font-medium">{order.customerName}</span>
                       <span className="block text-xs text-slate-500">
@@ -392,7 +413,7 @@ export function PlatformOrders({ stores }: { stores: OrderStore[] }) {
               ) : (
                 <TableRow>
                   <TableCell
-                    colSpan={7}
+                    colSpan={platform ? 7 : 6}
                     className="py-16 text-center text-slate-500"
                   >
                     {loading
@@ -445,7 +466,8 @@ export function PlatformOrders({ stores }: { stores: OrderStore[] }) {
           <SheetHeader className="border-b p-6">
             <SheetTitle>Detail pesanan</SheetTitle>
             <SheetDescription>
-              {selected?.orderNumber} · {selected?.storeName}
+              {selected?.orderNumber}
+              {platform ? ` · ${selected?.storeName}` : ''}
             </SheetDescription>
           </SheetHeader>
           {selected && (
@@ -515,7 +537,7 @@ export function PlatformOrders({ stores }: { stores: OrderStore[] }) {
                 Status pesanan
                 <select
                   className="mt-2 block w-full border bg-white p-3"
-                  disabled={busy}
+                  disabled={busy || !canUpdate}
                   value={selected.status}
                   onChange={(event) =>
                     void updateStatus(selected, event.target.value)
@@ -554,17 +576,20 @@ export function PlatformOrders({ stores }: { stores: OrderStore[] }) {
               >
                 <Printer size={16} /> Cetak label pengiriman A6
               </Button>
-              <button
-                type="button"
-                onClick={() =>
-                  void openStoreAdmin(selected.storeId).then(
-                    (error) => error && setMessage(error),
-                  )
-                }
-                className="flex w-full items-center justify-center gap-2 text-sm font-semibold text-blue-600"
-              >
-                Kelola di admin {selected.storeName} <ExternalLink size={15} />
-              </button>
+              {platform && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    void openStoreAdmin(selected.storeId).then(
+                      (error) => error && setMessage(error),
+                    )
+                  }
+                  className="flex w-full items-center justify-center gap-2 text-sm font-semibold text-blue-600"
+                >
+                  Kelola di admin {selected.storeName}{' '}
+                  <ExternalLink size={15} />
+                </button>
+              )}
             </div>
           )}
         </SheetContent>
