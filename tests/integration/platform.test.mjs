@@ -40,18 +40,20 @@ describe('akses panel platform', () => {
       },
     });
     assert.equal(create.status, 403);
-    const page = await call('/platform', { cookie: s.storeAdmin.cookie });
-    assert.equal(page.status, 200);
-    assert.ok(page.text.includes('Khusus admin platform'));
+    // The Platform menu (Website, Peran & izin) is only shown to the super admin.
+    const admin = await call('/admin', { cookie: s.storeAdmin.cookie });
+    assert.equal(admin.status, 200);
+    assert.ok(!admin.text.includes('Peran &amp; izin'));
+    const superAdmin = await call('/admin', { cookie: s.superCookie });
+    assert.ok(superAdmin.text.includes('Peran &amp; izin'));
   });
 
   it('tanpa login diarahkan ke halaman login', async () => {
     assert.equal((await call('/api/platform/stores')).status, 403);
     const page = await call('/platform');
-    assert.match(
-      page.headers.get('location') || '',
-      /\/admin\/login\?next=%2Fplatform|\/admin\/login\?next=\/platform/,
-    );
+    assert.equal(page.headers.get('location'), '/admin?section=stores');
+    const admin = await call('/admin?section=stores');
+    assert.match(admin.headers.get('location') || '', /\/admin\/login/);
   });
 
   it('super admin melihat semua toko', async () => {

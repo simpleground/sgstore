@@ -167,6 +167,24 @@ export async function buildReport(
       revenue: number;
     }>();
 
+  // Money by payment method (paid orders) and the value still open or lost.
+  const { results: paymentRows } = await d1
+    .prepare(
+      `SELECT o.payment_method AS method, COUNT(*)::int AS orders,
+        COALESCE(SUM(o.total),0)::float8 AS revenue
+       FROM orders o WHERE ${where.sql} AND ${PAID_SQL} GROUP BY 1 ORDER BY 3 DESC`,
+    )
+    .bind(...where.values)
+    .all<{ method: string; orders: number; revenue: number }>();
+  const open = await d1
+    .prepare(
+      `SELECT COALESCE(SUM(o.total) FILTER (WHERE o.status='menunggu_pembayaran'),0)::float8 AS pending,
+        COALESCE(SUM(o.total) FILTER (WHERE o.status='dibatalkan'),0)::float8 AS cancelled
+       FROM orders o WHERE ${where.sql}`,
+    )
+    .bind(...where.values)
+    .first<{ pending: number; cancelled: number }>();
+
   for (const store of stores)
     store.itemsSold = productRows
       .filter((row) => row.storeId === store.storeId)
@@ -199,6 +217,181 @@ export async function buildReport(
     topProducts: productRows
       .sort((a, b) => b.quantity - a.quantity || b.revenue - a.revenue)
       .slice(0, 10),
+    finance: {
+      byPayment: paymentRows.map((row) => ({
+        ...row,
+        label: PAYMENT_LABELS[row.method] ?? row.method,
+      })),
+      pendingValue: open?.pending ?? 0,
+      cancelledValue: open?.cancelled ?? 0,
+    },
+  };
+}
+
+const PAYMENT_LABELS: Record<string, string> = {
+  manual: 'Transfer manual',
+  midtrans: 'Midtrans (VA / QRIS)',
+};
+
+// ---- Product sales ---------------------------------------------------------
+
+export type ProductSale = {
+  storeId: string;
+  storeName: string;
+  productId: string;
+  name: string;
+  category: string;
+  quantity: number;
+  revenue: number;
+  orders: number;
+};
+
+/** Every product sold in the period (paid orders), with its current category. */
+export async function buildProductSales(
+  storeId: string | null,
+  period: ReportPeriod,
+) {
+  const where = orderConditions(storeId, period);
+  const { results } = await getD1()
+    .prepare(
+      `SELECT o.store_id AS "storeId", s.name AS "storeName",
+        COALESCE(item->>'id','') AS "productId", COALESCE(item->>'name','') AS name,
+        COALESCE(MAX(p.category),'') AS category,
+        SUM(COALESCE((item->>'quantity')::numeric,0))::float8 AS quantity,
+        SUM(COALESCE((item->>'price')::numeric,0) * COALESCE((item->>'quantity')::numeric,0))::float8 AS revenue,
+        COUNT(DISTINCT o.id)::int AS orders
+       FROM orders o JOIN stores s ON s.id=o.store_id
+       CROSS JOIN LATERAL jsonb_array_elements(
+         CASE WHEN jsonb_typeof(o.items_json::jsonb)='array' THEN o.items_json::jsonb ELSE '[]'::jsonb END
+       ) AS item
+       LEFT JOIN products p ON p.store_id=o.store_id AND p.id=item->>'id'
+       WHERE ${where.sql} AND ${PAID_SQL}
+       GROUP BY 1,2,3,4
+       ORDER BY quantity DESC, revenue DESC
+       LIMIT ${EXPORT_LIMIT}`,
+    )
+    .bind(...where.values)
+    .all<ProductSale>();
+  const categories = new Map<
+    string,
+    { category: string; quantity: number; revenue: number }
+  >();
+  for (const row of results) {
+    const key = row.category || 'Tanpa kategori';
+    const entry = categories.get(key) ?? {
+      category: key,
+      quantity: 0,
+      revenue: 0,
+    };
+    entry.quantity += row.quantity;
+    entry.revenue += row.revenue;
+    categories.set(key, entry);
+  }
+  const quantity = results.reduce((sum, row) => sum + row.quantity, 0);
+  const revenue = results.reduce((sum, row) => sum + row.revenue, 0);
+  return {
+    period,
+    summary: { products: results.length, quantity, revenue },
+    products: results,
+    categories: [...categories.values()].sort((a, b) => b.revenue - a.revenue),
+  };
+}
+
+// ---- Inventory -------------------------------------------------------------
+
+export const LOW_STOCK = 5;
+
+export type StockLine = {
+  storeId: string;
+  storeName: string;
+  productId: string;
+  name: string;
+  category: string;
+  variant: string;
+  sku: string;
+  price: number;
+  stock: number;
+  value: number;
+  soldCount: number;
+  preorder: boolean;
+  active: boolean;
+  status: 'habis' | 'menipis' | 'aman';
+};
+
+/** Current stock per variant of every product that is not deleted. */
+export async function buildInventory(storeId: string | null) {
+  const { results } = await getD1()
+    .prepare(
+      `SELECT p.store_id AS "storeId", s.name AS "storeName", p.id AS "productId", p.name,
+        p.category, p.variants_json AS "variantsJson", p.price, p.stock,
+        p.sold_count AS "soldCount", p.preorder_enabled AS preorder, p.active
+       FROM products p JOIN stores s ON s.id=p.store_id
+       WHERE p.deleted_at IS NULL ${storeId ? 'AND p.store_id=?' : ''}
+       ORDER BY s.name, p.category, p.name`,
+    )
+    .bind(...(storeId ? [storeId] : []))
+    .all<{
+      storeId: string;
+      storeName: string;
+      productId: string;
+      name: string;
+      category: string;
+      variantsJson: string;
+      price: number;
+      stock: number;
+      soldCount: number;
+      preorder: number;
+      active: number;
+    }>();
+  const lines: StockLine[] = [];
+  for (const product of results) {
+    let variants: {
+      sku?: string;
+      color?: string;
+      size?: string;
+      price?: number;
+      stock?: number;
+    }[] = [];
+    try {
+      const parsed = JSON.parse(product.variantsJson || '[]') as unknown;
+      if (Array.isArray(parsed)) variants = parsed as typeof variants;
+    } catch {}
+    if (!variants.length)
+      variants = [{ price: product.price, stock: product.stock }];
+    for (const variant of variants) {
+      const stock = Math.max(0, Number(variant.stock) || 0);
+      const price = Number(variant.price) || product.price || 0;
+      lines.push({
+        storeId: product.storeId,
+        storeName: product.storeName,
+        productId: product.productId,
+        name: product.name,
+        category: product.category,
+        variant: [variant.color, variant.size].filter(Boolean).join(' / '),
+        sku: variant.sku ?? '',
+        price,
+        stock,
+        value: price * stock,
+        soldCount: product.soldCount || 0,
+        preorder: Boolean(product.preorder),
+        active: Boolean(product.active),
+        status: stock <= 0 ? 'habis' : stock <= LOW_STOCK ? 'menipis' : 'aman',
+      });
+    }
+  }
+  const count = (status: StockLine['status']) =>
+    lines.filter((line) => line.active && line.status === status).length;
+  return {
+    summary: {
+      products: results.length,
+      variants: lines.length,
+      units: lines.reduce((sum, line) => sum + line.stock, 0),
+      value: lines.reduce((sum, line) => sum + line.value, 0),
+      outOfStock: count('habis'),
+      lowStock: count('menipis'),
+      lowStockLimit: LOW_STOCK,
+    },
+    lines,
   };
 }
 
@@ -332,6 +525,61 @@ export async function exportOrdersCsv(
   return `﻿${[header.join(';'), ...lines].join('\r\n')}\r\n`;
 }
 
+const csv = (header: string[], rows: (string | number)[][]) =>
+  `\uFEFF${[header.join(';'), ...rows.map((row) => row.map(cell).join(';'))].join('\r\n')}\r\n`;
+
+export async function exportProductSalesCsv(
+  storeId: string | null,
+  period: ReportPeriod,
+) {
+  const { products } = await buildProductSales(storeId, period);
+  return csv(
+    ['Website', 'Produk', 'Kategori', 'Terjual', 'Penjualan', 'Jumlah pesanan'],
+    products.map((row) => [
+      row.storeName,
+      row.name,
+      row.category,
+      row.quantity,
+      row.revenue,
+      row.orders,
+    ]),
+  );
+}
+
+const STOCK_LABELS = { habis: 'Habis', menipis: 'Menipis', aman: 'Aman' };
+
+export async function exportInventoryCsv(storeId: string | null) {
+  const { lines } = await buildInventory(storeId);
+  return csv(
+    [
+      'Website',
+      'Produk',
+      'Kategori',
+      'Varian',
+      'SKU',
+      'Harga',
+      'Stok',
+      'Nilai stok',
+      'Terjual (total)',
+      'Status',
+      'Aktif',
+    ],
+    lines.map((line) => [
+      line.storeName,
+      line.name,
+      line.category,
+      line.variant,
+      line.sku,
+      line.price,
+      line.stock,
+      line.value,
+      line.soldCount,
+      line.preorder ? 'Pre-order' : STOCK_LABELS[line.status],
+      line.active ? 'Ya' : 'Tidak',
+    ]),
+  );
+}
+
 /** Response for a CSV download. */
 export function csvResponse(csv: string, name: string, period: ReportPeriod) {
   const file = `laporan-${name}-${period.from}-sd-${period.to}.csv`.replace(
@@ -345,4 +593,46 @@ export function csvResponse(csv: string, name: string, period: ReportPeriod) {
       'cache-control': 'no-store',
     },
   });
+}
+
+/**
+ * GET handler shared by /api/admin/reports (one store) and
+ * /api/platform/reports (storeId null = every store).
+ *   ?report=finance (default) | products | inventory, &format=csv to download
+ */
+export async function reportResponse(
+  storeId: string | null,
+  params: URLSearchParams,
+  fileName: string,
+) {
+  const period = readPeriod(params);
+  const report = params.get('report') || 'finance';
+  const download = params.get('format') === 'csv';
+  if (report === 'products')
+    return download
+      ? csvResponse(
+          await exportProductSalesCsv(storeId, period),
+          `penjualan-produk-${fileName}`,
+          period,
+        )
+      : Response.json(await buildProductSales(storeId, period), {
+          headers: { 'cache-control': 'no-store' },
+        });
+  if (report === 'inventory')
+    return download
+      ? csvResponse(
+          await exportInventoryCsv(storeId),
+          `stok-${fileName}`,
+          period,
+        )
+      : Response.json(await buildInventory(storeId), {
+          headers: { 'cache-control': 'no-store' },
+        });
+  if (report !== 'finance')
+    throw new ReportError('Jenis laporan tidak dikenal.');
+  return download
+    ? csvResponse(await exportOrdersCsv(storeId, period), fileName, period)
+    : Response.json(await buildReport(storeId, period), {
+        headers: { 'cache-control': 'no-store' },
+      });
 }

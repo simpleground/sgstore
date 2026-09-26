@@ -9,11 +9,8 @@ import {
   type StoreAdmin,
 } from '@/lib/admin-auth';
 import { audit } from '@/lib/audit';
-import {
-  canChangeMember,
-  isStoreRole,
-  type StoreRole,
-} from '@/lib/permissions';
+import { canChangeMember, type StoreRole } from '@/lib/permissions';
+import { listRoles, parseRoleChoice } from '@/lib/roles';
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -75,15 +72,25 @@ export async function GET() {
   const { admin } = auth;
   const { results } = await getD1()
     .prepare(
-      `SELECT m.user_id AS "userId", a.email, a.name, m.role, m.created_at AS "createdAt"
+      `SELECT m.user_id AS "userId", a.email, a.name, m.role,
+        CASE WHEN r.id IS NULL THEN m.role ELSE 'custom:' || r.id END AS "roleKey",
+        r.name AS "customRoleName", m.created_at AS "createdAt"
        FROM store_memberships m JOIN admin_users a ON a.user_id=m.user_id
+       LEFT JOIN admin_roles r ON r.id=m.custom_role_id AND r.is_system=0
        WHERE m.store_id=?
        ORDER BY CASE m.role WHEN 'store_owner' THEN 1 WHEN 'store_admin' THEN 2 ELSE 3 END, a.email`,
     )
     .bind(admin.store.id)
     .all();
+  // Roles that can be chosen (the actual limits are checked on every change).
+  const roles = (await listRoles()).map(({ key, name, baseRole }) => ({
+    key,
+    name,
+    baseRole,
+  }));
   return NextResponse.json({
     members: results,
+    roles,
     me: admin.userId,
     myRole: effectiveRole(admin),
   });
@@ -106,16 +113,13 @@ export async function POST(request: Request) {
   };
   const email = body.email?.trim().toLowerCase() ?? '';
   const name = body.name?.trim().slice(0, 120) ?? '';
-  if (
-    !emailPattern.test(email) ||
-    email.length > 254 ||
-    !isStoreRole(body.role)
-  )
+  const choice = await parseRoleChoice(body.role);
+  if (!emailPattern.test(email) || email.length > 254 || !choice)
     return NextResponse.json(
       { error: 'Isi email dan peran yang valid.' },
       { status: 400 },
     );
-  const role = body.role;
+  const { role, customRoleId } = choice;
   if (!canChangeMember(effectiveRole(admin), null, role))
     return NextResponse.json(
       {
@@ -137,12 +141,12 @@ export async function POST(request: Request) {
       name: name || email.split('@')[0],
       passwordHash: null,
     }));
-  await addStoreMember(admin.store.id, userId, role);
+  await addStoreMember(admin.store.id, userId, role, customRoleId);
   await audit(admin, {
     storeId: admin.store.id,
     action: 'member.add',
     target: { type: 'admin', id: userId },
-    meta: { email, role, newAccount: !existing },
+    meta: { email, role: choice.label, newAccount: !existing },
   });
   return NextResponse.json({ ok: true, userId, newAccount: !existing });
 }
@@ -155,20 +159,22 @@ export async function PATCH(request: Request) {
     userId?: string;
     role?: string;
   };
-  if (!isStoreRole(body.role))
+  const choice = await parseRoleChoice(body.role);
+  if (!choice)
     return NextResponse.json({ error: 'Peran tidak valid.' }, { status: 400 });
-  const current = await checkChange(admin, body.userId, body.role);
+  const current = await checkChange(admin, body.userId, choice.role);
   if (current instanceof Response) return current;
   const result = await getD1()
     .prepare(
-      `UPDATE store_memberships SET role=?, updated_at=? WHERE store_id=? AND user_id=? AND (?='store_owner' OR ${NOT_LAST_OWNER})`,
+      `UPDATE store_memberships SET role=?, custom_role_id=?, updated_at=? WHERE store_id=? AND user_id=? AND (?='store_owner' OR ${NOT_LAST_OWNER})`,
     )
     .bind(
-      body.role,
+      choice.role,
+      choice.customRoleId,
       new Date().toISOString(),
       admin.store.id,
       body.userId,
-      body.role,
+      choice.role,
       admin.store.id,
     )
     .run();
@@ -177,7 +183,7 @@ export async function PATCH(request: Request) {
     storeId: admin.store.id,
     action: 'member.role',
     target: { type: 'admin', id: String(body.userId) },
-    meta: { from: current, to: body.role },
+    meta: { from: current, to: choice.label },
   });
   return NextResponse.json({ ok: true });
 }

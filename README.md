@@ -256,10 +256,16 @@ banner, dan urutan bagian beranda. Gaya huruf: Klasik, Modern, Elegan (Playfair)
 Toko tanpa warna sendiri memakai warna Simple Ground. Gambar diunggah sebagai PNG/JPG/WebP
 (SVG ditolak) dan disimpan di folder toko itu sendiri.
 
-**Membuat toko baru** — panel platform di `/platform` (hanya akun `ADMIN_EMAIL`/super admin):
-isi nama, slug (subdomain), email pemilik, dan (opsional) domain sendiri. Toko langsung aktif di
-`<slug>.PLATFORM_ROOT_DOMAIN`. Pemilik masuk ke `/admin` di domain tokonya dengan tombol Google memakai
-email tersebut. Di panel yang sama: tambah/lepas domain, pilih domain utama, tambah pemilik, dan ubah status:
+**Panel admin & menu** — semuanya ada di `/admin` dengan sidebar berkelompok: *Ringkasan* (Dashboard),
+*Platform* (Website, Peran & izin — hanya super admin/akun `ADMIN_EMAIL`), *Penjualan* (Pesanan, Laporan,
+Ulasan), *Katalog & toko* (Produk, Pengiriman, Tampilan, Pengaturan), dan *Tim* (Anggota, Aktivitas). Menu
+hanya tampil bila peran mengizinkan. `/platform` lama diarahkan ke menu yang sesuai.
+
+**Website** (Platform → Website): tabel semua website dengan pencarian & filter status. *Tambah website*
+(modal: nama, slug/subdomain, email pemilik, domain opsional) langsung aktif di `<slug>.PLATFORM_ROOT_DOMAIN`;
+pemilik masuk ke `/admin` di domain tokonya dengan Google memakai email tersebut. *Detail* (modal) menampilkan
+domain, pemilik, jumlah produk & pesanan; *Ubah* (modal) mengganti nama, status, domain (tambah/lepas/utama),
+dan menambah pemilik:
 
 | Status | Etalase & checkout | Admin toko |
 |---|---|---|
@@ -267,26 +273,32 @@ email tersebut. Di panel yang sama: tambah/lepas domain, pilih domain utama, tam
 | Ditangguhkan | ditutup (pesan "tidak aktif"); pesanan lama tetap bisa dicek & dibayar | bisa masuk |
 | Ditutup | ditutup | hanya admin platform |
 
-Data toko tidak pernah dihapus dari panel.
+Data toko tidak pernah dihapus dari panel. Tombol *Kelola* membuka admin website itu di domainnya sendiri dan
+langsung masuk sebagai super admin, lewat tautan sekali pakai 60 detik (hanya hash token yang disimpan, tabel
+`admin_handoff_tokens`); tercatat di Aktivitas toko sebagai masuk "platform".
 
-**Kelola tanpa login ulang** — tombol *Kelola* di `/platform` (juga di detail pesanan) membuka admin toko di
-domainnya sendiri dan langsung masuk sebagai super admin, lewat tautan sekali pakai yang berlaku 60 detik (hanya
-hash token yang disimpan, tabel `admin_handoff_tokens`). Tercatat di Aktivitas toko sebagai masuk "platform".
+**Pesanan** — super admin melihat pesanan semua website (filter *Semua website* atau satu website), pemilik &
+anggota toko hanya pesanan tokonya sendiri. Filter status, tanggal (WIB), pencarian nomor/nama/telepon; detail,
+ubah status, WA pembeli, dan cetak label (pengirim = toko pemilik pesanan). Perubahan tercatat di Aktivitas toko
+terkait.
 
-**Pusat pesanan** — tab *Pesanan* di `/platform` (`/platform?tab=pesanan`): pesanan semua toko dalam satu
-daftar, bisa difilter per website (atau semua), status, tanggal (WIB), dan dicari lewat nomor pesanan/nama/telepon.
-Super admin bisa membuka detail, mengubah status, menghubungi pembeli via WA, dan mencetak label (pengirim =
-toko pemilik pesanan). Setiap perubahan tercatat di Aktivitas toko terkait. Admin toko tetap memproses pesanan
-tokonya sendiri di `/admin`.
+**Laporan** (izin `reports.view`) — tiga tab, untuk super admin bisa semua website atau satu website, untuk
+toko lain hanya tokonya sendiri. Masing-masing bisa diunduh sebagai CSV (pemisah `;`, langsung terbuka di Excel):
+- *Keuangan*: omzet terkonfirmasi (pesanan dibayar, termasuk ongkir), produk vs ongkir, rata-rata per pesanan,
+  grafik per hari/bulan (WIB), pemasukan per metode pembayaran, nilai pesanan menunggu & batal, perbandingan
+  website, status pesanan. CSV = daftar pesanan periode.
+- *Penjualan produk*: semua produk terjual di periode (jumlah, pesanan, penjualan) dan ringkasan per kategori.
+- *Stok inventori*: stok per varian saat ini, nilai stok, status habis/menipis (≤ 5)/aman, pre-order.
 
-**Laporan** — tab *Laporan* di `/platform` (semua website atau satu website) dan menu *Laporan* di admin toko
-(Pemilik & Admin, hanya tokonya sendiri): omzet terkonfirmasi (pesanan dibayar, termasuk ongkir), jumlah pesanan,
-rata-rata per pesanan, barang terjual, grafik per hari (per bulan untuk periode > 3 bulan, WIB), perbandingan
-website, produk terlaris, dan status pesanan. *Unduh CSV* berisi pesanan periode tersebut (pemisah `;`, bisa
-langsung dibuka di Excel).
+**Peran & izin** (Platform → Peran & izin, super admin) — Pemilik selalu punya semua izin. Izin *Admin* dan
+*Staf* bawaan bisa diubah (berlaku di semua toko), dan bisa dibuat peran kustom (mis. "Admin Keuangan") dengan
+tingkat dasar Admin/Staf dan centang izin. Peran kustom dipilih di menu *Anggota* setiap toko; tingkat dasarnya
+menentukan siapa boleh mengubah anggota tersebut (Admin toko hanya boleh memberi peran tingkat Staf). Peran kustom
+yang dihapus mengembalikan anggotanya ke peran dasar. Disimpan di tabel `admin_roles` dan
+`store_memberships.custom_role_id`.
 
 **Mencoba di komputer lokal:** isi `PLATFORM_ROOT_DOMAIN=localhost` di `.env`, masuk ke
-`http://localhost:3000/admin` dengan `ADMIN_EMAIL`, buka `http://localhost:3000/platform`, buat toko
+`http://localhost:3000/admin` dengan `ADMIN_EMAIL`, buka menu *Website*, buat toko
 dengan slug mis. `toko-b`, lalu buka `http://toko-b.localhost:3000` (Chrome/Edge/Firefox otomatis
 mengarahkan `*.localhost` ke komputer sendiri).
 
@@ -309,7 +321,7 @@ Aplikasi memilih toko dari nama domain, jadi semua domain cukup diarahkan ke apl
    `server_name` menjadi `platform.id *.platform.id;`, aktifkan, lalu
    `sudo certbot install --nginx --cert-name platform.id` dan `sudo systemctl reload nginx`.
 
-*Domain sendiri* (`tokoanda.com`), per toko: tambahkan domain di `/platform`, arahkan A record `@` dan
+*Domain sendiri* (`tokoanda.com`), per toko: tambahkan domain di Admin → Website → Ubah, arahkan A record `@` dan
 `www` ke IP VPS, lalu jalankan `sudo bash /var/www/sgstore/deploy/add-domain.sh tokoanda.com`
 (membuat server block Nginx + sertifikat SSL).
 
